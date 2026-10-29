@@ -83,7 +83,16 @@ public partial class Convert27View : UserControl
 
     async void ProposeTeam_Click(object sender, RoutedEventArgs e) => await _vm.ProposeWholeTeamAsync();
 
+    async void ProposeAll_Click(object sender, RoutedEventArgs e) => await _vm.ProposeAllTeamsAsync();
+
     void Save_Click(object sender, RoutedEventArgs e) => _vm.Save();
+
+    void EditVariants_Click(object sender, RoutedEventArgs e)
+    {
+        VariantMap.Load();
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(VariantMap.UserPath) { UseShellExecute = true });
+        _vm.Status = "Editing " + VariantMap.UserPath + " — restart the page to reload it.";
+    }
 
     async void AddFolder_Click(object sender, RoutedEventArgs e) => await AddToModList(currentOnly: true);
     async void AddAll_Click(object sender, RoutedEventArgs e) => await AddToModList(currentOnly: false);

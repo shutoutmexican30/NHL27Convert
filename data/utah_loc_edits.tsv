@@ -1,0 +1,30 @@
+stringid	current	new	note
+NHLTeamName_PHX	Arizona Coyotes	Utah Mammoth	
+NHLCityName_PHX	Arizona	Utah	
+TEAMLINE1_PHX	Arizona	Utah	
+TEAMLINE2_PHX	Coyotes	Mammoth	
+NICKLINE2_PHX	Coyotes	Mammoth	
+TXT_NICKNAME_PHX	Coyotes	Mammoth	
+TXT_NICKNAME_ALT_PHX	Yotes	Mammoth	
+NHLTeamName_Abbr3_PHX	ARI	UTA	
+X_XLA_TEAM_PHX	ARZ	UTA	
+NHLTeamName_ARZ	Arizona Coyotes	Utah Mammoth	
+NHLTeamName_Abbr3_ARI	ARI	UTA	
+NHLTeamName_22	Arizona Coyotes	Utah Mammoth	
+NHLCityName_22	Arizona	Utah	
+CITYLINE1_22	Arizona	Utah	
+NICKLINE2_22	Coyotes	Mammoth	
+Logo46	Arizona Coyotes	Utah Mammoth	
+TXT_EMBLEM_ALT_ARIZONA	Arizona Coyotes Alternate	Utah Mammoth Alternate	
+TXT_TGL_ARIZONA_COYOTES	Yotes Forever	Tusk Up	
+TXT_TGL_ALT_ARIZONA	Let's Go Coyotes	Let's Go Mammoth	
+TXT_ADIDAS_PLAYER_PULLOVER_ARIZONA	Arizona Coyotes Adidas Player Pullover 	Utah Mammoth Fanatics Player Pullover 	keep trailing space
+TXT_GAME_TITLE_4	Canucks vs. Coyotes	Canucks vs. Mammoth	
+TXT_CONVERSATION_ANSWER_4461	Maybe next time we play the Coyotes. I am going to pass for now.	Maybe next time we play the Mammoth. I am going to pass for now.	current text checked against eng_us (1.60)
+NHLTeamName_ARZL		(user decision)	alumni key: do not apply until decided
+NHLCityName_ARZL		(user decision)	alumni key: do not apply until decided
+TEAMLINE1_ARZL		(user decision)	alumni key: do not apply until decided
+TEAMLINE2_ARZL		(user decision)	alumni key: do not apply until decided
+TXT_NICKNAME_ARZL		(user decision)	alumni key: do not apply until decided
+TXT_NICKNAME_ALT_ARZL		(user decision)	alumni key: do not apply until decided
+NHLTeamName_ABBR3_ARZL		(user decision)	alumni key: do not apply until decided

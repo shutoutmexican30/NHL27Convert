@@ -102,7 +102,7 @@ public static class Matcher
     /// <summary>NHL 24 team folder → NHL 27 team folder where they differ. Arizona's slots take Utah art (artid 22 kept).</summary>
     public static readonly Dictionary<string, string> DefaultTeamMap = new(StringComparer.Ordinal) { ["arizona"] = "utah" };
 
-    public static IEnumerable<FolderProposal> ProposeFolders(string folder24, Nhl27Catalog c27, IReadOnlyDictionary<string, string>? teamMap = null)
+    public static IEnumerable<FolderProposal> ProposeFolders(string folder24, Nhl27Catalog c27, IReadOnlyDictionary<string, string>? teamMap = null, VariantMap? variants = null)
     {
         var n = TextureName.Parse(folder24 + "/x");
         if (n.Team is null || n.Brand is null || n.Set is null)
@@ -110,31 +110,47 @@ public static class Matcher
             if (c27.ByFolder.ContainsKey(folder24)) yield return new(folder24, 0.9, "same folder in NHL 27");
             yield break;
         }
+        var vt = variants?.ByNhl24Folder(n.Team);
         var map = teamMap ?? DefaultTeamMap;
-        var team27 = map.TryGetValue(n.Team, out var t) ? t : n.Team;
+        var team27 = vt?.Nhl27.Folder ?? (map.TryGetValue(n.Team, out var t) ? t : n.Team);
         var prefix = $"{TextureName.SkaterPrefix}{n.League}/{team27}/";
         var candidates = c27.ByFolder.Keys.Where(f => f.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+        var given = new HashSet<string>();
 
-        var same = $"{prefix}{n.Brand}/{n.Set}";
-        if (candidates.Contains(same))
+        // 1. Default home/away paired through the variant map (stockteamjerseys isdefault/islightcolor), never by folder name.
+        if (variants?.Pair(n.Team, n.Set) is { } pair)
         {
-            var conf = n.Set is "home" or "away" ? 0.95 : 0.7;
-            var why = n.Set is "home" or "away"
-                ? $"same team, brand and set ({n.Set})"
+            var target = candidates.Where(f => f.EndsWith("/" + pair.Set27, StringComparison.Ordinal))
+                .OrderBy(f => f.Split('/')[^2] == n.Brand ? 0 : 1).FirstOrDefault();
+            if (target is not null)
+            {
+                var why = $"default {pair.Role}";
+                if (team27 != n.Team) why = $"{n.Team} ? {team27}; " + why;
+                yield return new(target, 0.95, why);
+                given.Add(target);
+            }
+        }
+
+        // 2. Same set word (alternates and retro sets; numbering differs between games, so lower confidence).
+        var same = $"{prefix}{n.Brand}/{n.Set}";
+        if (candidates.Contains(same) && given.Add(same))
+        {
+            var isDefault = vt is not null && (n.Set == vt.Nhl24.Home || n.Set == vt.Nhl24.Away);
+            var conf = isDefault ? 0.3 : 0.6;
+            var why = isDefault
+                ? $"same folder name '{n.Set}', but NHL 27's default {(n.Set == vt!.Nhl24.Home ? "home" : "away")} is elsewhere"
                 : $"same set name '{n.Set}'; NHL 24 and NHL 27 number alternates separately, check it is the same jersey";
-            if (team27 != n.Team) { conf -= 0.1; why = $"{n.Team} → {team27} (team map); " + why; }
             yield return new(same, conf, why);
         }
-        foreach (var f in candidates.Where(f => f != same)
+        foreach (var f in candidates.Where(f => !given.Contains(f))
                      .OrderBy(f => f.Split('/')[^2] == n.Brand ? 0 : 1)
                      .ThenBy(f => TextureName.SetOrder(f.Split('/')[^1])))
         {
             var parts = f.Split('/');
-            var conf = parts[^2] == n.Brand ? 0.3 : 0.15;
+            var conf = parts[^2] == n.Brand ? 0.2 : 0.1;
             yield return new(f, conf, $"other set of {team27}: {parts[^2]}/{parts[^1]}");
         }
     }
-
     public static List<SlotMatch> Propose(IReadOnlyList<Nhl24Slot> slots24, string folder27, double folderConfidence, Nhl27Catalog c27)
     {
         var textures27 = c27.ByFolder.TryGetValue(folder27, out var list) ? list : [];

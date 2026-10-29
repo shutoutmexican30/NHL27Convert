@@ -22,7 +22,7 @@ public sealed record AssetLocation(
 public sealed record AssetEntry
 {
     public required string Game { get; init; }
-    public required AssetKind Kind { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public required AssetKind Kind { get; init; }
     public required string Path { get; init; }
     public int Width { get; init; }
     public int Height { get; init; }

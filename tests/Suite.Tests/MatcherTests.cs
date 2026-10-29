@@ -78,6 +78,31 @@ public class MatcherTests
     }
 
     [Fact]
+    public void Home_and_away_pair_through_default_variants_not_folder_names()
+    {
+        var c27 = new Nhl27Catalog(new AssetIndex("nhl27", "x", DateTime.Now, new[]
+        {
+            $"{P}boston/adidas/home/jersey_adidas_boston_home_base_color",
+            $"{P}boston/adidas/thirteen/jersey_adidas_boston_thirteen_base_color",
+            $"{P}boston/adidas/fourteen/jersey_adidas_boston_fourteen_base_color",
+            $"{P}utah/adidas/twelve/jersey_adidas_utah_twelve_base_color",
+        }.Select(p => E("nhl27", p))));
+        var map = VariantMap.Parse("""
+            {"teams":[
+              {"index":2,"nhl24":{"folder":"boston","home":"home","away":"away","homeVariant":0,"awayVariant":1},
+                         "nhl27":{"folder":"boston","home":"thirteen","away":"fourteen","homeVariant":13,"awayVariant":14}},
+              {"index":22,"nhl24":{"folder":"arizona","home":"home","away":"away","homeVariant":0,"awayVariant":1},
+                          "nhl27":{"folder":"utah","home":"twelve","away":"thirteen","homeVariant":12,"awayVariant":13}}]}
+            """);
+        var home = Matcher.ProposeFolders($"{P}boston/adidas/home", c27, variants: map).ToList();
+        Assert.Equal($"{P}boston/adidas/thirteen", home[0].Folder27);
+        Assert.Equal(0.95, home[0].Confidence);
+        Assert.True(home.Single(p => p.Folder27.EndsWith("/home")).Confidence < 0.5); // same name, wrong jersey
+        Assert.Equal($"{P}boston/adidas/fourteen", Matcher.ProposeFolders($"{P}boston/adidas/away", c27, variants: map).First().Folder27);
+        Assert.Equal($"{P}utah/adidas/twelve", Matcher.ProposeFolders($"{P}arizona/adidas/home", c27, variants: map).First().Folder27);
+    }
+
+    [Fact]
     public void Proposes_by_role_and_follows_the_in_game_rules()
     {
         var (c24, c27) = Catalogs();

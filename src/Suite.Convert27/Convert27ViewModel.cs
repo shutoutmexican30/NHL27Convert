@@ -15,6 +15,10 @@ public sealed class Convert27ViewModel : Observable
     public MatchProject Project { get; private set; } = new();
     public Nhl27Catalog? Catalog27 { get; private set; }
     public Nhl24Catalog? Catalog24 { get; private set; }
+    public VariantMap Variants { get; private set; } = new();
+    string _variantInfo = "";
+    /// <summary>The team's default home/away variants in both games, shown above the matcher.</summary>
+    public string VariantInfo { get => _variantInfo; set => Set(ref _variantInfo, value); }
 
     public ObservableCollection<string> Teams { get; } = [];
     public ObservableCollection<string> Folders24 { get; } = [];
@@ -49,6 +53,11 @@ public sealed class Convert27ViewModel : Observable
         {
             if (!Set(ref _team, value)) return;
             Folders24.Clear();
+            var vt = value is null ? null : Variants.ByNhl24Folder(value);
+            VariantInfo = vt is null
+                ? "No variant map entry for this team (Edit variant map to add one)."
+                : $"Default variants — NHL 24 {value}: home = {vt.Nhl24.Home} ({vt.Nhl24.HomeVariant}), away = {vt.Nhl24.Away} ({vt.Nhl24.AwayVariant})" +
+                  $"   ↔   NHL 27 {vt.Nhl27.Folder}: home = {vt.Nhl27.Home} ({vt.Nhl27.HomeVariant}), away = {vt.Nhl27.Away} ({vt.Nhl27.AwayVariant})";
             if (value is null || Catalog24 is null) return;
             var prefix = $"{TextureName.SkaterPrefix}nhl/{value}/";
             foreach (var f in Catalog24.ByFolder.Keys.Where(f => f.StartsWith(prefix, StringComparison.Ordinal))
@@ -94,12 +103,15 @@ public sealed class Convert27ViewModel : Observable
         try
         {
             Project = MatchProject.Load();
+            Variants = VariantMap.Load();
             Status = "Loading the NHL 27 asset index...";
             var i27 = IndexStore.GetAsync(IndexStore.Nhl27, Settings, progress: s => Status = s);
             var i24 = IndexStore.GetAsync(IndexStore.Nhl24, Settings, progress: s => Status = s);
-            Catalog27 = new Nhl27Catalog(await i27);
+            var ix27 = await i27;
+            Catalog27 = await Task.Run(() => new Nhl27Catalog(ix27));
             Status = "Loading the NHL 24 asset index (the first build lists every texture, a few minutes)...";
-            Catalog24 = new Nhl24Catalog(await i24);
+            var ix24 = await i24;
+            Catalog24 = await Task.Run(() => new Nhl24Catalog(ix24));
             Teams.Clear();
             foreach (var t in Catalog24.ByFolder.Keys.Where(f => f.StartsWith(TextureName.SkaterPrefix + "nhl/", StringComparison.Ordinal))
                          .Select(f => f.Split('/')[5]).Distinct().Order())
@@ -122,7 +134,7 @@ public sealed class Convert27ViewModel : Observable
     {
         if (Catalog24 is null || Catalog27 is null || _folder24 is null) return;
         Proposals.Clear();
-        foreach (var p in Matcher.ProposeFolders(_folder24, Catalog27, Project.TeamMap)) Proposals.Add(p);
+        foreach (var p in Matcher.ProposeFolders(_folder24, Catalog27, Project.TeamMap, Variants)) Proposals.Add(p);
 
         _current = Project.Find(_folder24);
         if (_current is null)
@@ -132,7 +144,17 @@ public sealed class Convert27ViewModel : Observable
             Project.Folders.Add(_current);
             _folder27 = null;
             Folder27 = _current.Folder27;
-            if (_current.Folder27 is null) Repropose(false);
+            Repropose(false);
+        }
+        else if (!_current.Manual && Proposals.FirstOrDefault() is { } best && best.Folder27 != _current.Folder27)
+        {
+            // The folder pairing was automatic and the rules now prefer another NHL 27 set: follow them, keep edited rows.
+            _current.Folder27 = best.Folder27;
+            _current.Confidence = best.Confidence;
+            _current.Reason = best.Reason;
+            _folder27 = null;
+            Folder27 = _current.Folder27;
+            Repropose(keepManual: true);
         }
         else
         {
@@ -160,33 +182,56 @@ public sealed class Convert27ViewModel : Observable
         ShowRows();
     }
 
-    public async Task ProposeWholeTeamAsync()
+    public Task ProposeWholeTeamAsync() => MatchFoldersAsync(Folders24.ToList(), $"team {Team}");
+
+    /// <summary>Matches every uniform folder of every NHL team in the NHL 24 index (folders set by hand are kept).</summary>
+    public Task ProposeAllTeamsAsync()
     {
-        if (Catalog24 is null || Catalog27 is null) return;
-        var keep = _folder24;
-        int n = 0;
-        foreach (var f in Folders24.ToList())
-        {
-            var fm = Project.Find(f);
-            if (fm is not null && fm.Manual) continue;
-            var best = Matcher.ProposeFolders(f, Catalog27, Project.TeamMap).FirstOrDefault();
-            if (fm is null) { fm = new FolderMatch { Folder24 = f }; Project.Folders.Add(fm); }
-            fm.Folder27 = best?.Folder27;
-            fm.Confidence = best?.Confidence ?? 0;
-            fm.Reason = best?.Reason ?? "no NHL 27 folder found";
-            var slots = Catalog24.ByFolder[f];
-            var manual = fm.Rows.Where(r => r.Manual).ToDictionary(r => r.Slot);
-            fm.Rows = (fm.Folder27 is null ? slots.Select(x => new SlotMatch { Slot = x.Name, IsArray = x.Array }).ToList()
-                    : Matcher.Propose(slots, fm.Folder27, fm.Confidence, Catalog27))
-                .Select(r => manual.TryGetValue(r.Slot, out var m) ? m : r).ToList();
-            n++;
-        }
-        Status = $"Proposed {n} folders for {Team}. Folders you set by hand were left alone.";
-        _folder24 = null;
-        Folder24 = keep;
-        await Task.CompletedTask;
+        if (Catalog24 is null) return Task.CompletedTask;
+        var all = Catalog24.ByFolder.Keys.Where(f => f.StartsWith(TextureName.SkaterPrefix + "nhl/", StringComparison.Ordinal)).Order().ToList();
+        return MatchFoldersAsync(all, "all teams");
     }
 
+    async Task MatchFoldersAsync(List<string> folders, string what)
+    {
+        if (Catalog24 is null || Catalog27 is null) return;
+        Busy = true;
+        var keep = _folder24;
+        var c24 = Catalog24;
+        var c27 = Catalog27;
+        var existing = Project.Folders.ToDictionary(f => f.Folder24);
+        // Proposals are independent per folder, so they run on all cores.
+        var results = await Task.Run(() => folders.AsParallel().Select(f =>
+        {
+            existing.TryGetValue(f, out var fm);
+            if (fm is not null && fm.Manual) return (f, (FolderMatch?)null);
+            var best = Matcher.ProposeFolders(f, c27, Project.TeamMap, Variants).FirstOrDefault();
+            var next = new FolderMatch
+            {
+                Folder24 = f, Folder27 = best?.Folder27, Confidence = best?.Confidence ?? 0,
+                Reason = best?.Reason ?? "no NHL 27 folder found",
+            };
+            var slots = c24.ByFolder[f];
+            var manual = (fm?.Rows ?? []).Where(r => r.Manual).ToDictionary(r => r.Slot);
+            next.Rows = (next.Folder27 is null ? slots.Select(x => new SlotMatch { Slot = x.Name, IsArray = x.Array, Reason = "no NHL 27 folder found" }).ToList()
+                    : Matcher.Propose(slots, next.Folder27, next.Confidence, c27))
+                .Select(r => manual.TryGetValue(r.Slot, out var m) ? m : r).ToList();
+            return (f, (FolderMatch?)next);
+        }).ToList());
+        int n = 0;
+        foreach (var (f, next) in results)
+        {
+            if (next is null) continue;
+            Project.Folders.RemoveAll(x => x.Folder24 == f);
+            Project.Folders.Add(next);
+            n++;
+        }
+        var rows = results.Where(r => r.Item2 is not null).SelectMany(r => r.Item2!.Rows).ToList();
+        Status = $"Matched {n} folders ({what}): {rows.Count(r => r.Kind != SourceKind.Stock || r.Layers.Any(l => l.Source27 != null)):N0} of {rows.Count:N0} slots have an NHL 27 source. Folders you set by hand were kept. Nothing is written to the game until Apply.";
+        Busy = false;
+        _folder24 = null;
+        Folder24 = keep;
+    }
     void ShowRows()
     {
         foreach (var r in Rows) r.PropertyChanged -= OnRowChanged;

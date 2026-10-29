@@ -47,15 +47,20 @@
           </ComboBox>
         </WrapPanel>
         <WrapPanel Margin="0,8,0,0">
-          <Button Content="Re-propose this folder" Click="Repropose_Click" ToolTip="Recomputes rows you have not edited." />
+          <Button Content="Match textures" Click="Repropose_Click" FontWeight="SemiBold" Background="#2f6fd6" ToolTip="Matches every NHL 27 texture of the chosen uniform (jersey, pants, socks, helmet, gloves, branding arrays) to its NHL 24 slot. Rows you edited are kept." />
           <Button Content="Reset this folder" Click="Reset_Click" ToolTip="Recomputes every row, including ones you edited." />
-          <Button Content="Propose whole team" Click="ProposeTeam_Click" />
+          <Button Content="Match whole team" Click="ProposeTeam_Click" ToolTip="Every uniform folder of this team; folders you set by hand are kept." />
+          <Button Content="Match all teams" Click="ProposeAll_Click" ToolTip="Every uniform folder of every team. Nothing is written to the game until Apply." />
           <Button Content="Save matches" Click="Save_Click" />
           <TextBlock Style="{StaticResource Caption}" Text="Mod name" Margin="12,0,6,0" />
           <TextBox x:Name="ModName" Width="200" Text="NHL 27 uniforms" VerticalContentAlignment="Center" Margin="0,0,6,0" />
           <Button Content="Add folder to mod list" Click="AddFolder_Click" />
           <Button Content="Add all matched folders" Click="AddAll_Click" />
         </WrapPanel>
+        <DockPanel Margin="0,8,0,0">
+          <Button DockPanel.Dock="Right" Content="Edit variant map" Click="EditVariants_Click" ToolTip="data\variant_map.json: default home/away variant per team in both games (hand-editable)" />
+          <TextBlock Text="{Binding VariantInfo}" Foreground="#9fb4cf" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
       </StackPanel>
     </Border>
 

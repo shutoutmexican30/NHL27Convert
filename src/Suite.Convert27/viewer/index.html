@@ -10,9 +10,9 @@
   #l1 { left: 8px; } #l2 { left: calc(50% + 8px); }
   #divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #2c3442; }
   #bar { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; }
-  #bar button { background: #1f2633; color: #d8dee9; border: 1px solid #36404f; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+  #bar button { white-space: nowrap; background: #1f2633; color: #d8dee9; border: 1px solid #36404f; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
   #bar button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
-  #note { margin-left: auto; opacity: .65; }
+  #note { margin-left: auto; opacity: .6; font-size: 11px; text-align: right; max-width: 40%; }
   #legend { position: absolute; right: 8px; top: 34px; background: rgba(16,20,27,.85); padding: 6px 8px; border-radius: 4px; display: none; line-height: 1.6; }
   .sw { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: middle; }
 </style>
@@ -26,10 +26,10 @@
 <div id="legend"></div>
 <div id="bar">
   <button data-mode="lit" class="on">Shaded</button>
-  <button data-mode="flat">Flat (exact texture)</button>
-  <button data-mode="regions">Fabric regions (alpha)</button>
+  <button data-mode="flat">Flat texture</button>
+  <button data-mode="regions">Fabric regions</button>
   <button id="spin">Turntable</button>
-  <span id="note">Placeholder mannequin with cylindrical UVs (not the game's skater mesh). Flat view shows the exact texture layout.</span>
+  <span id="note">Placeholder mannequin (cylindrical UVs, not the game mesh). Flat texture shows the exact layout.</span>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -42,9 +42,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setScissorTest(true);
 
 const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
-camera.position.set(0, 1.25, 4.2);
+camera.position.set(0, 1.1, 5.6);
 const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 1.05, 0);
+controls.target.set(0, 0.95, 0);
 controls.enableDamping = true;
 
 const loader = new THREE.TextureLoader();
