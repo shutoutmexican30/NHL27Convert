@@ -41,8 +41,8 @@ public static class Nhl24ReadView
     public static string Ensure(SuiteSettings s)
     {
         var view = s.Nhl24ReadView;
-        var game = Path.Combine(s.Nhl24GameDir, "game");
-        var update = Path.Combine(s.Nhl24GameDir, "game-UPDATE");
+        var game = s.Nhl24BaseDir;
+        var update = s.Nhl24UpdateDir;
         if (!File.Exists(Path.Combine(game, "package.mft")))
             throw new DirectoryNotFoundException($"No NHL 24 base game in {game}.");
 

@@ -12,9 +12,9 @@ public static class IndexStore
     public static string BridgeScript => Path.Combine(AppContext.BaseDirectory, "tools", "nhl27_bridge.py");
 
     public static string Nhl24Fingerprint(SuiteSettings s) => AssetIndex.FingerprintOf([
-        Path.Combine(s.Nhl24GameDir, "game", "package.mft"),
-        Path.Combine(s.Nhl24GameDir, "game", "Data", "layout.toc"),
-        Path.Combine(s.Nhl24GameDir, "game-UPDATE", "Patch", "layout.toc"),
+        Path.Combine(s.Nhl24BaseDir, "package.mft"),
+        Path.Combine(s.Nhl24BaseDir, "Data", "layout.toc"),
+        Path.Combine(s.Nhl24UpdateDir, "Patch", "layout.toc"),
     ]);
 
     public static string Nhl27Fingerprint(SuiteSettings s)

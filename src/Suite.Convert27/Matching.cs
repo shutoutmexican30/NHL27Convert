@@ -125,7 +125,7 @@ public static class Matcher
             if (target is not null)
             {
                 var why = $"default {pair.Role}";
-                if (team27 != n.Team) why = $"{n.Team} ? {team27}; " + why;
+                if (team27 != n.Team) why = $"{n.Team} → {team27}; " + why;
                 yield return new(target, 0.95, why);
                 given.Add(target);
             }

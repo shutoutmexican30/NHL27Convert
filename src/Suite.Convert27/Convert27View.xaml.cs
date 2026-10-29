@@ -91,7 +91,7 @@ public partial class Convert27View : UserControl
     {
         VariantMap.Load();
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(VariantMap.UserPath) { UseShellExecute = true });
-        _vm.Status = "Editing " + VariantMap.UserPath + " — restart the page to reload it.";
+        _vm.Status = "Editing " + VariantMap.UserPath + " â€” restart the page to reload it.";
     }
 
     async void AddFolder_Click(object sender, RoutedEventArgs e) => await AddToModList(currentOnly: true);

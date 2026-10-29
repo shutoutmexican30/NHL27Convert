@@ -35,15 +35,19 @@ public static class SuitePaths
 /// <summary>Hand-editable settings (settings.json). Every path can be changed in the app or in the file.</summary>
 public sealed class SuiteSettings
 {
-    public string Nhl27GameRoot { get; set; } = @"D:\Archives\PS5\PPSA34063\[DLPSGAME.COM]-PPSA34063\[DLPSGAME.COM]-PPSA34063\PPSA34063-app0";
-    public string Nhl27ViewerDir { get; set; } = @"D:\Tools\NHL27TextureViewer";
-    public string Nhl24GameDir { get; set; } = @"C:\Users\devin\Downloads\NHL24PC_V3.2\NHL24PC";
+    // Paths start empty and are filled by AutoDetect() or the folder pickers; nothing is tied to one machine.
+    public string Nhl27GameRoot { get; set; } = "";
+    public string Nhl27ViewerDir { get; set; } = "";
+    /// <summary>NHL 24 folder: either an NHL24PC build (game\ + game-UPDATE\) or one extracted game folder with package.mft.</summary>
+    public string Nhl24GameDir { get; set; } = "";
     /// <summary>Read-only merged view of game\ + game-UPDATE\ that the stopgap Worker reads through (FMT writes its backups here, never into the game).</summary>
-    public string Nhl24ReadView { get; set; } = Path.Combine(SuitePaths.Local, "nhl24view");
+    public string Nhl24ReadView { get; set; } = "";
     /// <summary>Stopgap backend: a built NHL24Kit Worker runtime folder (with FrostbiteProfiles).</summary>
-    public string WorkerRuntimeDir { get; set; } = @"C:\Users\devin\AppData\Local\NHL24Kit\runtimes\b935118cf7c257434248dbe2";
+    public string WorkerRuntimeDir { get; set; } = "";
     /// <summary>Older NHL24Kit texture dumps that can be reused instead of re-dumping.</summary>
-    public string LegacyRefsDir { get; set; } = @"C:\Users\devin\AppData\Local\NHL24Kit\refs";
+    public string LegacyRefsDir { get; set; } = "";
+    /// <summary>Last folder of replacement textures used in Uniform Studio.</summary>
+    public string ReplacementDir { get; set; } = "";
     public string PythonExe { get; set; } = "python";
     public int Workers { get; set; } = Environment.ProcessorCount;
 
@@ -51,20 +55,89 @@ public sealed class SuiteSettings
 
     public static SuiteSettings Load()
     {
+        SuiteSettings s;
         try
         {
-            if (File.Exists(SuitePaths.SettingsFile))
-                return JsonSerializer.Deserialize<SuiteSettings>(File.ReadAllText(SuitePaths.SettingsFile), Json) ?? new();
+            s = File.Exists(SuitePaths.SettingsFile)
+                ? JsonSerializer.Deserialize<SuiteSettings>(File.ReadAllText(SuitePaths.SettingsFile), Json) ?? new()
+                : new();
         }
         catch (Exception ex)
         {
             SuiteLog.Write("settings.json unreadable, using defaults: " + ex.Message);
+            s = new();
         }
-        var s = new SuiteSettings();
-        s.Save();
+        if (s.AutoDetect()) s.Save();
         return s;
     }
 
+    /// <summary>Fills empty or missing paths by looking in the usual places. Returns true when something changed.</summary>
+    public bool AutoDetect()
+    {
+        bool changed = false;
+        void Fill(Func<string> get, Action<string> set, Func<string, bool> valid, Func<IEnumerable<string>> candidates)
+        {
+            var cur = get();
+            if (!string.IsNullOrEmpty(cur) && valid(cur)) return;
+            var found = candidates().FirstOrDefault(c => { try { return valid(c); } catch { return false; } });
+            if (found is not null && found != cur) { set(found); changed = true; }
+        }
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var roots = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady).Select(d => d.RootDirectory.FullName).ToList();
+
+        Fill(() => Nhl24ReadView, v => Nhl24ReadView = v, v => v.Length > 0, () => [Path.Combine(SuitePaths.Local, "nhl24view")]);
+        Fill(() => Nhl24GameDir, v => Nhl24GameDir = v, IsNhl24Dir, () => Nhl24Candidates(home, roots));
+        Fill(() => Nhl27GameRoot, v => Nhl27GameRoot = v, v => Directory.Exists(Path.Combine(v, "Data", "Ps5")), () => Nhl27Candidates(roots));
+        Fill(() => Nhl27ViewerDir, v => Nhl27ViewerDir = v, v => Directory.Exists(Path.Combine(v, "frostbite")),
+            () => roots.SelectMany(r => new[] { Path.Combine(r, "Tools", "NHL27TextureViewer"), Path.Combine(r, "NHL27TextureViewer") }));
+        Fill(() => WorkerRuntimeDir, v => WorkerRuntimeDir = v,
+            v => File.Exists(Path.Combine(v, "NHL24Kit.Worker.exe")) && File.Exists(Path.Combine(v, "FrostbiteProfiles", "NHL24PS4Profile.json")),
+            () => Directory.Exists(Path.Combine(local, "NHL24Kit", "runtimes"))
+                ? Directory.GetDirectories(Path.Combine(local, "NHL24Kit", "runtimes")).OrderByDescending(Directory.GetLastWriteTimeUtc)
+                : []);
+        Fill(() => LegacyRefsDir, v => LegacyRefsDir = v, Directory.Exists, () => [Path.Combine(local, "NHL24Kit", "refs")]);
+        return changed;
+    }
+
+    /// <summary>Folder with package.mft and Data\ (NHL24PC: game\; extracted dump: the folder itself).</summary>
+    [JsonIgnore] public string Nhl24BaseDir => File.Exists(Path.Combine(Nhl24GameDir, "game", "package.mft")) ? Path.Combine(Nhl24GameDir, "game") : Nhl24GameDir;
+    /// <summary>Folder whose Patch\ holds the update (NHL24PC: game-UPDATE\; extracted dump: the folder itself).</summary>
+    [JsonIgnore] public string Nhl24UpdateDir => Directory.Exists(Path.Combine(Nhl24GameDir, "game-UPDATE", "Patch")) ? Path.Combine(Nhl24GameDir, "game-UPDATE") : Nhl24GameDir;
+
+    public static bool IsNhl24Dir(string v) =>
+        File.Exists(Path.Combine(v, "game", "package.mft")) || (File.Exists(Path.Combine(v, "package.mft")) && Directory.Exists(Path.Combine(v, "Data")));
+
+    static IEnumerable<string> Nhl24Candidates(string home, List<string> roots)
+    {
+        foreach (var parent in new[] { Path.Combine(home, "Downloads"), Path.Combine(home, "Desktop"), Path.Combine(home, "Documents") }
+                     .Concat(roots.SelectMany(r => new[] { r, Path.Combine(r, "Games"), Path.Combine(r, "Emulators") })))
+        {
+            if (!Directory.Exists(parent)) continue;
+            foreach (var d in SafeDirs(parent).Where(d => Path.GetFileName(d).Contains("NHL24", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(d).StartsWith("CUSA3793", StringComparison.OrdinalIgnoreCase)))
+            {
+                yield return d;
+                foreach (var sub in SafeDirs(d)) yield return sub;
+            }
+        }
+    }
+
+    static IEnumerable<string> Nhl27Candidates(List<string> roots)
+    {
+        foreach (var r in roots)
+        foreach (var parent in new[] { Path.Combine(r, "Archives", "PS5"), Path.Combine(r, "Games", "PS5"), Path.Combine(r, "Games") })
+        {
+            if (!Directory.Exists(parent)) continue;
+            foreach (var d in SafeDirs(parent).Where(d => Path.GetFileName(d).Contains("PPSA34063", StringComparison.OrdinalIgnoreCase)))
+            foreach (var app0 in Directory.EnumerateDirectories(d, "*-app0", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 3, IgnoreInaccessible = true }))
+                yield return app0;
+        }
+    }
+
+    static IEnumerable<string> SafeDirs(string dir)
+    {
+        try { return Directory.GetDirectories(dir); } catch { return []; }
+    }
     public void Save() => File.WriteAllText(SuitePaths.SettingsFile, JsonSerializer.Serialize(this, Json));
 }
 

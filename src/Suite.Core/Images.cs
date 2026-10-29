@@ -125,5 +125,31 @@ public static class Dds
         return new Rgba(width, height, px);
     }
 
+    /// <summary>"BC3 · 2048×2048" from a DDS header, or null if the file is missing or not a DDS.</summary>
+    public static string? Describe(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            using var fs = File.OpenRead(path);
+            var h = new byte[148];
+            if (fs.Read(h, 0, h.Length) < 128 || BitConverter.ToUInt32(h, 0) != 0x20534444) return null;
+            int height = BitConverter.ToInt32(h, 12), width = BitConverter.ToInt32(h, 16);
+            uint four = BitConverter.ToUInt32(h, 84);
+            string fmt = four == FourCc("DX10")
+                ? BitConverter.ToUInt32(h, 128) switch
+                {
+                    70 or 71 => "BC1", 72 => "BC1 sRGB", 76 or 77 => "BC3", 78 => "BC3 sRGB", 79 or 80 or 81 => "BC4",
+                    82 or 83 or 84 => "BC5", 97 or 98 => "BC7", 99 => "BC7 sRGB", 28 => "RGBA8", 29 => "RGBA8 sRGB", 87 => "BGRA8", var d => $"DXGI {d}",
+                }
+                : four == FourCc("DXT1") ? "BC1" : four == FourCc("DXT5") ? "BC3" : four == FourCc("ATI2") ? "BC5" : "DDS";
+            return $"{fmt} · {width}×{height}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     static uint FourCc(string s) => (uint)(s[0] | s[1] << 8 | s[2] << 16 | s[3] << 24);
 }

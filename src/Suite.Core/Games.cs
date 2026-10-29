@@ -22,8 +22,8 @@ public static class GameDetector
     public static GameInfo DetectNhl24(SuiteSettings s)
     {
         var dir = s.Nhl24GameDir;
-        var baseDir = Path.Combine(dir, "game");
-        var update = Path.Combine(dir, "game-UPDATE");
+        var baseDir = s.Nhl24BaseDir;
+        var update = s.Nhl24UpdateDir;
         if (!File.Exists(Path.Combine(baseDir, "package.mft")))
             return new("nhl24", "NHL 24", "PS4", dir, GameAccess.Missing, "Not found. Set the NHL24PC folder (with game\\ and game-UPDATE\\) in Settings.");
         var patch = Directory.Exists(Path.Combine(update, "Patch")) ? "update 1.60 in game-UPDATE\\Patch" : "no update folder";
