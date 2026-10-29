@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Uniform viewer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #10141b; color: #d8dee9; font: 12px "Segoe UI", sans-serif; overflow: hidden; }
+  #c { display: block; width: 100%; height: 100%; }
+  .label { position: absolute; top: 8px; padding: 3px 8px; background: rgba(16,20,27,.8); border-radius: 4px; }
+  #l1 { left: 8px; } #l2 { left: calc(50% + 8px); }
+  #divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #2c3442; }
+  #bar { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; }
+  #bar button { background: #1f2633; color: #d8dee9; border: 1px solid #36404f; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+  #bar button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
+  #note { margin-left: auto; opacity: .65; }
+  #legend { position: absolute; right: 8px; top: 34px; background: rgba(16,20,27,.85); padding: 6px 8px; border-radius: 4px; display: none; line-height: 1.6; }
+  .sw { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: middle; }
+</style>
+<script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="divider"></div>
+<div class="label" id="l1">NHL 27</div>
+<div class="label" id="l2">NHL 24 result</div>
+<div id="legend"></div>
+<div id="bar">
+  <button data-mode="lit" class="on">Shaded</button>
+  <button data-mode="flat">Flat (exact texture)</button>
+  <button data-mode="regions">Fabric regions (alpha)</button>
+  <button id="spin">Turntable</button>
+  <span id="note">Placeholder mannequin with cylindrical UVs (not the game's skater mesh). Flat view shows the exact texture layout.</span>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './lib/OrbitControls.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setScissorTest(true);
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+camera.position.set(0, 1.25, 4.2);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.05, 0);
+controls.enableDamping = true;
+
+const loader = new THREE.TextureLoader();
+const cache = new Map();
+const PARTS = ['jersey', 'pant', 'sock'];
+let mode = 'lit';
+let spin = false;
+
+// Region palettes: NHL 24 uses 51/102/153/204, NHL 26/27 64/127/191/255 (TEXTURE_REPLACEMENT rule 11).
+const REGION_COLORS = [[0.15,0.15,0.15],[0.25,0.55,0.95],[0.95,0.75,0.2],[0.3,0.8,0.45],[0.9,0.3,0.35]];
+const regionShader = {
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D map; uniform bool hasMap; uniform vec4 levels; uniform vec3 c0,c1,c2,c3,c4; varying vec2 vUv;
+    void main(){
+      if(!hasMap){ gl_FragColor = vec4(0.2,0.2,0.22,1.0); return; }
+      vec4 t = texture2D(map, vUv); float a = t.a * 255.0; vec3 c = c0;
+      float d1 = abs(a-levels.x), d2 = abs(a-levels.y), d3 = abs(a-levels.z), d4 = abs(a-levels.w);
+      float m = min(min(d1,d2),min(d3,d4));
+      if (m < 20.0) { c = (m==d1)?c1:(m==d2)?c2:(m==d3)?c3:c4; }
+      gl_FragColor = vec4(mix(c, t.rgb, 0.25), 1.0);
+    }`,
+};
+
+function makeSide(levels) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x10141b);
+  scene.add(new THREE.HemisphereLight(0xdde6ff, 0x20242c, 1.2));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(2, 4, 3); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x9fb6ff, 0.8); rim.position.set(-3, 2, -3); scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.2, 64), new THREE.MeshStandardMaterial({ color: 0xe8eef5, roughness: 0.35 }));
+  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 0.93, 96), new THREE.MeshBasicMaterial({ color: 0xc8102e }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002; scene.add(ring);
+
+  const side = { scene, levels, mats: {}, tex: {}, flat: new THREE.Group(), body: new THREE.Group() };
+  for (const p of PARTS) {
+    side.mats[p] = {
+      lit: new THREE.MeshStandardMaterial({ color: 0x5a6070, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide }),
+      flat: new THREE.MeshBasicMaterial({ color: 0x5a6070, side: THREE.DoubleSide }),
+      regions: new THREE.ShaderMaterial({
+        uniforms: { map: { value: null }, hasMap: { value: false }, levels: { value: new THREE.Vector4(...levels) },
+          c0: { value: new THREE.Vector3(...REGION_COLORS[0]) }, c1: { value: new THREE.Vector3(...REGION_COLORS[1]) },
+          c2: { value: new THREE.Vector3(...REGION_COLORS[2]) }, c3: { value: new THREE.Vector3(...REGION_COLORS[3]) },
+          c4: { value: new THREE.Vector3(...REGION_COLORS[4]) } },
+        vertexShader: regionShader.vertexShader, fragmentShader: regionShader.fragmentShader, side: THREE.DoubleSide }),
+    };
+  }
+  buildMannequin(side);
+  buildFlat(side);
+  scene.add(side.body, side.flat);
+  return side;
+}
+
+function lathe(points, segs = 48) { return new THREE.LatheGeometry(points.map(([r, y]) => new THREE.Vector2(r, y)), segs); }
+
+function buildMannequin(side) {
+  const g = side.body;
+  const skin = new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.7 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, roughness: 0.5 });
+  const add = (geo, part, pos = [0, 0, 0], rot = [0, 0, 0]) => {
+    const m = new THREE.Mesh(geo, part ? side.mats[part][mode] : skin);
+    m.position.set(...pos); m.rotation.set(...rot); m.userData.part = part; g.add(m); return m;
+  };
+  // Jersey: torso + sleeves.
+  add(lathe([[0.30,0.95],[0.33,1.05],[0.35,1.25],[0.37,1.45],[0.34,1.58],[0.20,1.66],[0.09,1.70]]), 'jersey');
+  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.105, 0.125, 0.55, 32, 1, true), 'jersey', [s * 0.47, 1.36, 0], [0, 0, s * 0.45]);
+  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.06, 0.08, 0.32, 16), null, [s * 0.66, 1.0, 0.02], [0, 0, s * 0.15]);
+  // Pants (breezers): hip shell + two legs.
+  add(lathe([[0.31,0.70],[0.33,0.80],[0.32,0.97]]), 'pant');
+  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.16, 0.15, 0.30, 32, 1, true), 'pant', [s * 0.16, 0.58, 0]);
+  // Socks.
+  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.115, 0.085, 0.42, 32, 1, true), 'sock', [s * 0.16, 0.24, 0]);
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.13, 0.07, 0.32), null, [s * 0.16, 0.035, 0.06]).material = dark;
+  // Head + helmet.
+  add(new THREE.SphereGeometry(0.12, 32, 16), null, [0, 1.82, 0]);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.135, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), dark);
+  helmet.position.set(0, 1.84, -0.01); g.add(helmet);
+}
+
+function buildFlat(side) {
+  const sizes = { jersey: [1.3, 1.3, 0, 1.72], pant: [0.62, 0.62, -0.34, 0.62], sock: [0.62, 0.62, 0.34, 0.62] };
+  for (const p of PARTS) {
+    const [w, h, x, y] = sizes[p];
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), side.mats[p].flat);
+    m.position.set(x, y, 0); m.userData.part = p; side.flat.add(m);
+  }
+  side.flat.visible = false;
+}
+
+const left = makeSide([64, 127, 191, 255]);
+const right = makeSide([51, 102, 153, 204]);
+
+function applyMode() {
+  for (const side of [left, right]) {
+    side.body.visible = mode !== 'flat';
+    side.flat.visible = mode === 'flat';
+    side.body.traverse(o => { if (o.isMesh && o.userData.part) o.material = side.mats[o.userData.part][mode === 'flat' ? 'lit' : mode]; });
+    side.flat.traverse(o => { if (o.isMesh && o.userData.part) o.material = side.mats[o.userData.part].flat; });
+  }
+  document.querySelectorAll('#bar button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  const legend = document.getElementById('legend');
+  legend.style.display = mode === 'regions' ? 'block' : 'none';
+  legend.innerHTML = 'Alpha = fabric region, not transparency<br>' +
+    ['NHL 27: 64 / NHL 24: 51 body', 'NHL 27: 127 / NHL 24: 102 band (dimples)', 'NHL 27: 191 / NHL 24: 153 underarm', 'NHL 27: 255 / NHL 24: 204 crest']
+      .map((t, i) => `<span class="sw" style="background:rgb(${REGION_COLORS[i + 1].map(v => v * 255).join(',')})"></span>${t}`).join('<br>');
+}
+
+function loadTexture(url, srgb) {
+  const key = url + (srgb ? '#s' : '#l');
+  if (cache.has(key)) return Promise.resolve(cache.get(key));
+  return new Promise(resolve => loader.load(url, t => {
+    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    cache.set(key, t); resolve(t);
+  }, undefined, () => resolve(null)));
+}
+
+async function setTexture(sideId, part, role, url) {
+  const side = sideId === 'l' ? left : right;
+  const mats = side.mats[part];
+  if (!mats) return;
+  const tex = url ? await loadTexture(url, role === 'color') : null;
+  if (role === 'color') {
+    for (const m of [mats.lit, mats.flat]) { m.map = tex; m.color.set(tex ? 0xffffff : 0x5a6070); m.needsUpdate = true; }
+    mats.regions.uniforms.map.value = tex; mats.regions.uniforms.hasMap.value = !!tex;
+  } else if (role === 'normal') {
+    mats.lit.normalMap = tex; mats.lit.needsUpdate = true;
+  }
+}
+
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.floor(w * devicePixelRatio) || canvas.height !== Math.floor(h * devicePixelRatio)) renderer.setSize(w, h, false);
+  camera.aspect = (w / 2) / h; camera.updateProjectionMatrix();
+}
+
+function frame(t) {
+  resize();
+  controls.update();
+  if (spin) for (const s of [left, right]) s.body.rotation.y = t * 0.0005;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setViewport(0, 0, w / 2, h); renderer.setScissor(0, 0, w / 2, h); renderer.render(left.scene, camera);
+  renderer.setViewport(w / 2, 0, w / 2, h); renderer.setScissor(w / 2, 0, w / 2, h); renderer.render(right.scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+document.querySelectorAll('#bar button[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; applyMode(); });
+document.getElementById('spin').onclick = e => { spin = !spin; e.target.classList.toggle('on', spin); if (!spin) for (const s of [left, right]) s.body.rotation.y = 0; };
+applyMode();
+
+function handle(msg) {
+  if (!msg) return;
+  if (msg.type === 'tex') setTexture(msg.side, msg.part, msg.role, msg.url);
+  else if (msg.type === 'labels') { document.getElementById('l1').textContent = msg.left; document.getElementById('l2').textContent = msg.right; }
+  else if (msg.type === 'mode') { mode = msg.mode; applyMode(); }
+  else if (msg.type === 'clear') { for (const s of ['l', 'r']) for (const p of PARTS) { setTexture(s, p, 'color', null); setTexture(s, p, 'normal', null); } }
+}
+window.viewer = { handle };
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener('message', e => handle(e.data));
+  window.chrome.webview.postMessage({ type: 'ready', gpu: renderer.getContext().getParameter(renderer.getContext().VERSION) });
+}
+</script>
+</body>
+</html>
