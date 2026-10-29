@@ -118,6 +118,7 @@ public sealed class Convert27ViewModel : Observable
                 Teams.Add(t);
             Status = $"NHL 27: {Catalog27.ByName.Count:N0} textures · NHL 24: {Catalog24.ByName.Count:N0} slots · {Project.Folders.Count} folders matched so far";
             Team = Teams.Contains("boston") ? "boston" : Teams.FirstOrDefault();
+            _ = PushMeshesAsync();
         }
         catch (Exception ex)
         {
@@ -349,6 +350,16 @@ public sealed class Convert27ViewModel : Observable
 
     static readonly string[] Parts = ["jersey", "pant", "sock"];
     static readonly string[] Roles = ["color", "normal"];
+
+    /// <summary>Sends the real NHL 24 skater meshes to both viewer sides (extracting them first if needed).</summary>
+    async Task PushMeshesAsync()
+    {
+        var problem = await Nhl24Meshes.EnsureAsync(Settings, s => Status = s);
+        var items = Nhl24Meshes.Available().Select(m => new { url = ViewerUrl.For(m.File), part = m.Part }).ToList();
+        if (problem is not null) SuiteLog.Write("meshes: " + problem);
+        if (items.Count > 0) ViewerMessage?.Invoke(new { type = "meshes", items });
+        else Status = "NHL 24 skater meshes unavailable: " + problem;
+    }
 
     async Task PushLeftAsync()
     {

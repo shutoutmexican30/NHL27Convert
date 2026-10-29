@@ -167,8 +167,8 @@ Data: stock dbs + CSV dumps in `C:\Users\devin\Documents\Codex\2026-10-20\where-
 `Patch\Gen4b\superbundlelayout`).
 
 Blocked / next: other languages (fre_fr, ger_de, swe_se, fin_fi, cze_cz, rus_ru) not dumped yet, same keys apply; NHL 27 X-Factor
-names not dumped (the map rests on co-occurrence); open user decision: Coyotes Alumni (team 279) rename or leave; NHL API roster and
-headshots after RosterPortService.
+names not dumped (the map rests on co-occurrence); NHL API roster and headshots after RosterPortService.
+Decided 07:41: Alumni (279) stays Arizona Coyotes Alumni; *_ARZL keys untouched (RosterPort/overrides never touch team 279's name/city).
 
 ## Status
 

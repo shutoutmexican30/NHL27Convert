@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Stopgap NHL 24 mesh exporter. Uses the FMT assemblies already on the PC (copied by Suite into
+    %LOCALAPPDATA%\CenterIceModdingSuite\fmthost) and must be built into that folder:
+      dotnet build tools\MeshExport -c Release -p:FmtHost=%LOCALAPPDATA%\CenterIceModdingSuite\fmthost
+    It only reads the game (through the suite's read view) and writes FBX files.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <FmtHost Condition="'$(FmtHost)' == ''">$(LOCALAPPDATA)\CenterIceModdingSuite\fmthost</FmtHost>
+    <OutDir>$(FmtHost)\</OutDir>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FrostySdk"><HintPath>$(FmtHost)\FrostySdk.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.Logging"><HintPath>$(FmtHost)\FMT.Logging.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.ProfileSystem"><HintPath>$(FmtHost)\FMT.ProfileSystem.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.Models.Assets"><HintPath>$(FmtHost)\FMT.Models.Assets.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.PluginInterfaces"><HintPath>$(FmtHost)\FMT.PluginInterfaces.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.FileTools"><HintPath>$(FmtHost)\FMT.FileTools.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="FMT.Hash"><HintPath>$(FmtHost)\FMT.Hash.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

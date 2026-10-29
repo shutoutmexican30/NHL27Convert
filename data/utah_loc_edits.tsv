@@ -21,10 +21,10 @@ TXT_TGL_ALT_ARIZONA	Let's Go Coyotes	Let's Go Mammoth
 TXT_ADIDAS_PLAYER_PULLOVER_ARIZONA	Arizona Coyotes Adidas Player Pullover 	Utah Mammoth Fanatics Player Pullover 	keep trailing space
 TXT_GAME_TITLE_4	Canucks vs. Coyotes	Canucks vs. Mammoth	
 TXT_CONVERSATION_ANSWER_4461	Maybe next time we play the Coyotes. I am going to pass for now.	Maybe next time we play the Mammoth. I am going to pass for now.	current text checked against eng_us (1.60)
-NHLTeamName_ARZL		(user decision)	alumni key: do not apply until decided
-NHLCityName_ARZL		(user decision)	alumni key: do not apply until decided
-TEAMLINE1_ARZL		(user decision)	alumni key: do not apply until decided
-TEAMLINE2_ARZL		(user decision)	alumni key: do not apply until decided
-TXT_NICKNAME_ARZL		(user decision)	alumni key: do not apply until decided
-TXT_NICKNAME_ALT_ARZL		(user decision)	alumni key: do not apply until decided
-NHLTeamName_ABBR3_ARZL		(user decision)	alumni key: do not apply until decided
+NHLTeamName_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+NHLCityName_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+TEAMLINE1_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+TEAMLINE2_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+TXT_NICKNAME_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+TXT_NICKNAME_ALT_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply
+NHLTeamName_ABBR3_ARZL		(keep)	decided 07:41: Alumni (team 279) stays Arizona Coyotes Alumni; never apply

@@ -10,6 +10,7 @@
   #l1 { left: 8px; } #l2 { left: calc(50% + 8px); }
   #divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #2c3442; }
   #bar { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; }
+  #bar select { background: #1f2633; color: #d8dee9; border: 1px solid #36404f; border-radius: 4px; padding: 3px 6px; }
   #bar button { white-space: nowrap; background: #1f2633; color: #d8dee9; border: 1px solid #36404f; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
   #bar button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; }
   #note { margin-left: auto; opacity: .6; font-size: 11px; text-align: right; max-width: 40%; }
@@ -29,14 +30,19 @@
   <button data-mode="flat">Flat texture</button>
   <button data-mode="regions">Fabric regions</button>
   <button id="spin">Turntable</button>
+  <button id="helmetBtn" class="on">Helmet</button>
+  <button id="headBtn" class="on">Head</button>
+  <select id="views"><option value="">Camera…</option><option value="front">Front</option><option value="back">Back</option><option value="left">Left</option><option value="right">Right</option><option value="threequarter">3/4</option><option value="fit">Fit uniform</option><option value="jersey">Jersey close-up</option><option value="skates">Skates close-up</option></select>
+  <button id="png">Export PNG</button>
   <span id="note">Placeholder mannequin (cylindrical UVs, not the game mesh). Flat texture shows the exact layout.</span>
 </div>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from './lib/OrbitControls.js';
+import { GLTFLoader } from './lib/GLTFLoader.js';
 
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setScissorTest(true);
@@ -50,6 +56,8 @@ controls.enableDamping = true;
 const loader = new THREE.TextureLoader();
 const cache = new Map();
 const PARTS = ['jersey', 'pant', 'sock'];
+const gltf = new GLTFLoader();
+let showHead = true, showHelmet = true, realMeshes = false;
 let mode = 'lit';
 let spin = false;
 
@@ -129,7 +137,9 @@ function buildFlat(side) {
   const sizes = { jersey: [1.3, 1.3, 0, 1.72], pant: [0.62, 0.62, -0.34, 0.62], sock: [0.62, 0.62, 0.34, 0.62] };
   for (const p of PARTS) {
     const [w, h, x, y] = sizes[p];
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), side.mats[p].flat);
+    const geo = new THREE.PlaneGeometry(w, h);
+    const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+    const m = new THREE.Mesh(geo, side.mats[p].flat);
     m.position.set(x, y, 0); m.userData.part = p; side.flat.add(m);
   }
   side.flat.visible = false;
@@ -158,6 +168,7 @@ function loadTexture(url, srgb) {
   if (cache.has(key)) return Promise.resolve(cache.get(key));
   return new Promise(resolve => loader.load(url, t => {
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.flipY = false; // game meshes use a top-left UV origin (glTF convention)
     t.anisotropy = renderer.capabilities.getMaxAnisotropy();
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     cache.set(key, t); resolve(t);
@@ -175,6 +186,57 @@ async function setTexture(sideId, part, role, url) {
   } else if (role === 'normal') {
     mats.lit.normalMap = tex; mats.lit.needsUpdate = true;
   }
+}
+
+// ---------------------------------------------------------------- real NHL 24 meshes
+// items: [{ url, part }]; part is jersey/pant/sock (textured from the matcher) or helmet/glove/skate/head/hands.
+const GEAR = { helmet: 0x14223a, glove: 0x14223a, skate: 0x202226, head: 0xd9b59a, hands: 0xd9b59a };
+async function loadMeshes(items) {
+  const loaded = await Promise.all(items.map(it => gltf.loadAsync(it.url).then(g => ({ it, g })).catch(e => { console.error(it.url, e); return null; })));
+  const ok = loaded.filter(x => x);
+  if (ok.length === 0) { document.getElementById('note').textContent = 'Could not load the NHL 24 meshes; placeholder shown.'; return; }
+  for (const side of [left, right]) {
+    side.body.clear();
+    const gear = {};
+    for (const [k, c] of Object.entries(GEAR)) gear[k] = new THREE.MeshStandardMaterial({ color: c, roughness: k === 'helmet' ? 0.35 : 0.7, metalness: k === 'skate' ? 0.3 : 0 });
+    for (const { it, g } of ok) {
+      const root = g.scene.clone(true);
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+        o.userData.part = PARTS.includes(it.part) ? it.part : null;
+        o.material = o.userData.part ? side.mats[it.part][mode === 'flat' ? 'lit' : mode] : (gear[it.part] || gear.helmet);
+      });
+      root.userData.kind = it.part;
+      side.body.add(root);
+    }
+  }
+  realMeshes = true;
+  applyToggles();
+  const box = new THREE.Box3().setFromObject(left.body);
+  document.getElementById('note').textContent =
+    `NHL 24 skater meshes (LOD0, bind pose) · height ${box.max.y.toFixed(2)} m · width ${(box.max.x - box.min.x).toFixed(2)} m`;
+  window.chrome?.webview?.postMessage({ type: 'meshes', count: ok.length, height: box.max.y, width: box.max.x - box.min.x });
+}
+
+function applyToggles() {
+  for (const side of [left, right]) side.body.children.forEach(c => {
+    if (c.userData.kind === 'helmet') c.visible = showHelmet;
+    if (c.userData.kind === 'head') c.visible = showHead;
+  });
+  document.getElementById('helmetBtn')?.classList.toggle('on', showHelmet);
+  document.getElementById('headBtn')?.classList.toggle('on', showHead);
+}
+
+// Camera presets for a ~1.9 m skater standing at the origin.
+const VIEWS = {
+  front: [[0, 1.05, 4.6], [0, 1.0, 0]], back: [[0, 1.05, -4.6], [0, 1.0, 0]], left: [[4.6, 1.05, 0], [0, 1.0, 0]], right: [[-4.6, 1.05, 0], [0, 1.0, 0]],
+  threequarter: [[3.2, 1.4, 3.4], [0, 1.0, 0]], fit: [[0, 1.0, 5.4], [0, 0.98, 0]], jersey: [[0, 1.4, 1.9], [0, 1.32, 0]], skates: [[0.9, 0.35, 1.3], [0, 0.15, 0]],
+};
+function view(name) { const v = VIEWS[name]; if (!v) return; camera.position.set(...v[0]); controls.target.set(...v[1]); controls.update(); }
+
+function exportPng() {
+  const a = document.createElement('a'); a.download = 'uniform.png'; a.href = canvas.toDataURL('image/png'); a.click();
 }
 
 function resize() {
@@ -196,13 +258,20 @@ requestAnimationFrame(frame);
 
 document.querySelectorAll('#bar button[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; applyMode(); });
 document.getElementById('spin').onclick = e => { spin = !spin; e.target.classList.toggle('on', spin); if (!spin) for (const s of [left, right]) s.body.rotation.y = 0; };
+document.getElementById('helmetBtn').onclick = () => { showHelmet = !showHelmet; applyToggles(); };
+document.getElementById('headBtn').onclick = () => { showHead = !showHead; applyToggles(); };
+document.getElementById('views').onchange = e => { view(e.target.value); e.target.value = ''; };
+document.getElementById('png').onclick = exportPng;
 applyMode();
+view('fit');
 
 function handle(msg) {
   if (!msg) return;
   if (msg.type === 'tex') setTexture(msg.side, msg.part, msg.role, msg.url);
   else if (msg.type === 'labels') { document.getElementById('l1').textContent = msg.left; document.getElementById('l2').textContent = msg.right; }
   else if (msg.type === 'mode') { mode = msg.mode; applyMode(); }
+  else if (msg.type === 'meshes') loadMeshes(msg.items);
+  else if (msg.type === 'view') view(msg.name);
   else if (msg.type === 'clear') { for (const s of ['l', 'r']) for (const p of PARTS) { setTexture(s, p, 'color', null); setTexture(s, p, 'normal', null); } }
 }
 window.viewer = { handle };
