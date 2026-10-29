@@ -94,29 +94,104 @@ games; `data\texture_matches.json` (all matches with confidence, rule, manual fl
   result; Shaded / Flat texture / Fabric regions (alpha legend 64/127/191/255 vs 51/102/153/204) / Turntable. Updates live on
   every row change. **Mannequin is a procedural placeholder** (cylindrical UVs, not the game mesh).
 
+## Uniform Studio page (built)
+
+The card-grid texture viewer from the user's spec (matching the earlier "NHL Kit Uniform Studio"):
+left panel with NHL 24 game-folder picker, team and uniform/set selectors (discovered from the index, nothing hard-coded),
+replacement-texture folder picker (DDS/PNG, recursive) and "also offer the matched NHL 27 uniform". Main area: a card per texture
+(array layers get one card each) with ORIGINAL (the game's own texture) and NEW previews side by side (aspect kept, checker
+background), asset name, format/size, replacement file name, match score and reason, Replace checkbox, Choose…/Browse… buttons,
+drop target. Click NEW or Choose → in-window chooser ranked by match; click ORIGINAL → full-size inspector with zoom.
+Matching: exact asset name (and layer) 100%, same material role with team/brand/set words ignored 90%, same garment+role 70%,
+plain↔base 45% (manual only). Coefficient maps are never auto-replaced. Tags per card: REPLACED / UNUSED / COEFF KEPT STOCK;
+unmatched replacement files are listed. Save → mod library entry `Uniform Studio - <team> <brand> <set>`; reopening restores it.
+Progress, error count and an expandable activity log at the bottom. Apply (incremental, preserving installed mods, skipping
+unchanged assets, never a full rebuild) comes with the suite's own writer.
+
+## User requirements so far
+
+- Whole new program, named Center Ice Modding Suite, own logo, shows "Supports: NHL 27 (PS5) · NHL 24 (PS4)" with a Games panel.
+- Everything hand-editable everywhere; nothing written to a game until the user presses Apply; close the game before applies.
+- The asset index is the backbone (textures, meshes, materials, legacy files, sounds), fast to query, edits keyed by index id.
+- Replace any texture in the game (162,796 NHL 24 slots), by hand or drag and drop.
+- Convert 27: matcher and live viewer on the same page side by side; "Match textures", "Match all teams"; manual overrides win.
+- Home/away paired through each team's default variants (stockteamjerseys isdefault/islightcolor), map stored hand-editable.
+- Viewer: the **real NHL 24 skater geometry** (body, jersey, pants, socks, gloves, skates, helmet, other worn gear) on both sides
+  with real textures, NHL 24 skeleton, neutral pose, correct proportions (~1.9 m), game UVs; look and controls of the old
+  "NHL 24 Modding Suite" Uniform mannequin (camera presets Front/Back/Left/Right/3-4/Fit uniform/Jersey close-up/Skates close-up,
+  Export PNG, material panel with Load colour texture, UV checker, sheen, lighting, head/helmet toggle). No placeholder unless
+  extraction fails, and then say exactly where it failed.
+- Uniform Studio card grid (above) as its own page.
+- Arizona → Utah Mammoth: keep artid 22, overwrite t22 and every Arizona texture in place (slots in arizona_slots_full.json).
+- adidas → Fanatics swap on branding arrays (needs Fanatics art).
+- Scorebug editor and every gameplay tweakable in one place; sounds; UI scripts.
+- Use all CPU cores for decode/convert; GPU for the viewer; GPU texture encode only if verified correct for BC7.
+- Never let FMT write backups into the real game folder. No machine-specific paths (auto-detect + pickers).
+- One distributable EXE.
+
+## Rosters specs (Suite.Rosters; from the DB thread)
+
+- **A RosterPort**: team 22 keeps artid 22 (and exhibitionarena.arenaartid 22), artabbr PHX, abbrname UTA; loc keys stay *_PHX and are
+  updated in place (keep hashid, sorted). From NHL 27 team/arena rows copy only teamname, nickname, cityname, abbrname, state,
+  colour fields (*primary/secondary/tertiarycolor, goalpostcolor, crowdlightcolor), avgattendance, arena name/city/maxattendance/
+  yearopened; keep every other NHL 24 numeric (known bad NHL 27 Utah values listed in the DB thread). Meta-driven validator
+  (ints within [rangelow, rangehigh], UTF-8 bytes+1 ≤ depth/8, drop columns not in NHL 24 meta) is the only write path; refuse,
+  never clamp. stockteamcolorstable team 22 rows 76–81 values only. teams_overrides.json applied last to nhl_game,
+  initial_experience, entry_draft, expansion_draft, threes_campaign and every loc db.
+- **B Teams & Roster pages**: searchable teams, every field with validation, colour pickers, 8 loc strings per language, arena,
+  NHL API code, logo source; Build; Add to mod list; Roster panel with NHL API roster, matching, headshots.
+- **C Gear/masks/colours**: drop NHL 27-only columns, copy colour fields for players in both games, model ids only if used in NHL 24
+  (else keep / most common of brand family), masks from the NHL 24 team row, Arizona goalie masks to the Mammoth list,
+  stockteamequipment home/away through the variant map.
+- **D X-Factors**: `data\xfactor_map.tsv` (27 → 24, editable), never write an undefined id.
+- **E NHL API sync**: standings/roster/landing endpoints, `nhlapi_teams.tsv`, `nhlapi_matches.tsv`, diff + confirm, manual edits win.
+- Format facts: entry_draft/expansion_draft/threes_campaign hold only the 11 player tables; initial_experience has teams and arenas
+  but no stockteamcolorstable; services skip missing tables, never create them. Utah loc edits: `data\utah_loc_edits.tsv`.
+
 ## Status
 
 | Area | Status |
 |---|---|
 | Shell, logo, splash, Home games panel, Settings/About | done |
-| AssetIndex (textures, both games) | done; NHL 24 references/sizes pending own reader |
-| Convert 27 matcher | done (variant map, rules 1/10/11/12, manual edits, drag-drop, mod list) |
-| Live side-by-side viewer | done with placeholder mannequin; **real NHL 24 skater meshes not done** |
+| AssetIndex (textures, both games) | done; NHL 24 sizes/formats/references pending own reader |
+| Convert 27 matcher (variant map, Match textures/team/all) | done |
+| Uniform Studio card grid | done (verification screenshots pending) |
+| Live 3D viewer | runs with a placeholder mannequin; **real NHL 24 meshes in progress** (see below) |
+| Path auto-detection | done |
+| Single-file EXE publish | not done yet |
 | Own PS4 reader/writer, Apply/Restore | not started |
-| Texture browser page, Arizona→Mammoth, adidas→Fanatics | not started (slot list in arizona_slots_full.json) |
-| Rosters specs A–E, Teams/Roster pages | not started (data files ready: xfactor_map.tsv, utah_loc_edits.tsv) |
+| Texture browser, Arizona→Mammoth, adidas→Fanatics | not started |
+| Rosters A–E | not started (data files ready) |
 | Mesh index / ports | not started |
+
+## Real NHL 24 meshes (in progress)
+
+Found in the NHL 24 game (EBX listing via the Worker `assets` command): 4,783 SkinnedMeshAsset, 1,582 RigidMeshAsset,
+1,534 CompositeMeshAsset, 66 SkeletonAsset. Player skeleton: `content/rigging/skeleton/skeleton_player`. Skater pieces, e.g.
+`.../player/jersey/adidas/components/player_jersey_adidas_{fulltuck|notuck|lefttuck|righttuck}_{large|small}_lod{0,1,2}_mesh`,
+`.../player/pant/common/components/player_pant_common_{loose|tight}{long|short}_lod0_mesh`, `.../player/sock/common/components/*`,
+`.../player/glove/common/components/player_glove_common_{left|right}_mesh`, `.../player/skate/bauer/vapor/components/*`,
+`.../player/helmet/bauer/reakt/components/player_helmet_bauer_reakt_150_mesh` (+ visors/cages), `.../shared/hands/common`, heads.
+Plan: a small export tool on the FMT assemblies already on the PC (NHL24PS4 profile has CanExportMeshes; NHL22PS4Plugin implements
+IMeshSetReader; FrostySdk MeshSetToFbxExport + ThirdParty\libfbxsdk.dll) exports LOD0 + skeleton to FBX through the read view;
+the viewer loads them with three.js FBXLoader, both sides, real textures. Then replace with the suite's own MeshSet reader.
+
+## Open questions
+
+- C++ vs .NET: the user's Uniform Studio spec says "one distributable C++ EXE"; asked whether a single-file self-contained .NET EXE
+  is acceptable (recommended). Pending.
+- Whether the 3D viewer stays as an extra next to the card grid: the user later said the 3D viewer stays with real meshes.
+- `UNIFORM_CONVERSION.md` (referenced) and Fanatics art are not on the PC.
+- NHL24Kit source and the old "NHL 24 Modding Suite" source are not on the PC (E: drive?).
 
 ## Next steps (priority order)
 
-1. **Real NHL 24 skater meshes in the viewer** (user requirement): decode NHL 24 PS4 MeshSet + skinned mesh (highest LOD skater body,
-   jersey, pants, socks, gloves, skates, helmet) and the skeleton; neutral A/T pose; apply `_base_` textures with fabric-region rules;
-   both viewer sides use the NHL 24 mesh (left wears the mapped NHL 27 textures). Target look = the old suite's Uniform mannequin
-   (game UVs, studio lighting, floor, head/helmet toggle, Front/Back/Left/Right/3-4/Fit/Jersey close-up/Skates close-up/Export PNG,
-   material panel with Load colour texture, UV checker, sheen, lighting). Sanity checks: height ~1.85–1.95 m, shoulders ~0.5–0.55 m,
-   highest LOD, no blend shapes at max, bind pose applied once. Format references: MMC Editor MeshSetPlugin (PC), FMT NHL24 plugin.
-   Until then the placeholder is labelled as such.
-2. Own PS4 TOC/bundle/RES reader → fill NHL 24 index sizes/formats/chunk ids/references; thumbnails; texture browser page.
-3. Own writer (Apply/Restore), verified byte for byte against the Worker on the same plan.
-4. Rosters (A–E) on Suite.Rosters; note: entry_draft/expansion_draft/threes_campaign have only the 11 player tables,
-   initial_experience has teams+arenas but no stockteamcolorstable — services skip missing tables, never create them.
+1. Real NHL 24 meshes in the 3D viewer (plan above); verify height/proportions; screenshot.
+2. Single-file EXE publish; verify Uniform Studio behaviours with screenshots.
+3. Own PS4 TOC/bundle/RES reader → complete NHL 24 index; texture browser page.
+4. Own writer (Apply/Restore), incremental, verified byte for byte against the Worker.
+5. Arizona → Mammoth, adidas → Fanatics as index queries + batch rules.
+6. Rosters A–E.
+
+Keep this file and the Desktop copy in sync: `powershell -File tools\sync-handoff.ps1` (copies docs\HANDOFF.md to
+`<Desktop>\CIMS_HANDOFF.md`).
