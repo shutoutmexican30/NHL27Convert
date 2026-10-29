@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "comment": "Hand-editable team overrides. Colours #RRGGBB. Asset ids absent: a team keeps NHL 24's ids unless an entry sets them.",
+  "teams": [
+    {
+      "index": 22,
+      "artid": 22,
+      "artabbr": "PHX",
+      "abbrname": "UTA",
+      "teamname": "Utah Mammoth",
+      "nickname": "Utah Mammoth",
+      "cityname": "Utah",
+      "loc": {
+        "NHLTeamName": "Utah Mammoth",
+        "NHLCityName": "Utah",
+        "TXT_NICKNAME": "Mammoth",
+        "TXT_NICKNAME_ALT": "Mammoth",
+        "TEAMLINE1": "Utah",
+        "TEAMLINE2": "Mammoth",
+        "NHLTeamName_Abbr3": "UTA",
+        "X_XLA_TEAM": "UTA"
+      },
+      "colors": {
+        "primary": "#6CACE4",
+        "secondary": "#010101",
+        "tertiary": "#FFFFFF",
+        "stockteamcolors": ["#6CACE4", "#010101", "#FFFFFF", "#6CACE4", "#010101", "#FFFFFF"]
+      },
+      "arena": {
+        "index": 22,
+        "arenaname": "Delta Center",
+        "cityname": "Salt Lake City, UT",
+        "maxattendance": 16200,
+        "yearopened": 1991,
+        "crowdlightcolor": "#6CACE4"
+      },
+      "nhl_api_code": "UTA",
+      "logo_source": "mammoth"
+    }
+  ]
+}

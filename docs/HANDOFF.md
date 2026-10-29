@@ -148,6 +148,28 @@ unchanged assets, never a full rebuild) comes with the suite's own writer.
 - Format facts: entry_draft/expansion_draft/threes_campaign hold only the 11 player tables; initial_experience has teams and arenas
   but no stockteamcolorstable; services skip missing tables, never create them. Utah loc edits: `data\utah_loc_edits.tsv`.
 
+## DB, roster, portraits and team colours (DB thread, 07:10 UTC)
+
+Done:
+- Mapped every Arizona location in NHL 24 data: all 5 roster dbs, the Franchise/Be a Pro league* tables (seeded from exhibition*;
+  existing saves cannot be patched), loc keys, colours, eboot strings.
+- NHL 27 Utah row vs NHL 24 meta: 4 columns to drop, goalie masks 515/516 exceed 511, about 20 NHL 27-only asset ids. Rule: copy names,
+  colours, arena name/city/capacity/year only; keep NHL 24 asset ids. Seed `data\teams_overrides.json` (in the repo).
+- `RosterConversion\arizona_slots_full.json`: 527 definite Arizona textures (texture side).
+- 07:10: more-dumps checked; `data\utah_loc_edits.tsv` (29 eng_us keys including *_22) and `data\xfactor_map.tsv`;
+  draft and 3v3 dbs hold only the 11 player tables; initial_experience has teams/arenas but no colour table.
+
+Decisions: Utah keeps index 22, artid 22, arenaid 22, artabbr PHX, abbrname UTA; Mammoth art overwrites t22 in place. Rosters are
+reimplemented in `src\Suite.Rosters` per specs A–E, every write validated against nhl_game-meta.xml.
+
+Data: stock dbs + CSV dumps in `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\RosterConversion\`
+(nhl24-original, nhl24-csv, nhl27-csv, more-dumps). Game: `NHL24PC_V3.2\NHL24PC\game-UPDATE` (1.60, Kraken chunks in
+`Patch\Gen4b\superbundlelayout`).
+
+Blocked / next: other languages (fre_fr, ger_de, swe_se, fin_fi, cze_cz, rus_ru) not dumped yet, same keys apply; NHL 27 X-Factor
+names not dumped (the map rests on co-occurrence); open user decision: Coyotes Alumni (team 279) rename or leave; NHL API roster and
+headshots after RosterPortService.
+
 ## Status
 
 | Area | Status |
