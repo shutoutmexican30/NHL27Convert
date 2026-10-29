@@ -178,7 +178,7 @@ Decided 07:41: Alumni (279) stays Arizona Coyotes Alumni; *_ARZL keys untouched 
 | AssetIndex (textures, both games) | done; NHL 24 sizes/formats/references pending own reader |
 | Convert 27 matcher (variant map, Match textures/team/all) | done |
 | Uniform Studio card grid | done (verification screenshots pending) |
-| Live 3D viewer | runs with a placeholder mannequin; **real NHL 24 meshes in progress** (see below) |
+| Live 3D viewer | **real NHL 24 skater meshes on both sides** (LOD0, bind pose, 1.98 m); helmet/head toggles, camera presets, Export PNG |
 | Path auto-detection | done |
 | Single-file EXE publish | not done yet |
 | Own PS4 reader/writer, Apply/Restore | not started |
@@ -186,7 +186,20 @@ Decided 07:41: Alumni (279) stays Arizona Coyotes Alumni; *_ARZL keys untouched 
 | Rosters A–E | not started (data files ready) |
 | Mesh index / ports | not started |
 
-## Real NHL 24 meshes (in progress)
+## Real NHL 24 meshes (working)
+
+Working since 2026-10-29: `tools\MeshExport` is built into `%LOCALAPPDATA%\CenterIceModdingSuite\fmthost` (a copy of the Worker
+runtime's FMT DLLs with junctions to Plugins, SDK, ThirdParty, FrostbiteProfiles, Resources). It opens the game through FMT via the
+Worker's existing `gamelinks\nhl24view` (FMT refuses folders without an explicit modify ACL; changing ACLs was declined, so the
+existing link is reused), parses MeshSets with FMT (NHL22PS4Plugin IMeshSetReader) and decodes LOD 0 itself: per section each
+vertex stream is stored for all vertices (Pos Float3, Binormal/Normal/Tangent Half4, BoneIndices UShort4, BoneWeights UByte4N,
+TexCoord0 Half2), 16/32-bit indices start at VertexBufferSize. Output: GLB per piece in
+`%LOCALAPPDATA%\CenterIceModdingSuite\meshes\nhl24` + export-report.json. FMT's own FBX export fails on NHL 24 (skeleton LocalPose
+empty; mesh assets have no BoneNames). Pieces are listed in `src\Suite.Core\Nhl24Meshes.cs`. Y-up, metres, feet at 0.
+Next: composite NHL 27 branding layers on base textures, real helmet/glove/skate/head textures, material panel, pants/sock
+variants, skeleton for re-posing, then the suite's own MeshSet reader.
+
+Original notes:
 
 Found in the NHL 24 game (EBX listing via the Worker `assets` command): 4,783 SkinnedMeshAsset, 1,582 RigidMeshAsset,
 1,534 CompositeMeshAsset, 66 SkeletonAsset. Player skeleton: `content/rigging/skeleton/skeleton_player`. Skater pieces, e.g.
@@ -208,7 +221,9 @@ the viewer loads them with three.js FBXLoader, both sides, real textures. Then r
 
 ## Next steps (priority order)
 
-1. Real NHL 24 meshes in the 3D viewer (plan above); verify height/proportions; screenshot.
+1. Viewer polish: NHL 27 branding layers on base textures, helmet/glove/skate/head textures, material panel (Load colour
+   texture, UV checker, sheen, lighting), pants/sock variants. Known small bug: two simultaneous NHL 27 decodes of the same
+   texture race on the temp file (harmless, the other wins); add in-flight de-duplication in TextureImages.
 2. Single-file EXE publish; verify Uniform Studio behaviours with screenshots.
 3. Own PS4 TOC/bundle/RES reader → complete NHL 24 index; texture browser page.
 4. Own writer (Apply/Restore), incremental, verified byte for byte against the Worker.
