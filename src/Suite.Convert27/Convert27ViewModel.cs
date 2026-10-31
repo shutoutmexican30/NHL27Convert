@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Suite.Convert27.Studio;
 using Suite.Core;
 
 namespace Suite.Convert27;
@@ -52,6 +53,7 @@ public sealed class Convert27ViewModel : Observable
         set
         {
             if (!Set(ref _team, value)) return;
+            PushColors();
             Folders24.Clear();
             var vt = value is null ? null : Variants.ByNhl24Folder(value);
             VariantInfo = vt is null
@@ -134,36 +136,45 @@ public sealed class Convert27ViewModel : Observable
     async Task OpenFolderAsync()
     {
         if (Catalog24 is null || Catalog27 is null || _folder24 is null) return;
-        Proposals.Clear();
-        foreach (var p in Matcher.ProposeFolders(_folder24, Catalog27, Project.TeamMap, Variants)) Proposals.Add(p);
+        var folder = _folder24;
+        try
+        {
+            Proposals.Clear();
+            foreach (var p in Matcher.ProposeFolders(folder, Catalog27, Project.TeamMap, Variants)) Proposals.Add(p);
 
-        _current = Project.Find(_folder24);
-        if (_current is null)
-        {
-            var best = Proposals.FirstOrDefault();
-            _current = new FolderMatch { Folder24 = _folder24, Folder27 = best?.Folder27, Confidence = best?.Confidence ?? 0, Reason = best?.Reason ?? "no NHL 27 folder found" };
-            Project.Folders.Add(_current);
-            _folder27 = null;
-            Folder27 = _current.Folder27;
-            Repropose(false);
+            _current = Project.Find(folder);
+            if (_current is null)
+            {
+                var best = Proposals.FirstOrDefault();
+                _current = new FolderMatch { Folder24 = folder, Folder27 = best?.Folder27, Confidence = best?.Confidence ?? 0, Reason = best?.Reason ?? "no NHL 27 folder found" };
+                Project.Folders.Add(_current);
+                _folder27 = null;
+                Folder27 = _current.Folder27;
+                Repropose(false);
+            }
+            else if (!_current.Manual && Proposals.FirstOrDefault() is { } best && best.Folder27 != _current.Folder27)
+            {
+                // The folder pairing was automatic and the rules now prefer another NHL 27 set: follow them, keep edited rows.
+                _current.Folder27 = best.Folder27;
+                _current.Confidence = best.Confidence;
+                _current.Reason = best.Reason;
+                _folder27 = null;
+                Folder27 = _current.Folder27;
+                Repropose(keepManual: true);
+            }
+            else
+            {
+                _folder27 = null;
+                Folder27 = _current.Folder27;
+                ShowRows();
+            }
+            await LoadStock24Async();
         }
-        else if (!_current.Manual && Proposals.FirstOrDefault() is { } best && best.Folder27 != _current.Folder27)
+        catch (Exception ex)
         {
-            // The folder pairing was automatic and the rules now prefer another NHL 27 set: follow them, keep edited rows.
-            _current.Folder27 = best.Folder27;
-            _current.Confidence = best.Confidence;
-            _current.Reason = best.Reason;
-            _folder27 = null;
-            Folder27 = _current.Folder27;
-            Repropose(keepManual: true);
+            Status = $"Could not open {folder}: {ex.Message}";
+            SuiteLog.Write("open folder: " + ex);
         }
-        else
-        {
-            _folder27 = null;
-            Folder27 = _current.Folder27;
-            ShowRows();
-        }
-        await LoadStock24Async();
     }
 
     /// <summary>Re-runs the proposal for the current folder. Rows the user edited stay as they are unless keepManual is false.</summary>
@@ -255,9 +266,134 @@ public sealed class Convert27ViewModel : Observable
         Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s);
         if (folder != _folder24) return;
         foreach (var r in Rows) UpdateThumbs(r);
+        MatchLogoShapes();
+        CompositeBaseColours();
         Status = $"{folder}: {Rows.Count} slots, {Rows.Count(r => r.Kind != SourceKind.Stock || r.Layers.Any(l => l.Source27 != null))} with a source. {Stock24.Count} stock images.";
         await PushRightAsync();
     }
+
+    /// <summary>
+    /// Fills the numbered logo layers that the index-based matcher leaves stock. First by alpha silhouette (the same
+    /// logo has the same shape, recolours do not matter), then — for layers with no shape match, such as the
+    /// adidas → Fanatics manufacturer swap — by the same layer index when that NHL 27 layer was not already claimed
+    /// by a shape match. Rows the user edited are never touched.
+    /// </summary>
+    void MatchLogoShapes()
+    {
+        if (_current is null || _folder27 is null || Catalog27 is null || Stock24.Count == 0) return;
+        if (!Catalog27.ByFolder.TryGetValue(_folder27, out var textures)) return;
+
+        var candidates = new Dictionary<string, List<(string Name, string Png, int? Layer)>>(StringComparer.Ordinal);
+        foreach (var t in textures)
+        {
+            var n = TextureName.Parse(t.Name);
+            if (n.Role != "color" || n.IsArrayName || !IsLogoGarment(n.Garment)) continue;
+            var png = TextureImages.Nhl27Png(t.Name);
+            if (!File.Exists(png)) continue;
+            if (!candidates.TryGetValue(n.Garment, out var list)) candidates[n.Garment] = list = [];
+            list.Add((t.Name, png, n.Layer));
+        }
+        if (candidates.Count == 0) return;
+
+        var silhouettes = new Dictionary<string, double[]?>(StringComparer.Ordinal);
+        double[]? Sil(string png)
+        {
+            if (!silhouettes.TryGetValue(png, out var s)) silhouettes[png] = s = LogoMatcher.Silhouette(png);
+            return s;
+        }
+
+        var claimed = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        HashSet<string> ClaimedFor(string garment)
+        {
+            if (!claimed.TryGetValue(garment, out var set)) claimed[garment] = set = new HashSet<string>(StringComparer.Ordinal);
+            return set;
+        }
+        var arrayLayerSource = new Dictionary<(string Garment, int Layer), string>();
+
+        int filled = 0, swapped = 0;
+
+        // Pass 1: the arrays are what the game actually uses, so they are matched first and claim their layers.
+        foreach (var row in Rows)
+        {
+            if (!row.IsArray || row.Manual || row.Kind != SourceKind.Stock) continue;
+            var name = row.Name;
+            if (name.Role != "color" || !IsLogoGarment(name.Garment)) continue;
+            if (!candidates.TryGetValue(name.Garment, out var cands)) continue;
+            var items = new List<(string Name, int? Layer, double[] Sil)>();
+            foreach (var (cname, cpng, clay) in cands)
+                if (Sil(cpng) is { } cs) items.Add((cname, clay, cs));
+            if (items.Count == 0) continue;
+            var used = ClaimedFor(name.Garment);
+
+            int byShape = 0, byIndex = 0;
+            foreach (var layer in row.Layers)
+            {
+                if (layer.Source27 is not null || layer.FilePath is not null) continue;
+                var stockPng = Stock24.GetValueOrDefault($"{row.Slot}#{layer.Layer}");
+                if (stockPng is null || Sil(stockPng) is not { } stock) continue;
+                string? pick = null;
+                double best = double.MaxValue;
+                foreach (var i in items.Where(i => !used.Contains(i.Name)))
+                {
+                    var score = LogoMatcher.Difference(stock, i.Sil);
+                    if (score <= LogoMatcher.AcceptMad && score < best) { best = score; pick = i.Name; }
+                }
+                if (pick is null) continue;
+                layer.Source27 = pick;
+                used.Add(pick);
+                arrayLayerSource[(name.Garment, layer.Layer)] = pick;
+                byShape++;
+            }
+
+            // Manufacturer/logo swap (adidas → Fanatics): only when exactly one layer is left over, so there is
+            // no ambiguity about which layer it maps to.
+            var unmatched = row.Layers.Where(l => l.Source27 is null && l.FilePath is null).ToList();
+            var unclaimed = items.Where(i => !used.Contains(i.Name)).ToList();
+            if (unmatched.Count == 1 && unclaimed.Count > 0)
+            {
+                var same = unclaimed.FirstOrDefault(i => i.Layer == unmatched[0].Layer);
+                var pick = same.Name ?? (unclaimed.Count == 1 ? unclaimed[0].Name : null);
+                if (pick is not null)
+                {
+                    unmatched[0].Source27 = pick;
+                    used.Add(pick);
+                    arrayLayerSource[(name.Garment, unmatched[0].Layer)] = pick;
+                    byIndex++;
+                }
+            }
+
+            if (byShape + byIndex > 0)
+            {
+                row.Confidence = byIndex == 0 ? 0.9 : 0.8;
+                row.Reason = $"{byShape} layer(s) by logo shape, {byIndex} by layer index (manufacturer/logo swap) of {row.Layers.Count}";
+                filled += byShape + byIndex;
+                swapped += byIndex;
+            }
+        }
+
+        // Pass 2: the individual `_N_color` slots mirror the array layers, so they follow the array's answer.
+        foreach (var row in Rows)
+        {
+            if (row.IsArray || row.Manual || row.Kind != SourceKind.Stock) continue;
+            var name = row.Name;
+            if (name.Role != "color" || !IsLogoGarment(name.Garment) || name.Layer is not { } layerIndex) continue;
+            if (!arrayLayerSource.TryGetValue((name.Garment, layerIndex), out var source)) continue;
+            row.Kind = SourceKind.Nhl27;
+            row.Source27 = source;
+            row.Confidence = 0.9;
+            row.Reason = "same as the branding array layer (the game reads logos from the array)";
+            filled++;
+        }
+
+        if (filled > 0)
+        {
+            foreach (var r in Rows) UpdateThumbs(r);
+            SuiteLog.Write($"logo shapes: matched {filled} layer(s), {swapped} by layer index, in {Short(_current.Folder24)}");
+        }
+    }
+
+    static bool IsLogoGarment(string garment) =>
+        garment.StartsWith("branding", StringComparison.Ordinal) || garment == "helmetlogo";
 
     async Task DecodeSourcesAsync(IReadOnlyList<SlotMatch> rows)
     {
@@ -267,17 +403,29 @@ public sealed class Convert27ViewModel : Observable
         if (_folder27 is not null && Catalog27.ByFolder.TryGetValue(_folder27, out var all)) wanted.AddRange(all);
         await Images.Nhl27Async(wanted, s => Status = s);
         foreach (var r in rows) UpdateThumbs(r);
+        MatchLogoShapes();
+        CompositeBaseColours();
+        // The NHL 27 sources are decoded now: push the right side so the viewer shows the new art
+        // instead of the stock NHL 24 textures it grabbed before the decode finished.
+        await PushRightAsync();
     }
 
     void OnRowChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not SlotMatch row) return;
-        if (e.PropertyName is nameof(SlotMatch.Kind) or nameof(SlotMatch.Source27) or nameof(SlotMatch.FilePath))
+        if (e.PropertyName is not (nameof(SlotMatch.Kind) or nameof(SlotMatch.Source27) or nameof(SlotMatch.FilePath))) return;
+        if (row.Kind == SourceKind.Nhl27 && row.Source27 is not null && Catalog27?.ByName.TryGetValue(row.Source27, out var t) == true)
         {
-            if (row.Kind == SourceKind.Nhl27 && row.Source27 is not null && Catalog27?.ByName.TryGetValue(row.Source27, out var t) == true)
-                _ = Images.Nhl27Async([t]).ContinueWith(_ => { UpdateThumbs(row); return PushRightAsync(row); });
-            else
+            _ = Images.Nhl27Async([t]).ContinueWith(_ =>
+            {
+                UpdateThumbs(row);
                 _ = PushRightAsync(row);
+            });
+        }
+        else
+        {
+            UpdateThumbs(row);
+            _ = PushRightAsync(row);
         }
     }
 
@@ -346,7 +494,63 @@ public sealed class Convert27ViewModel : Observable
         return path;
     }
 
+    // ---------------------------------------------------------------- replacement folder
+
+    /// <summary>
+    /// Matches image files from a folder onto the rows that the user has not edited, using the same name/role
+    /// rules as the old Uniform Studio (exact asset name 100%, same material role 90%, same garment+role 70%).
+    /// Numbered logo layers only take an exact name, because layer N is a different logo in each game.
+    /// </summary>
+    public async Task<int> MatchFolderAsync(string folder)
+    {
+        if (Catalog24 is null) return 0;
+        if (!Directory.Exists(folder)) { Status = "That replacement folder does not exist."; return 0; }
+        var teamWords = Catalog24.ByFolder.Keys
+            .Select(f => TextureName.Parse(f + "/x").Team).Where(t => t is not null).Select(t => t!)
+            .Append("utah").ToHashSet(StringComparer.Ordinal);
+        var paths = Directory.EnumerateFiles(folder, "*.*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+            .Where(ImageIO.CanLoad).ToList();
+        if (paths.Count == 0) { Status = $"No DDS/PNG files in {folder}."; return 0; }
+        Status = $"Scanning {paths.Count} replacement files…";
+        var files = await Task.Run(() => paths
+            .Select(p => new ReplacementFile { Path = p, Source = "folder", Key = MaterialKey.Of(Path.GetFileNameWithoutExtension(p), teamWords) })
+            .ToList());
+        int matched = 0;
+        foreach (var row in Rows)
+        {
+            if (row.Manual || row.IsArray || row.Name.Role == "coeff") continue;
+            var card = new StudioCard { Slot = row.Slot, Key = MaterialKey.Of(row.Name.Leaf, teamWords) };
+            var best = StudioMatcher.Rank(card, files)
+                .FirstOrDefault(c => c.Score >= (card.Key.Layer is not null ? 0.99 : 0.7));
+            if (best is null) continue;
+            row.FilePath = best.File.Path;
+            row.Source27 = null;
+            row.Kind = SourceKind.File;
+            row.Confidence = best.Score;
+            row.Reason = best.Reason + " (replacement folder)";
+            matched++;
+        }
+        foreach (var row in Rows) UpdateThumbs(row);
+        await PushRightAsync();
+        Status = matched == 0
+            ? "No replacement file matched this folder's slots."
+            : $"Matched {matched} row(s) from {folder}. Array layers and coeffs are left alone; edit any row by hand.";
+        return matched;
+    }
+
     // ---------------------------------------------------------------- viewer
+
+    /// <summary>Sends the team's DB colours to the viewer so the helmet and gloves use the right colours.</summary>
+    void PushColors()
+    {
+        var index = Team is not null ? Variants.ByNhl24Folder(Team)?.Index : null;
+        ViewerMessage?.Invoke(new
+        {
+            type = "colors",
+            primary = TeamColors.Primary(index),
+            secondary = TeamColors.Secondary(index),
+        });
+    }
 
     static readonly string[] Parts = ["jersey", "pant", "sock"];
     static readonly string[] Roles = ["color", "normal"];
@@ -366,24 +570,109 @@ public sealed class Convert27ViewModel : Observable
         ViewerMessage?.Invoke(new { type = "labels", left = "NHL 27 · " + Short(_folder27), right = "NHL 24 result · " + Short(_folder24) });
         if (Catalog27 is null) return;
         var textures = _folder27 is not null && Catalog27.ByFolder.TryGetValue(_folder27, out var l) ? l : [];
+        var named = textures.Select(t => (TextureName.Parse(t.Name), t)).ToList();
         var picks = new List<(string part, string role, Nhl27Texture? tex)>();
         foreach (var part in Parts)
         foreach (var role in Roles)
-            picks.Add((part, role, Pick(textures.Select(t => (TextureName.Parse(t.Name), t)), part, role)));
-        var pngs = await Images.Nhl27Async(picks.Where(p => p.tex is not null).Select(p => p.tex!));
+            picks.Add((part, role, PickArt(named, part, role)));
+        var regions = Parts.Select(part => (part, tex: PickBase(named, part))).ToList();
+        var font = PickArt(named, "font", "color");
+        var helmetLogo = PickHelmetLogo(named);
+        var all = picks.Where(p => p.tex is not null).Select(p => p.tex!)
+            .Concat(regions.Where(r => r.tex is not null).Select(r => r.tex!))
+            .Concat(font is null ? [] : [font])
+            .Concat(helmetLogo is null ? [] : [helmetLogo])
+            .DistinctBy(t => t.Name).ToList();
+        var pngs = await Images.Nhl27Async(all);
         foreach (var (part, role, tex) in picks)
             ViewerMessage?.Invoke(new { type = "tex", side = "l", part, role, url = tex is not null && pngs.TryGetValue(tex.Name, out var png) ? ViewerUrl.For(png) : null });
+        foreach (var (part, tex) in regions)
+            ViewerMessage?.Invoke(new { type = "region", side = "l", part, url = tex is not null && pngs.TryGetValue(tex.Name, out var png) ? ViewerUrl.For(png) : null });
+        ViewerMessage?.Invoke(new { type = "font", side = "l", url = font is not null && pngs.TryGetValue(font.Name, out var fontPng) ? ViewerUrl.For(fontPng) : null });
+        ViewerMessage?.Invoke(new { type = "helmetlogo", side = "l", url = helmetLogo is not null && pngs.TryGetValue(helmetLogo.Name, out var hlPng) ? ViewerUrl.For(hlPng) : null });
     }
 
     async Task PushRightAsync(SlotMatch? changed = null)
     {
         await Task.Yield();
+        var rows = Rows.Select(r => (r.Name, r)).ToList();
         foreach (var part in Parts)
-        foreach (var role in Roles)
         {
-            var row = Pick(Rows.Select(r => (r.Name, r)), part, role);
-            if (row is null || (changed is not null && row != changed)) continue;
-            ViewerMessage?.Invoke(new { type = "tex", side = "r", part, role, url = ImageFor(row) is { } p ? ViewerUrl.For(p) : null });
+            foreach (var role in Roles)
+            {
+                var row = PickArt(rows, part, role);
+                if (row is null || (changed is not null && row != changed)) continue;
+                var image = role == "color" ? ArtImageFor(row) : ImageFor(row);
+                ViewerMessage?.Invoke(new { type = "tex", side = "r", part, role, url = image is { } p ? ViewerUrl.For(p) : null });
+            }
+            var region = PickBase(rows, part);
+            if (region is not null && (changed is null || region == changed))
+                ViewerMessage?.Invoke(new { type = "region", side = "r", part, url = ImageFor(region) is { } p ? ViewerUrl.For(p) : null });
+        }
+        var font = PickArt(rows, "font", "color");
+        if (font is not null && (changed is null || font == changed))
+            ViewerMessage?.Invoke(new { type = "font", side = "r", url = ImageFor(font) is { } p ? ViewerUrl.For(p) : null });
+        var helmetLogo = PickHelmetLogo(rows);
+        if (helmetLogo is not null && (changed is null || helmetLogo == changed))
+            ViewerMessage?.Invoke(new { type = "helmetlogo", side = "r", url = ImageFor(helmetLogo) is { } p ? ViewerUrl.For(p) : null });
+    }
+
+    /// <summary>
+    /// The picture the viewer should use for a colour row. The plain `_color` map carries the sponsor/brand art;
+    /// the `_base_` map is only the fabric layout, so when the row is a base slot we show the matched NHL 27
+    /// plain map instead — that keeps a sponsor that has no logo-array slot visible in the viewer.
+    /// </summary>
+    public string? ArtImageFor(SlotMatch row)
+    {
+        if (row.Name.IsBase && Catalog27 is not null && _folder27 is not null
+            && Catalog27.ByFolder.TryGetValue(_folder27, out var textures))
+        {
+            var plainCanonical = row.Name.Canonical.Replace("_base_", "_");
+            var plain = textures.FirstOrDefault(t => TextureName.Parse(t.Name).Canonical == plainCanonical);
+            if (plain is not null)
+            {
+                var png = TextureImages.Nhl27Png(plain.Name);
+                if (File.Exists(png)) return png;
+            }
+        }
+        return ImageFor(row);
+    }
+
+    /// <summary>
+    /// Base colour slots get the plain art with the base map's fabric alpha. Some uniforms carry a sponsor only in the
+    /// plain colour map (no logo-array slot for it), so writing the plain base alone would lose it; this keeps the
+    /// sponsor and the region alpha in one texture.
+    /// </summary>
+    void CompositeBaseColours()
+    {
+        if (Catalog27 is null || _folder27 is null) return;
+        if (!Catalog27.ByFolder.TryGetValue(_folder27, out var textures)) return;
+        int made = 0;
+        foreach (var row in Rows)
+        {
+            if (row.Manual || row.IsArray) continue;
+            if (!row.Name.IsBase || row.Name.Role != "color") continue;
+            if (row.Kind != SourceKind.Nhl27 || row.Source27 is null) continue;
+            var basePng = TextureImages.Nhl27Png(row.Source27);
+            if (!File.Exists(basePng)) continue;
+            var plainCanonical = row.Name.Canonical.Replace("_base_", "_");
+            var plain = textures.FirstOrDefault(t => TextureName.Parse(t.Name).Canonical == plainCanonical);
+            if (plain is null) continue;
+            var artPng = TextureImages.Nhl27Png(plain.Name);
+            if (!File.Exists(artPng)) continue;
+            var composite = TextureImages.CompositeArtWithBaseAlpha(artPng, basePng, row.Slot + "|" + plain.Name);
+            if (composite is null) continue;
+            row.FilePath = composite;
+            row.Source27 = null;
+            row.Kind = SourceKind.File;
+            row.Alpha = null;
+            row.Reason = "plain art + _base_ fabric alpha (keeps a sponsor that has no logo slot)";
+            made++;
+        }
+        if (made > 0)
+        {
+            foreach (var r in Rows) UpdateThumbs(r);
+            SuiteLog.Write($"composite base colour: {made} row(s) in {Short(_current?.Folder24)}");
         }
     }
 
@@ -419,11 +708,28 @@ public sealed class Convert27ViewModel : Observable
         else row.ThumbSource = row.Kind == SourceKind.Stock ? null : ImageFor(row);
     }
 
-    /// <summary>Skaters draw the _base_ textures (rule 1), so those win; plain ones are the fallback.</summary>
-    static T? Pick<T>(IEnumerable<(TextureName name, T item)> items, string part, string role) where T : class
+    /// <summary>
+    /// The colour map the viewer samples for a part: the plain (non-base) texture carries the crest / numbers /
+    /// manufacturer art, while the _base_ map is the same layout with only the fabric-region alpha, so plain wins.
+    /// </summary>
+    static T? PickArt<T>(IEnumerable<(TextureName name, T item)> items, string part, string role) where T : class
     {
         var list = items.Where(x => x.name.Garment == part && x.name.Role == role && x.name.Layer is null && !x.name.IsArrayName).ToList();
+        return list.FirstOrDefault(x => !x.name.IsBase).item ?? list.FirstOrDefault().item;
+    }
+
+    /// <summary>The _base_ colour map (alpha = fabric regions, rule 11) for the region view.</summary>
+    static T? PickBase<T>(IEnumerable<(TextureName name, T item)> items, string part) where T : class
+    {
+        var list = items.Where(x => x.name.Garment == part && x.name.Role == "color" && x.name.Layer is null && !x.name.IsArrayName).ToList();
         return list.FirstOrDefault(x => x.name.IsBase).item ?? list.FirstOrDefault().item;
+    }
+
+    /// <summary>The helmet logo decal (a numbered layer, so it is not picked by <see cref="PickArt"/>).</summary>
+    static T? PickHelmetLogo<T>(IEnumerable<(TextureName name, T item)> items) where T : class
+    {
+        var list = items.Where(x => x.name.Garment == "helmetlogo" && x.name.Role == "color" && !x.name.IsArrayName).ToList();
+        return list.FirstOrDefault().item;
     }
 
     static string Short(string? folder) => folder is null ? "(none)" : folder.StartsWith(TextureName.SkaterPrefix) ? folder[TextureName.SkaterPrefix.Length..] : folder;

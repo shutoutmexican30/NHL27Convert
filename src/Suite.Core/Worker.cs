@@ -12,6 +12,14 @@ public static class Worker
     public static bool Available(SuiteSettings s) =>
         File.Exists(Exe(s)) && File.Exists(Path.Combine(s.WorkerRuntimeDir, "FrostbiteProfiles", "NHL24PS4Profile.json"));
 
+    /// <summary>Runs the Worker with any command, including apply/restore. Only the Apply/restore page may call this.</summary>
+    public static async Task<ProcessResult> RunRawAsync(SuiteSettings s, IReadOnlyList<string> args, Action<string>? onLine = null, CancellationToken ct = default)
+    {
+        if (!Available(s)) throw new InvalidOperationException($"NHL24Kit Worker not found in {s.WorkerRuntimeDir}.");
+        SuiteLog.Write("worker " + string.Join(' ', args));
+        return await ProcessRunner.RunAsync(Exe(s), args, s.WorkerRuntimeDir, onLine, ct);
+    }
+
     /// <summary>Runs a read command and returns the JSON after "RESULT ". Write commands are not exposed here.</summary>
     public static async Task<string> RunAsync(SuiteSettings s, IReadOnlyList<string> args, CancellationToken ct = default)
     {

@@ -48,6 +48,27 @@ public static class ImageIO
         File.Move(tmp, path, true);
     }
 
+    /// <summary>Nearest-neighbour resize to an exact size (used to match a colour map to a base map's size).</summary>
+    public static Rgba Resize(Rgba src, int width, int height)
+    {
+        if (src.Width == width && src.Height == height) return src;
+        var dst = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+        {
+            int sy = y * src.Height / height;
+            for (int x = 0; x < width; x++)
+            {
+                int sx = x * src.Width / width;
+                int i = (sy * src.Width + sx) * 4, o = (y * width + x) * 4;
+                dst[o] = src.Pixels[i];
+                dst[o + 1] = src.Pixels[i + 1];
+                dst[o + 2] = src.Pixels[i + 2];
+                dst[o + 3] = src.Pixels[i + 3];
+            }
+        }
+        return new Rgba(width, height, dst);
+    }
+
     /// <summary>Box-filter downscale, used for viewer previews (the viewer never needs more than 2048).</summary>
     public static Rgba Shrink(Rgba src, int maxSide)
     {

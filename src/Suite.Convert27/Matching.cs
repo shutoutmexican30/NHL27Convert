@@ -171,6 +171,15 @@ public static class Matcher
                 continue;
             }
 
+            // Numbered logo layers (branding crests, helmet logos) are in a different order in the other game:
+            // NHL 24 layer 0 can be the NHL shield while NHL 27 layer 0 is the team crest. Leave them stock and
+            // let the user pick each one by hand instead of silently putting the wrong logo in the slot.
+            if (name.Layer is not null)
+            {
+                row.Reason = "logo layer: layer order differs between games, choose it by hand";
+                continue;
+            }
+
             if (slot.Array)
             {
                 ProposeLayers(row, name, siblings24, byCanon27, folderConfidence);
@@ -204,14 +213,14 @@ public static class Matcher
         var available27 = byCanon27.Keys.Select(k => Regex.Match(k, "^" + Regex.Escape(layerStem) + @"_(\d+)_" + role + "$"))
             .Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToHashSet();
         int count = count24 > 0 ? count24 : available27.Count == 0 ? 0 : available27.Max() + 1;
-        for (int i = 0; i < count; i++)
-        {
-            byCanon27.TryGetValue($"{layerStem}_{i}_{role}", out var t);
-            row.Layers.Add(new LayerMatch { Layer = i, Source27 = t?.Name });
-        }
-        int matched = row.Layers.Count(l => l.Source27 is not null);
-        row.Confidence = count == 0 ? 0 : folderConfidence * matched / count;
-        row.Reason = count == 0 ? "no layers found" : $"{matched}/{count} layers from NHL 27 per-layer textures (logos come from arrays, rule 12)";
+        // Layers are listed so each one can be picked by hand, but none is filled automatically: the branding
+        // layers are ordered differently in the other game, so layer i is not the same logo (rule 12 only holds
+        // in-game, where the array order is authored for that game).
+        for (int i = 0; i < count; i++) row.Layers.Add(new LayerMatch { Layer = i });
+        row.Confidence = 0;
+        row.Reason = count == 0
+            ? "no layers found"
+            : $"{count} logo layers: layer order differs between games, choose each one by hand (logos come from arrays, rule 12)";
     }
 
     static void Use(SlotMatch row, Nhl27Texture t, double confidence, string reason)

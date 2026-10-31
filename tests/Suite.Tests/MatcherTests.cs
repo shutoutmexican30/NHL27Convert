@@ -122,19 +122,29 @@ public class MatcherTests
         Assert.True(pant.Confidence < color.Confidence);
 
         var array = rows["branding_jersey_adidas_arizona_home_color_array"];
-        Assert.Equal(2, array.Layers.Count); // rule 12: logos from arrays, one source per layer
-        Assert.All(array.Layers, l => Assert.NotNull(l.Source27));
+        Assert.Equal(2, array.Layers.Count); // rule 12: the layers are listed, but the order differs between games
+        Assert.All(array.Layers, l => Assert.Null(l.Source27)); // so none is filled automatically
+        Assert.Contains("layer order differs", array.Reason);
+
+        var numbered = rows["branding_jersey_adidas_arizona_home_0_color"];
+        Assert.Equal(SourceKind.Stock, numbered.Kind); // numbered logo layer: left stock for a hand pick
+        Assert.Contains("logo layer", numbered.Reason);
     }
 
     [Fact]
     public void Mod_file_uses_the_worker_plan_shape()
     {
         var (c24, c27) = Catalogs();
+        var rows = Matcher.Propose(c24.ByFolder[$"{P}arizona/adidas/home"], $"{P}utah/adidas/home", 0.85, c27);
+        var array = rows.Single(r => r.Slot.EndsWith("_color_array"));
+        Assert.Equal(2, array.Layers.Count);
+        foreach (var l in array.Layers) // chosen by hand: layers are not auto-filled
+            l.Source27 = $"{P}utah/adidas/home/branding_jersey_adidas_utah_home_{l.Layer}_color";
         var project = new MatchProject();
         project.Folders.Add(new FolderMatch
         {
             Folder24 = $"{P}arizona/adidas/home", Folder27 = $"{P}utah/adidas/home",
-            Rows = Matcher.Propose(c24.ByFolder[$"{P}arizona/adidas/home"], $"{P}utah/adidas/home", 0.85, c27),
+            Rows = rows,
         });
         var mod = project.ToModFile("test");
         Assert.DoesNotContain(mod.Replacements, r => r.Slot.EndsWith("_base_coeff"));

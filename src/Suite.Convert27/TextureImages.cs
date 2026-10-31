@@ -12,8 +12,37 @@ namespace Suite.Convert27;
 public sealed class TextureImages(SuiteSettings settings)
 {
     readonly SemaphoreSlim _workerGate = new(1, 1);
+    /// <summary>NHL 27 textures being decoded right now (name → gate set when the PNG is written).</summary>
+    readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _inflight = new(StringComparer.Ordinal);
 
     public static string Nhl27Png(string name) => Path.Combine(SuitePaths.Nhl27Images, SuitePaths.Flatten(name) + ".png");
+
+    /// <summary>
+    /// A PNG with the art of <paramref name="artPng"/> and the alpha of <paramref name="basePng"/> (the fabric-region
+    /// map). Base slots get this so a sponsor that only exists in the plain colour map still reaches the game while the
+    /// fabric regions stay intact.
+    /// </summary>
+    public static string? CompositeArtWithBaseAlpha(string artPng, string basePng, string key)
+    {
+        try
+        {
+            var art = ImageIO.Load(artPng);
+            var baseImg = ImageIO.Load(basePng);
+            if (art.Width != baseImg.Width || art.Height != baseImg.Height)
+                art = ImageIO.Resize(art, baseImg.Width, baseImg.Height);
+            for (int i = 3; i < art.Pixels.Length; i += 4) art.Pixels[i] = baseImg.Pixels[i];
+            var outPath = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.DroppedImages, "composite")), SuitePaths.Flatten(key) + ".png");
+            var stamp = File.Exists(outPath) ? File.GetLastWriteTimeUtc(outPath) : DateTime.MinValue;
+            if (stamp < File.GetLastWriteTimeUtc(artPng) || stamp < File.GetLastWriteTimeUtc(basePng))
+                ImageIO.SavePng(art, outPath);
+            return outPath;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("composite art+alpha: " + ex.Message);
+            return null;
+        }
+    }
 
     /// <summary>Decodes any of the given NHL 27 textures that are not cached yet. Returns name → PNG path for the ones that exist.</summary>
     public async Task<Dictionary<string, string>> Nhl27Async(IEnumerable<Nhl27Texture> textures, Action<string>? progress = null, CancellationToken ct = default)
@@ -22,31 +51,46 @@ public sealed class TextureImages(SuiteSettings settings)
         var missing = list.Where(t => !File.Exists(Nhl27Png(t.Name))).ToList();
         if (missing.Count > 0)
         {
-            var jobs = missing.Select(t => new
+            // De-duplicate in-flight decodes: two simultaneous calls for the same texture would race the
+            // bridge's .tmp.png, so only the first caller decodes and everyone else waits for that result.
+            var mine = new List<Nhl27Texture>();
+            var waiters = new List<TaskCompletionSource<bool>>();
+            foreach (var t in missing)
             {
-                name = t.Name, pkg = t.Pkg, cas = t.Cas, tree = t.Tree, offset = t.Offset, size = t.Size,
-                width = t.Width, height = t.Height, format = t.Format, @out = Nhl27Png(t.Name),
-            }).ToList();
-            var jobFile = Path.Combine(SuitePaths.Local, $"decode-{Guid.NewGuid():N}.json");
-            File.WriteAllText(jobFile, JsonSerializer.Serialize(jobs));
-            int done = 0;
-            try
+                var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                if (_inflight.TryAdd(t.Name, gate)) { mine.Add(t); waiters.Add(gate); }
+                else if (_inflight.TryGetValue(t.Name, out var other)) waiters.Add(other);
+            }
+            if (mine.Count > 0)
             {
-                var r = await ProcessRunner.RunAsync(settings.PythonExe,
-                    ["-I", IndexStore.BridgeScript, "decode", "--viewer", settings.Nhl27ViewerDir, "--game", settings.Nhl27GameRoot,
-                     "--jobs", jobFile, "--workers", settings.Workers.ToString()],
-                    onLine: line =>
+                var jobFile = Path.Combine(SuitePaths.Local, $"decode-{Guid.NewGuid():N}.json");
+                try
+                {
+                    var jobs = mine.Select(t => new
                     {
-                        var n = Interlocked.Increment(ref done);
-                        if (line.StartsWith("ERR", StringComparison.Ordinal)) SuiteLog.Write("NHL 27 decode " + line);
-                        progress?.Invoke($"Decoding NHL 27 textures {n}/{jobs.Count}");
-                    }, ct: ct);
-                if (r.ExitCode != 0) SuiteLog.Write("NHL 27 decode failed: " + r.StdErr.Trim());
+                        name = t.Name, pkg = t.Pkg, cas = t.Cas, tree = t.Tree, offset = t.Offset, size = t.Size,
+                        width = t.Width, height = t.Height, format = t.Format, @out = Nhl27Png(t.Name),
+                    }).ToList();
+                    File.WriteAllText(jobFile, JsonSerializer.Serialize(jobs));
+                    int done = 0;
+                    var r = await ProcessRunner.RunAsync(settings.PythonExe,
+                        ["-I", IndexStore.BridgeScript, "decode", "--viewer", settings.Nhl27ViewerDir, "--game", settings.Nhl27GameRoot,
+                         "--jobs", jobFile, "--workers", settings.Workers.ToString()],
+                        onLine: line =>
+                        {
+                            var n = Interlocked.Increment(ref done);
+                            if (line.StartsWith("ERR", StringComparison.Ordinal)) SuiteLog.Write("NHL 27 decode " + line);
+                            progress?.Invoke($"Decoding NHL 27 textures {n}/{jobs.Count}");
+                        }, ct: ct);
+                    if (r.ExitCode != 0) SuiteLog.Write("NHL 27 decode failed: " + r.StdErr.Trim());
+                }
+                finally
+                {
+                    try { File.Delete(jobFile); } catch { }
+                    foreach (var t in mine) if (_inflight.TryRemove(t.Name, out var gate)) gate.TrySetResult(true);
+                }
             }
-            finally
-            {
-                File.Delete(jobFile);
-            }
+            if (waiters.Count > 0) await Task.WhenAll(waiters.Select(w => w.Task)).WaitAsync(ct);
         }
         return list.Where(t => File.Exists(Nhl27Png(t.Name))).ToDictionary(t => t.Name, t => Nhl27Png(t.Name));
     }

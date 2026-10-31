@@ -112,16 +112,22 @@ public static class StudioMatcher
 
     /// <summary>
     /// Fills every card that was not chosen by hand. Coefficient maps are never auto-replaced (keep stock coeff
-    /// unless explicitly chosen). Returns the files no card uses.
+    /// unless explicitly chosen). Numbered layers (branding/crest/helmet logos, array layers) are only auto-filled
+    /// from an exact asset-name match: layer N is a different logo in the other game, so a role-only match would put
+    /// the crest where the NHL shield belongs. Returns the files no card uses.
     /// </summary>
     public static List<ReplacementFile> AutoMatch(IReadOnlyList<StudioCard> cards, IReadOnlyList<ReplacementFile> files)
     {
         foreach (var card in cards.Where(c => !c.Manual))
         {
-            var best = card.Key.IsCoeff ? null : Rank(card, files).FirstOrDefault(c => c.Score >= 0.7);
+            bool numbered = card.Key.Layer is not null || card.Layer is not null;
+            var best = card.Key.IsCoeff ? null : Rank(card, files).FirstOrDefault(c => c.Score >= (numbered ? 0.99 : 0.7));
             card.New = best?.File;
             card.Score = best?.Score ?? 0;
-            card.Reason = best?.Reason ?? (card.Key.IsCoeff ? "coefficient map: kept stock unless you choose one" : "no replacement with this name or role");
+            card.Reason = best?.Reason
+                ?? (card.Key.IsCoeff ? "coefficient map: kept stock unless you choose one"
+                    : numbered ? "numbered layer: the other game's layer is a different logo, choose by hand"
+                    : "no replacement with this name or role");
             card.Replace = best is not null;
         }
         return Unused(cards, files);

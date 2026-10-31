@@ -16,6 +16,10 @@
   #note { margin-left: auto; opacity: .6; font-size: 11px; text-align: right; max-width: 40%; }
   #legend { position: absolute; right: 8px; top: 34px; background: rgba(16,20,27,.85); padding: 6px 8px; border-radius: 4px; display: none; line-height: 1.6; }
   .sw { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: middle; }
+  #numspanel { position: absolute; right: 8px; bottom: 46px; display: none; gap: 8px; background: rgba(16,20,27,.94); padding: 8px; border-radius: 6px; border: 1px solid #2c3442; }
+  #numspanel .num { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  #numspanel img { width: 230px; height: 230px; object-fit: contain; background: #1f2633; border-radius: 4px; }
+  #numspanel span { font-size: 10px; color: #9fb4cf; }
 </style>
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
@@ -25,6 +29,10 @@
 <div class="label" id="l1">NHL 27</div>
 <div class="label" id="l2">NHL 24 result</div>
 <div id="legend"></div>
+<div id="numspanel">
+  <div class="num"><span>NHL 27 numbers</span><img id="numL" alt=""></div>
+  <div class="num"><span>NHL 24 result numbers</span><img id="numR" alt=""></div>
+</div>
 <div id="bar">
   <button data-mode="lit" class="on">Shaded</button>
   <button data-mode="flat">Flat texture</button>
@@ -32,9 +40,10 @@
   <button id="spin">Turntable</button>
   <button id="helmetBtn" class="on">Helmet</button>
   <button id="headBtn" class="on">Head</button>
+  <button id="numsBtn">Numbers</button>
   <select id="views"><option value="">Camera…</option><option value="front">Front</option><option value="back">Back</option><option value="left">Left</option><option value="right">Right</option><option value="threequarter">3/4</option><option value="fit">Fit uniform</option><option value="jersey">Jersey close-up</option><option value="skates">Skates close-up</option></select>
   <button id="png">Export PNG</button>
-  <span id="note">Placeholder mannequin (cylindrical UVs, not the game mesh). Flat texture shows the exact layout.</span>
+  <span id="note">Loading the NHL 24 skater meshes…</span>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -101,37 +110,12 @@ function makeSide(levels) {
         vertexShader: regionShader.vertexShader, fragmentShader: regionShader.fragmentShader, side: THREE.DoubleSide }),
     };
   }
-  buildMannequin(side);
   buildFlat(side);
   scene.add(side.body, side.flat);
   return side;
 }
 
 function lathe(points, segs = 48) { return new THREE.LatheGeometry(points.map(([r, y]) => new THREE.Vector2(r, y)), segs); }
-
-function buildMannequin(side) {
-  const g = side.body;
-  const skin = new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.7 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, roughness: 0.5 });
-  const add = (geo, part, pos = [0, 0, 0], rot = [0, 0, 0]) => {
-    const m = new THREE.Mesh(geo, part ? side.mats[part][mode] : skin);
-    m.position.set(...pos); m.rotation.set(...rot); m.userData.part = part; g.add(m); return m;
-  };
-  // Jersey: torso + sleeves.
-  add(lathe([[0.30,0.95],[0.33,1.05],[0.35,1.25],[0.37,1.45],[0.34,1.58],[0.20,1.66],[0.09,1.70]]), 'jersey');
-  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.105, 0.125, 0.55, 32, 1, true), 'jersey', [s * 0.47, 1.36, 0], [0, 0, s * 0.45]);
-  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.06, 0.08, 0.32, 16), null, [s * 0.66, 1.0, 0.02], [0, 0, s * 0.15]);
-  // Pants (breezers): hip shell + two legs.
-  add(lathe([[0.31,0.70],[0.33,0.80],[0.32,0.97]]), 'pant');
-  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.16, 0.15, 0.30, 32, 1, true), 'pant', [s * 0.16, 0.58, 0]);
-  // Socks.
-  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.115, 0.085, 0.42, 32, 1, true), 'sock', [s * 0.16, 0.24, 0]);
-  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.13, 0.07, 0.32), null, [s * 0.16, 0.035, 0.06]).material = dark;
-  // Head + helmet.
-  add(new THREE.SphereGeometry(0.12, 32, 16), null, [0, 1.82, 0]);
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.135, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), dark);
-  helmet.position.set(0, 1.84, -0.01); g.add(helmet);
-}
 
 function buildFlat(side) {
   const sizes = { jersey: [1.3, 1.3, 0, 1.72], pant: [0.62, 0.62, -0.34, 0.62], sock: [0.62, 0.62, 0.34, 0.62] };
@@ -154,6 +138,8 @@ function applyMode() {
     side.flat.visible = mode === 'flat';
     side.body.traverse(o => { if (o.isMesh && o.userData.part) o.material = side.mats[o.userData.part][mode === 'flat' ? 'lit' : mode]; });
     side.flat.traverse(o => { if (o.isMesh && o.userData.part) o.material = side.mats[o.userData.part].flat; });
+    if (side.helmetDecals) for (const d of side.helmetDecals) d.visible = mode !== 'flat' && showHelmet;
+    if (side.jerseyText) side.jerseyText.visible = mode !== 'flat';
   }
   document.querySelectorAll('#bar button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
   const legend = document.getElementById('legend');
@@ -175,6 +161,14 @@ function loadTexture(url, srgb) {
   }, undefined, () => resolve(null)));
 }
 
+function applyRegionMap(mats) {
+  // The region shader reads alpha: prefer the _base_ colour map (fabric-region index) and fall back to the art map.
+  const t = mats.regionMap || mats.colorMap || null;
+  mats.regions.uniforms.map.value = t;
+  mats.regions.uniforms.hasMap.value = !!t;
+  mats.regions.needsUpdate = true;
+}
+
 async function setTexture(sideId, part, role, url) {
   const side = sideId === 'l' ? left : right;
   const mats = side.mats[part];
@@ -182,23 +176,110 @@ async function setTexture(sideId, part, role, url) {
   const tex = url ? await loadTexture(url, role === 'color') : null;
   if (role === 'color') {
     for (const m of [mats.lit, mats.flat]) { m.map = tex; m.color.set(tex ? 0xffffff : 0x5a6070); m.needsUpdate = true; }
-    mats.regions.uniforms.map.value = tex; mats.regions.uniforms.hasMap.value = !!tex;
+    mats.colorMap = tex;
+    applyRegionMap(mats);
   } else if (role === 'normal') {
     mats.lit.normalMap = tex; mats.lit.needsUpdate = true;
   }
 }
 
+async function setRegionTexture(sideId, part, url) {
+  const side = sideId === 'l' ? left : right;
+  const mats = side.mats[part];
+  if (!mats) return;
+  mats.regionMap = url ? await loadTexture(url, true) : null;
+  applyRegionMap(mats);
+}
+
 // ---------------------------------------------------------------- real NHL 24 meshes
 // items: [{ url, part }]; part is jersey/pant/sock (textured from the matcher) or helmet/glove/skate/head/hands.
-const GEAR = { helmet: 0x14223a, glove: 0x14223a, skate: 0x202226, head: 0xd9b59a, hands: 0xd9b59a };
+// Helmet and gloves take the team's DB colours; skates stay dark. The helmet decal is the helmetlogo texture.
+const SKIN = 0xd9b59a;
+let teamColors = { primary: 0x14223a, secondary: 0x202226, skate: 0x202226 };
+
+function newGear() {
+  return {
+    helmet: new THREE.MeshStandardMaterial({ color: teamColors.primary, roughness: 0.35, metalness: 0 }),
+    glove: new THREE.MeshStandardMaterial({ color: teamColors.primary, roughness: 0.7, metalness: 0 }),
+    skate: new THREE.MeshStandardMaterial({ color: teamColors.skate, roughness: 0.7, metalness: 0.3 }),
+    head: new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.7 }),
+    hands: new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.7 }),
+  };
+}
+
+function applyTeamColors() {
+  for (const side of [left, right]) {
+    if (!side.gear) continue;
+    side.gear.helmet.color.setHex(teamColors.primary);
+    side.gear.glove.color.setHex(teamColors.primary);
+    side.gear.skate.color.setHex(teamColors.skate);
+  }
+}
+
+function setTeamColors(primary, secondary) {
+  const parse = (v, fallback) => {
+    const n = parseInt((v || '').replace('#', ''), 16);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  teamColors.primary = parse(primary, teamColors.primary);
+  teamColors.secondary = parse(secondary, teamColors.secondary);
+  // Skates: keep them dark; use the secondary only when it is dark enough to read as a skate.
+  const lum = ((teamColors.secondary >> 16 & 255) * 0.3 + (teamColors.secondary >> 8 & 255) * 0.59 + (teamColors.secondary & 255) * 0.11) / 255;
+  teamColors.skate = lum < 0.45 ? teamColors.secondary : 0x202226;
+  applyTeamColors();
+}
+
+async function setHelmetLogo(sideId, url) {
+  const side = sideId === 'l' ? left : right;
+  side.helmetLogoUrl = url;
+  if (side.helmetDecals) {
+    for (const d of side.helmetDecals) { side.body.remove(d); d.geometry.dispose(); }
+    side.helmetDecals = [];
+  }
+  if (!url) return;
+  const tex = await loadTexture(url, true);
+  if (tex) placeHelmetLogo(side, tex);
+}
+
+function placeHelmetLogo(side, tex) {
+  const helmet = side.body.children.find(c => c.userData.kind === 'helmet');
+  if (!helmet) return;
+  const box = new THREE.Box3().setFromObject(helmet);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex, transparent: true, roughness: 0.45, metalness: 0, side: THREE.DoubleSide,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const R = Math.PI / 180;
+  // Two spherical caps on the upper sides of the helmet, so the logo follows the shell instead of floating on a card.
+  const caps = [-35 * R, Math.PI - 35 * R];
+  side.helmetDecals = [];
+  for (const phiStart of caps) {
+    const geo = new THREE.SphereGeometry(1, 28, 16, phiStart, 70 * R, 22 * R, 26 * R);
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(center);
+    m.scale.set(size.x * 0.52, size.y * 0.52, size.z * 0.52);
+    m.userData.helmetDecal = true;
+    m.visible = showHelmet && mode !== 'flat';
+    side.body.add(m);
+    side.helmetDecals.push(m);
+  }
+}
+
 async function loadMeshes(items) {
   const loaded = await Promise.all(items.map(it => gltf.loadAsync(it.url).then(g => ({ it, g })).catch(e => { console.error(it.url, e); return null; })));
   const ok = loaded.filter(x => x);
   if (ok.length === 0) { document.getElementById('note').textContent = 'Could not load the NHL 24 meshes; placeholder shown.'; return; }
   for (const side of [left, right]) {
     side.body.clear();
-    const gear = {};
-    for (const [k, c] of Object.entries(GEAR)) gear[k] = new THREE.MeshStandardMaterial({ color: c, roughness: k === 'helmet' ? 0.35 : 0.7, metalness: k === 'skate' ? 0.3 : 0 });
+    side.helmetDecals = [];
+    side.jerseyText = null;
+    const gear = newGear();
+    side.gear = gear;
     for (const { it, g } of ok) {
       const root = g.scene.clone(true);
       root.traverse(o => {
@@ -213,6 +294,11 @@ async function loadMeshes(items) {
   }
   realMeshes = true;
   applyToggles();
+  for (const sideId of ['l', 'r']) {
+    const side = sideId === 'l' ? left : right;
+    if (side.helmetLogoUrl) setHelmetLogo(sideId, side.helmetLogoUrl);
+    if (side.fontUrl) setJerseyNumber(sideId, side.fontUrl);
+  }
   const box = new THREE.Box3().setFromObject(left.body);
   document.getElementById('note').textContent =
     `NHL 24 skater meshes (LOD0, bind pose) · height ${box.max.y.toFixed(2)} m · width ${(box.max.x - box.min.x).toFixed(2)} m`;
@@ -220,10 +306,13 @@ async function loadMeshes(items) {
 }
 
 function applyToggles() {
-  for (const side of [left, right]) side.body.children.forEach(c => {
-    if (c.userData.kind === 'helmet') c.visible = showHelmet;
-    if (c.userData.kind === 'head') c.visible = showHead;
-  });
+  for (const side of [left, right]) {
+    side.body.children.forEach(c => {
+      if (c.userData.kind === 'helmet') c.visible = showHelmet;
+      if (c.userData.kind === 'head') c.visible = showHead;
+    });
+    if (side.helmetDecals) for (const d of side.helmetDecals) d.visible = showHelmet && mode !== 'flat';
+  }
   document.getElementById('helmetBtn')?.classList.toggle('on', showHelmet);
   document.getElementById('headBtn')?.classList.toggle('on', showHead);
 }
@@ -262,17 +351,112 @@ document.getElementById('helmetBtn').onclick = () => { showHelmet = !showHelmet;
 document.getElementById('headBtn').onclick = () => { showHead = !showHead; applyToggles(); };
 document.getElementById('views').onchange = e => { view(e.target.value); e.target.value = ''; };
 document.getElementById('png').onclick = exportPng;
+document.getElementById('numsBtn').onclick = () => {
+  const p = document.getElementById('numspanel');
+  const open = p.style.display !== 'flex';
+  p.style.display = open ? 'flex' : 'none';
+  document.getElementById('numsBtn').classList.toggle('on', open);
+};
 applyMode();
 view('fit');
+
+// ---------------------------------------------------------------- numbers and name on the jersey
+// The number glyphs are taken from the game's font atlas (the small digit row), so a replaced font shows here.
+const DIGIT_CELLS = [[18,173],[208,303],[402,557],[594,749],[781,946],[978,1133],[1170,1325],[1362,1517],[1555,1710],[1746,1901]];
+const DIGIT_ROW = [1490, 1775];
+
+function composeJerseyText(atlas, number = '92', name = 'COOLEY') {
+  const W = 1024, H = 1024;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Name arched above the number, like a real jersey back. The atlas letter cells are not mapped yet, so the
+  // name uses a bold block face; the number glyphs come straight from the game's font atlas.
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 235px "Arial Narrow", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, W / 2, 130);
+
+  const [y0, y1] = DIGIT_ROW;
+  const draw = (digit, dx) => {
+    const [x0, x1] = DIGIT_CELLS[Math.max(0, Math.min(9, digit))];
+    ctx.drawImage(atlas, x0, y0, x1 - x0 + 1, y1 - y0 + 1, dx, 250, 430, 560);
+  };
+  draw(parseInt(number[0], 10) || 0, 70);
+  draw(parseInt(number[1] ?? number[0], 10) || 0, 524);
+  return c;
+}
+
+async function setJerseyNumber(sideId, url) {
+  const side = sideId === 'l' ? left : right;
+  if (side.jerseyText) {
+    side.body.remove(side.jerseyText);
+    side.jerseyText.geometry.dispose();
+    side.jerseyText.material.dispose();
+    side.jerseyText = null;
+  }
+  side.fontUrl = url;
+  if (!url) return;
+  const atlas = await new Promise(resolve =>
+  {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = url;
+  });
+  if (!atlas) return;
+  const tex = new THREE.CanvasTexture(composeJerseyText(atlas));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  placeJerseyNumber(side, tex);
+}
+
+function placeJerseyNumber(side, tex) {
+  const jersey = side.body.children.find(c => c.userData.kind === 'jersey');
+  if (!jersey) return;
+  const box = new THREE.Box3().setFromObject(jersey);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  // Real jersey back lettering: a ~30 cm number with the name above it, so the panel is sized in metres,
+  // not as a fraction of the mesh bounds.
+  const W = 0.38, H = 0.46;
+  const geo = new THREE.PlaneGeometry(W, H);
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex, transparent: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set((box.min.x + box.max.x) / 2, box.min.y + size.y * 0.62, box.min.z - 0.006);
+  m.rotation.y = Math.PI; // face the back of the skater
+  m.userData.jerseyText = true;
+  m.visible = mode !== 'flat';
+  side.body.add(m);
+  side.jerseyText = m;
+}
+
+function setFontImage(side, url) {
+  const img = document.getElementById(side === 'l' ? 'numL' : 'numR');
+  if (!img) return;
+  if (url) img.src = url; else img.removeAttribute('src');
+  setJerseyNumber(side, url);
+}
 
 function handle(msg) {
   if (!msg) return;
   if (msg.type === 'tex') setTexture(msg.side, msg.part, msg.role, msg.url);
+  else if (msg.type === 'region') setRegionTexture(msg.side, msg.part, msg.url);
+  else if (msg.type === 'font') setFontImage(msg.side, msg.url);
+  else if (msg.type === 'colors') setTeamColors(msg.primary, msg.secondary);
+  else if (msg.type === 'helmetlogo') setHelmetLogo(msg.side, msg.url);
   else if (msg.type === 'labels') { document.getElementById('l1').textContent = msg.left; document.getElementById('l2').textContent = msg.right; }
   else if (msg.type === 'mode') { mode = msg.mode; applyMode(); }
   else if (msg.type === 'meshes') loadMeshes(msg.items);
   else if (msg.type === 'view') view(msg.name);
-  else if (msg.type === 'clear') { for (const s of ['l', 'r']) for (const p of PARTS) { setTexture(s, p, 'color', null); setTexture(s, p, 'normal', null); } }
+  else if (msg.type === 'clear') { for (const s of ['l', 'r']) for (const p of PARTS) { setTexture(s, p, 'color', null); setTexture(s, p, 'normal', null); setRegionTexture(s, p, null); } setFontImage('l', null); setFontImage('r', null); }
 }
 window.viewer = { handle };
 if (window.chrome && window.chrome.webview) {
