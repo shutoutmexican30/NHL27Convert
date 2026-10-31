@@ -47,6 +47,15 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
      single real folder to apply to. Options: (a) point the emulator at one merged folder (like the old `CUSA37933`) and set
      that as ApplyTargetDir; (b) teach the suite's own writer to handle the split layout. Until then Apply on the real game is
      refused by design.
+   - **Decided 2026-10-31: one merged game folder (option 2, a separate copy).** `nhl24_new.exe` takes no path arguments: it
+     runs `<root>\game` and mounts `<root>\game-UPDATE` over it. So a second root was built:
+     `C:\Users\devin\Downloads\NHL24PC_V3.2\NHL24PC-CIMS` = NHL24PC's emulator, tools and `user\` (saves, settings, shader
+     cache) + `game\` = base `game\` with the whole `game-UPDATE\` laid over it (1.60 eboot.bin, sce_sys, Patch), no
+     `game-UPDATE`. The original `NHL24PC\game` and `game-UPDATE` are untouched (clean fallback). CIMS settings:
+     `ApplyTargetDir = ...\NHL24PC-CIMS\game` (backup `settings.json.before-cims-merged`); `Nhl24GameDir` still points at the
+     original so ORIGINAL previews stay stock. The folder meets every guard rule (no links, Data+Patch, writable).
+     **Waiting for the user to boot the game once from `NHL24PC-CIMS\Play NHL 24.bat`; nothing is applied until then.**
+     `D:\CIMS-test\NHL24-merged` (test copy, no update eboot) can be deleted.
 
 ## Goal and decisions
 

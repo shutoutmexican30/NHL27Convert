@@ -108,7 +108,7 @@ public sealed class SuiteSettings
     /// <summary>Folder with package.mft and Data\ (NHL24PC: game\; extracted dump: the folder itself).</summary>
     [JsonIgnore] public string Nhl24BaseDir => File.Exists(Path.Combine(Nhl24GameDir, "game", "package.mft")) ? Path.Combine(Nhl24GameDir, "game") : Nhl24GameDir;
     /// <summary>Folder whose Patch\ holds the update (NHL24PC: game-UPDATE\; extracted dump: the folder itself).</summary>
-    [JsonIgnore] public string Nhl24UpdateDir => Directory.Exists(Path.Combine(Nhl24GameDir, "game-UPDATE", "Patch")) ? Path.Combine(Nhl24GameDir, "game-UPDATE") : Nhl24GameDir;
+    [JsonIgnore] public string Nhl24UpdateDir => Directory.Exists(Path.Combine(Nhl24GameDir, "game-UPDATE", "Patch")) ? Path.Combine(Nhl24GameDir, "game-UPDATE") : Nhl24BaseDir;
 
     public static bool IsNhl24Dir(string v) =>
         File.Exists(Path.Combine(v, "game", "package.mft")) || (File.Exists(Path.Combine(v, "package.mft")) && Directory.Exists(Path.Combine(v, "Data")));
