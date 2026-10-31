@@ -161,6 +161,12 @@ public partial class Convert27View : UserControl
     /// <summary>Writes the whole mod list into the game through the NHL24Kit worker.</summary>
     async void Apply_Click(object sender, RoutedEventArgs e)
     {
+        var problems = ModApply.Problems(_vm.Settings);
+        if (problems.Count > 0)
+        {
+            MessageBox.Show("Apply is not possible yet:\n\n• " + string.Join("\n• ", problems), "Apply to game", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         var mods = ModApply.LoadMods().Where(m => m.Replacements.Count > 0).ToList();
         var total = ModApply.TotalReplacements(mods);
         if (total == 0)
@@ -169,8 +175,8 @@ public partial class Convert27View : UserControl
             return;
         }
         if (MessageBox.Show(
-                $"Apply {total:N0} replacement(s) from {mods.Count} mod(s) to the game at:\n{_vm.Settings.Nhl24GameDir}\n\n" +
-                "Close the game first. Everything applied can be undone with “Restore stock game…” in the mod list window.\n\nContinue?",
+                $"Apply {total:N0} replacement(s) from {mods.Count} mod(s) to the game at:\n{_vm.Settings.ApplyTargetDir}\n\n" +
+                "TOCs and CAS lengths are backed up first. Everything applied can be undone with “Restore stock game…” in the mod list window.\n\nContinue?",
                 "Apply to game", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         _vm.Busy = true;

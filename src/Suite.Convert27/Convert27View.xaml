@@ -59,8 +59,8 @@
           <Button Content="Add folder to mod list" Click="AddFolder_Click" />
           <Button Content="Add all matched folders" Click="AddAll_Click" />
           <Button Content="Mod list…" Click="ModList_Click" ToolTip="See every saved mod and exactly what it will write." />
-          <Button Content="Apply…" Click="Apply_Click" FontWeight="SemiBold" Background="#2e7d4f" IsEnabled="False"
-                  ToolTipService.ShowOnDisabled="True" ToolTip="Disabled until the apply target is fixed (it must be the real, closed, backed-up game folder)." />
+          <Button Content="Apply…" Click="Apply_Click" FontWeight="SemiBold" Background="#2e7d4f"
+                  ToolTip="Writes the mod list into the apply target (Settings → ApplyTargetDir): one complete game folder, no links, game closed. Backs up TOCs and CAS lengths first; refuses with the reason otherwise." />
         </WrapPanel>
         <WrapPanel Margin="0,8,0,0">
           <TextBlock Style="{StaticResource Caption}" Text="Replacement folder (DDS / PNG)" Margin="0,0,6,0" />

@@ -46,6 +46,11 @@ public sealed class SuiteSettings
     public string WorkerRuntimeDir { get; set; } = "";
     /// <summary>Older NHL24Kit texture dumps that can be reused instead of re-dumping.</summary>
     public string LegacyRefsDir { get; set; } = "";
+    /// <summary>
+    /// The one folder Apply/Restore may write to: a single real game tree (package.mft + Data + Patch, no links).
+    /// Empty = Apply is refused. See <see cref="ApplyTarget"/>.
+    /// </summary>
+    public string ApplyTargetDir { get; set; } = "";
     /// <summary>Last folder of replacement textures used in Uniform Studio.</summary>
     public string ReplacementDir { get; set; } = "";
     public string PythonExe { get; set; } = "python";

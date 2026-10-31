@@ -70,9 +70,10 @@ public sealed class ModListWindow : Window
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         foreach (var b in new[] { Btn("Apply all to the game…", Apply_Click), Btn("Restore stock game…", Restore_Click) })
         {
-            b.IsEnabled = ModApply.Enabled;
+            var problems = ModApply.Problems(_settings);
+            b.IsEnabled = problems.Count == 0;
             ToolTipService.SetShowOnDisabled(b, true);
-            if (!ModApply.Enabled) b.ToolTip = ModApply.DisabledReason;
+            b.ToolTip = problems.Count == 0 ? $"Writes to {_settings.ApplyTargetDir} (backed up first)." : string.Join("\n", problems);
             buttons.Children.Add(b);
         }
         buttons.Children.Add(Btn("Delete selected mod", Delete_Click));

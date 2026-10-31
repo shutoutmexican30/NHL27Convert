@@ -19,6 +19,35 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
   (9 GLBs, 1.98 m), NHL 27 crest now visible, team-coloured helmet/gloves; screenshot `docs\screenshots\2026-10-31-convert27.png`.
 - Desktop and repo HANDOFF copies were identical before this note.
 
+### Done 2026-10-31 (steps 1–2 of the agreed order)
+
+1. **Repo fixed.** `*.app` removed from `.gitignore` (the app project is now tracked, 25 files), `/run/` ignored. Commits
+   `bba6e8b` (app project + ignore fix + Uniform Studio nav entry removed), `17eab66` (10/29 session work, Apply disabled),
+   `f486874` (docs). Not pushed.
+2. **Apply made safe** (`src\Suite.Core\ApplyTarget.cs`, `src\Suite.Convert27\ModApply.cs`):
+   - Writes only to `settings.ApplyTargetDir` (empty by default → Apply/Restore refuse with the reason). Never the read view.
+   - The target must be one real game folder: `package.mft` + `Data\` + `Patch\`, no junctions/symlinks anywhere, TOC/CAS not
+     read-only and openable for writing, no `<target>-mods`, and none of `shadps4`, `nhl24`, `nhl24_new`, `nhl24pc` running
+     (the Worker itself only checks `shadps4`/`nhl24`, missing NHL24PC's `nhl24_new.exe`).
+   - Before every apply: suite backup of every TOC + every CAS length + TOC SHA-256 in
+     `%LOCALAPPDATA%\CenterIceModdingSuite\backups\<timestamp>\`; the first backup of a target is its stock baseline.
+   - Restore: Worker `restore`, then compare with the baseline; any difference is fixed from the suite backup and re-checked.
+   - FMT markers (`initfs_*.fmtbak`, `__FMTBackup\backup.bin`) are pre-created so FMT does not copy the 5 GB Patch folder into
+     the target.
+   - Buttons: toolbar Apply and the Mod list window's Apply/Restore are enabled only when the guard reports no problems; the
+     tooltip/dialog lists the problems otherwise.
+   - **Test on a full copy only** (`D:\CIMS-test\NHL24-merged` = `game\` + `game-UPDATE\Patch`, 38 GB; real game untouched),
+     tool `tools\ApplyTest`: guard refused the real `NHL24PC` folder, `NHL24PC\game` and the read view (links); accepted the
+     copy. Applied `arizona/adidas/home/sock_adidas_arizona_home_base_color` ← Utah twelve sock: 1 replacement, 2 references,
+     `cas_05.cas` +4,287 bytes, `Data\Gen4b\contentsb.toc` changed. Restore: Worker restored 2 files, verified identical to the
+     stock backup; full SHA-256 of all 125 files before vs after: **125/125 identical. PASS.**
+   - Slots no TOC references in 1.60 are refused by the Worker ("no TOC refers to its data"), e.g. Boston `home/jersey_*_color`
+     and `eight/sock_*_base_color`; the matcher should flag such slots (next step for the index/reader).
+   - **Open decision for the real game:** NHL24PC keeps the base in `game\` and the update in `game-UPDATE\`, so there is no
+     single real folder to apply to. Options: (a) point the emulator at one merged folder (like the old `CUSA37933`) and set
+     that as ApplyTargetDir; (b) teach the suite's own writer to handle the split layout. Until then Apply on the real game is
+     refused by design.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
