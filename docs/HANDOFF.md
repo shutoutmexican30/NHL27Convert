@@ -3,6 +3,22 @@
 Last updated: 2026-10-29. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Catch-up 2026-10-31 (read-only review, no code changed)
+
+- Last commit is still `c6b0568` (2026-10-29). Everything from "session 1/2" below (logo-shape matcher, team colours, Mod list +
+  Apply, replacement folder in Convert 27, Textures & logos page, numbers panel) is **uncommitted** in the working tree.
+- **Repo problem:** `.gitignore` line 427 `*.app` matches the `src\Suite.App` folder (core.ignorecase=true), so **no file of the
+  app project has ever been committed** (0 tracked files: shell, pages, TexturesPage, logo/icon/splash). Fix: add
+  `!src/Suite.App/` (or remove `*.app`) and commit. `run\` (an old copy of the build output, 36 files) is also untracked and
+  should be ignored, not committed.
+- **Apply safety problem:** `ModApply` runs the Worker's `apply`/`restore` against the *read view*. In the view, `Data\Gen4b` and
+  `Patch\Gen4b` are junctions into the real game but `initfs`/`layout.toc`/`package.mft` are copies, so an apply would write CAS/TOC
+  changes into the game while the Worker's own state and the view's copies diverge. **Do not press Apply** until it targets the
+  real game folder (game closed, backup taken) or the suite's own writer replaces it.
+- Build: `dotnet build NhlSuite.sln` OK, 0 errors; tests 15/15 pass. App runs: Convert 27 shows the real NHL 24 meshes both sides
+  (9 GLBs, 1.98 m), NHL 27 crest now visible, team-coloured helmet/gloves; screenshot `docs\screenshots\2026-10-31-convert27.png`.
+- Desktop and repo HANDOFF copies were identical before this note.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
@@ -91,11 +107,76 @@ games; `data\texture_matches.json` (all matches with confidence, rule, manual fl
 - Save matches → `%APPDATA%\CenterIceModdingSuite\projects\convert27.json`; Add to mod list → `mods\<name>.json`
   (NHL24Kit plan shape: Slot, Source, Layers, Alpha; NHL 27 sources are decoded PNGs).
 - Viewer: WebView2 + three.js, one WebGL renderer, two scissored viewports sharing an orbit camera; left NHL 27 set, right NHL 24
-  result; Shaded / Flat texture / Fabric regions (alpha legend 64/127/191/255 vs 51/102/153/204) / Turntable. Updates live on
-  every row change. **Mannequin is a procedural placeholder** (cylindrical UVs, not the game mesh).
+  result; Shaded / Flat texture / Fabric regions (alpha legend 64/127/191/255 vs 51/102/153/204) / Turntable / Numbers panel.
+  Updates live on every row change. **No placeholder mannequin**: only the real NHL 24 meshes are drawn (if the GLBs fail the
+  viewport stays empty and the note says so).
+  - Jersey/pant/sock colour uses the plain `_color` art (crest and branding are baked into it for the viewer); the
+    `_base_color` map is sent separately as the fabric-region map so "Fabric regions" keeps working.
+  - Base slots get a **composited PNG** (plain `_color` RGB + `_base_color` alpha) written to
+    `%APPDATA%\CenterIceModdingSuite\images\composite\`, so a sponsor that only exists in the colour map (Utah's SME) is still
+    written and the fabric-region alpha survives.
+  - Helmet and gloves use the team's **NHL 27 palette** (`data\team_colors_27.tsv`, fallback `data\team_colors.tsv`), so
+    Arizona→Utah dresses in Utah black/blue instead of Arizona red/green. Skates stay near-black.
+  - Helmet sponsor (`helmetlogo_*_<n>_color`, e.g. meijer for Detroit) is drawn as two curved spherical caps high on the
+    left/right of the helmet shell, so it wraps instead of floating on a card.
+  - Numbers + name on the back: a **0.38 × 0.46 m** panel with the name above a two-digit number whose glyphs are copied from
+    the game's font atlas (so a replaced font shows). The name uses a bold system face until the atlas letter cells are mapped.
 
-## Uniform Studio page (built)
+Fixed 2026-10-29 (session 1): picking an NHL 27 folder from the proposal dropdown commits the folder path (WPF was pushing the
+`FolderProposal`'s ToString()); the right-side viewer re-pushes after an NHL 27 decode so it shows new art instead of stale
+stock; a dropped file updates the Source thumbnail; NHL 27 decodes are de-duplicated in-flight (no more .tmp.png race).
 
+## 2026-10-29 session 2 — matcher intelligence, viewer, apply
+
+**Matcher**
+- Numbered logo layers are no longer matched by name/index blindly. The branding **arrays are matched first** (the game reads
+  logos from the arrays, not the individual `_N_color` textures), each NHL 27 layer is **claimed at most once**, and the
+  individual `_N_color` rows copy their array layer's answer.
+- Inside an array layer: **logo shape** match first (32×32 alpha silhouette, mean absolute difference ≤ 24 — recolours still
+  match), then a **manufacturer/logo swap** by layer index only when exactly one layer is left over (that is the adidas →
+  Fanatics case; adidas is layer 2 and Fanatics is layer 2).
+- `Matcher.Propose` leaves numbered logo slots stock with the reason "logo layer: layer order differs between games" until the
+  shape pass fills them. `LogoMatcher` (new, `src\Suite.Convert27\LogoMatcher.cs`) does the silhouette comparison.
+- Picking a different NHL 24 folder **commits on selection** (WPF editable ComboBox previously waited for LostFocus, so the grid
+  looked like it ignored the new folder).
+
+**Mod list / Apply (new)**
+- Convert 27 toolbar: **Mod list…** opens `ModListWindow` (every saved mod, each slot → source, delete, apply, restore) and
+  **Apply…** writes the whole mod list.
+- `ModApply` builds `apply-plan.json` from `mods\*.json` and runs the **NHL24Kit worker** `apply`/`restore` through the read view
+  (`Worker.RunRawAsync` added; the read-only helpers still refuse writes). The runtime worker in
+  `%LOCALAPPDATA%\NHL24Kit\runtimes\…` only supports `list|refs|apply|restore|status` — no `update`/`dryrun`/`snapshot`.
+  **Not yet exercised against the real game.**
+
+**Replacement folder**
+- The Uniform Studio's one unique feature was folded into Convert 27: a **Replacement folder (DDS/PNG)** picker +
+  **Match from folder**, using the same name/role rules (exact 100%, same role 90%, same garment+role 70%; numbered layers
+  exact only).
+
+**Textures & logos page (new)**
+- `src\Suite.App\Pages\TexturesPage.xaml`: browse any folder of **either** game from the index, thumbnails, "Choose
+  replacement…" per slot, "Add replacements to mod list". Status/progress at the bottom. (Fixed a cross-thread crash: the
+  Worker's per-file progress callback now marshals to the UI thread.)
+
+**Viewer**
+- Real meshes only (placeholder mannequin removed); `viewer {"type":"meshes","count":9,"height":1.98,"width":1.24}` is logged
+  when three.js actually loads the GLBs, so a mesh-load failure is visible in `suite.log`.
+- Numbers panel (both sides' font atlas), curved helmet sponsor caps, team colours from the NHL 27 palette, name+number on the
+  back (see the bullets above).
+
+**Build gotcha (important)**
+- The app loads the viewer from **its own** `bin\Debug\net8.0-windows\viewer`, which is only refreshed when **Suite.App** builds.
+  Building only `Suite.Convert27` leaves the running app on a stale viewer — always `dotnet build NhlSuite.sln` after viewer edits.
+
+**Data added**
+- `data\team_colors_27.tsv` (NHL 27 stockteamcolorstable, 68 teams; index 22 = Utah Mammoth `1B1B1B 4F86BC`) and
+  `data\team_colors.tsv` (NHL 24, 67 teams). Both hand-editable; the 27 table wins.
+
+## Uniform Studio page (built, then retired)
+
+**Superseded by Convert 27** (session 2): the replacement-folder matching moved onto the Convert 27 page, so this page is no
+longer part of the workflow. It still compiles and the sidebar entry is still there; delete the nav entry when convenient.
+Kept for reference:
 The card-grid texture viewer from the user's spec (matching the earlier "NHL Kit Uniform Studio"):
 left panel with NHL 24 game-folder picker, team and uniform/set selectors (discovered from the index, nothing hard-coded),
 replacement-texture folder picker (DDS/PNG, recursive) and "also offer the matched NHL 27 uniform". Main area: a card per texture
@@ -176,13 +257,15 @@ Decided 07:41: Alumni (279) stays Arizona Coyotes Alumni; *_ARZL keys untouched 
 |---|---|
 | Shell, logo, splash, Home games panel, Settings/About | done |
 | AssetIndex (textures, both games) | done; NHL 24 sizes/formats/references pending own reader |
-| Convert 27 matcher (variant map, Match textures/team/all) | done |
-| Uniform Studio card grid | done (verification screenshots pending) |
-| Live 3D viewer | **real NHL 24 skater meshes on both sides** (LOD0, bind pose, 1.98 m); helmet/head toggles, camera presets, Export PNG |
+| Convert 27 matcher (variant map, Match textures/team/all) | done; logo layers by alpha shape + manufacturer swap |
+| Uniform Studio card grid | **retired** — its replacement-folder matching moved into Convert 27 (page still compiles, nav keeps it) |
+| Live 3D viewer | real NHL 24 skater meshes both sides; team colours (NHL 27 palette), helmet sponsor caps, numbers+name on the back, Numbers panel, camera presets, Export PNG |
+| Textures & logos browser | done (browse either game by folder, previews, replace, save to mod list) |
+| Mod list window + Apply/Restore | done, run through the NHL24Kit worker (stopgap); not yet exercised on the real game |
 | Path auto-detection | done |
 | Single-file EXE publish | not done yet |
-| Own PS4 reader/writer, Apply/Restore | not started |
-| Texture browser, Arizona→Mammoth, adidas→Fanatics | not started |
+| Own PS4 reader/writer | not started |
+| Arizona→Mammoth, adidas→Fanatics | texture side covered (team map + logo shape/index matching); roster side not started |
 | Rosters A–E | not started (data files ready) |
 | Mesh index / ports | not started |
 
@@ -221,14 +304,19 @@ the viewer loads them with three.js FBXLoader, both sides, real textures. Then r
 
 ## Next steps (priority order)
 
-1. Viewer polish: NHL 27 branding layers on base textures, helmet/glove/skate/head textures, material panel (Load colour
-   texture, UV checker, sheen, lighting), pants/sock variants. Known small bug: two simultaneous NHL 27 decodes of the same
-   texture race on the temp file (harmless, the other wins); add in-flight de-duplication in TextureImages.
-2. Single-file EXE publish; verify Uniform Studio behaviours with screenshots.
-3. Own PS4 TOC/bundle/RES reader → complete NHL 24 index; texture browser page.
-4. Own writer (Apply/Restore), incremental, verified byte for byte against the Worker.
-5. Arizona → Mammoth, adidas → Fanatics as index queries + batch rules.
-6. Rosters A–E.
+1. **Verify Apply/Restore on the real game** (back the game up first). The mod list + worker path is wired but has never been
+   run end to end; the runtime worker has no `dryrun`/`snapshot`, so verification means comparing game files before/after.
+2. **Viewer polish**: map the font atlas A–Z cells so the back name uses the real font; sleeve numbers; real helmet/glove/skate
+   textures (currently team colours); material panel (Load colour texture, UV checker, sheen, lighting); pants/sock variants
+   (`{fulltuck|notuck|lefttuck|righttuck}_{large|small}`, `{loose|tight}{long|short}` all exist, differing only in pose/fit).
+3. **Single-file EXE publish** (`dotnet publish -r win-x64 /p:PublishSingleFile=true`), verify it runs on a clean profile.
+4. **Own PS4 TOC/bundle/RES reader** → complete NHL 24 index (sizes, formats, chunk ids, every TOC/bundle/RES/duplicate
+   reference) so the writer stops depending on the Worker.
+5. **Own writer** (Apply/Restore), incremental, byte-for-byte against the Worker, all 15 in-game rules; replace `ModApply`'s
+   worker call with it.
+6. **Rosters A–E** (specs below; data files ready).
+7. Sponsors: expose the `helmetlogo_*` texture as its own matcher row, and flag colour-map-only sponsors (Utah SME) so nothing
+   looks silently missing.
 
 Keep this file and the Desktop copy in sync: `powershell -File tools\sync-handoff.ps1` (copies docs\HANDOFF.md to
-`<Desktop>\CIMS_HANDOFF.md`).
+`<Desktop>\CIMS_HANDOFF.md`). If script execution is blocked, `Copy-Item docs\HANDOFF.md <Desktop>\CIMS_HANDOFF.md -Force`.
