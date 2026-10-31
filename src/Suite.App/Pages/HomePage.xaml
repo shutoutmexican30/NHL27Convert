@@ -1,0 +1,69 @@
+<UserControl x:Class="Suite.App.Pages.HomePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#e6ebf2">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32,26" MaxWidth="1180" HorizontalAlignment="Left">
+      <!-- Hero -->
+      <Border CornerRadius="10" Padding="26,22">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#0b1f3a" Offset="0" /><GradientStop Color="#13305a" Offset="0.6" /><GradientStop Color="#0d1726" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <DockPanel>
+          <Image Source="/CenterIceModdingSuite;component/Assets/cims-logo-256.png" Width="150" Height="150" DockPanel.Dock="Left" Margin="0,0,26,0" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="CENTER ICE" Foreground="#9fb4cf" FontSize="14" />
+            <TextBlock Text="Modding Suite" FontSize="36" FontWeight="SemiBold" />
+            <TextBlock Text="Bring NHL 27 uniforms, rosters and art into NHL 24 on PS4 (shadPS4 / NHL24PC). Everything is hand-editable; nothing is written to a game until you press Apply."
+                       Foreground="#b9c8d8" FontSize="14" TextWrapping="Wrap" Margin="0,6,0,14" MaxWidth="760" HorizontalAlignment="Left" />
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Supports:" Foreground="#9fb4cf" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <Border Style="{StaticResource Chip}" Background="#1d3d6b"><TextBlock Text="NHL 27 (PS5) · source" /></Border>
+              <Border Style="{StaticResource Chip}" Background="#c8102e"><TextBlock Text="NHL 24 (PS4) · target" /></Border>
+            </StackPanel>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- Games -->
+      <TextBlock Text="Games" FontSize="18" FontWeight="SemiBold" Margin="0,26,0,10" />
+      <ItemsControl x:Name="Games">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Background="#1b2230" BorderBrush="#273246" BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="0,0,0,10">
+              <DockPanel>
+                <Border DockPanel.Dock="Right" Style="{StaticResource Chip}" Background="{Binding AccessBrush}" VerticalAlignment="Top">
+                  <TextBlock Text="{Binding AccessText}" FontWeight="SemiBold" />
+                </Border>
+                <StackPanel>
+                  <TextBlock FontSize="16" FontWeight="SemiBold"><Run Text="{Binding Title, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding Platform, Mode=OneWay}" Foreground="#9fb4cf" /></TextBlock>
+                  <TextBlock Text="{Binding Path}" Foreground="#aab4c3" Margin="0,4,0,0" TextWrapping="Wrap" FontFamily="Consolas" />
+                  <TextBlock Text="{Binding Status}" Foreground="#8c97a8" Margin="0,4,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Start -->
+      <TextBlock Text="Start" FontSize="18" FontWeight="SemiBold" Margin="0,16,0,10" />
+      <WrapPanel>
+        <Button Style="{StaticResource Action}" Content="Open Convert 27 (matcher + viewer)" Click="Convert_Click" />
+        <Button Style="{StaticResource Action}" Content="Open mods folder" Click="Mods_Click" />
+        <Button Style="{StaticResource Action}" Content="Edit settings" Click="Settings_Click" />
+      </WrapPanel>
+
+      <TextBlock Text="Status" FontSize="18" FontWeight="SemiBold" Margin="0,24,0,10" />
+      <TextBlock Foreground="#aab4c3" TextWrapping="Wrap" LineHeight="20" MaxWidth="1000" HorizontalAlignment="Left">
+        <Run Text="Ready: " Foreground="#5fc97a" FontWeight="SemiBold" />
+        <Run Text="Convert 27 matcher (proposals with confidence, manual edits, drag-and-drop, mod list) and the live side-by-side GPU uniform viewer." />
+        <LineBreak />
+        <Run Text="Next: " Foreground="#f0c04c" FontWeight="SemiBold" />
+        <Run Text="the suite's own NHL 24 writer (append to CAS, repoint TOC/bundle/RES/SHA1, kept list, restore), then Teams &amp; roster. Until then NHL 24 reads go through the built NHL24Kit Worker as a stopgap, via an isolated read view so FMT never writes into the game folder." />
+      </TextBlock>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

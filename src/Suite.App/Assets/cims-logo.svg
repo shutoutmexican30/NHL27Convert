@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Center Ice Modding Suite mark: a faceoff circle with hash marks, crossed sticks and a puck. Original artwork. -->
+  <defs>
+    <radialGradient id="ice" cx="45%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d6e6f3"/>
+    </radialGradient>
+    <linearGradient id="stick" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f7fb"/>
+      <stop offset="1" stop-color="#b9c8d8"/>
+    </linearGradient>
+    <linearGradient id="puck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2f36"/>
+      <stop offset="1" stop-color="#0c0e12"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ice disc -->
+  <circle cx="128" cy="128" r="120" fill="url(#ice)"/>
+  <!-- faceoff circle -->
+  <circle cx="128" cy="128" r="100" fill="none" stroke="#c8102e" stroke-width="12"/>
+  <!-- hash marks on the circle -->
+  <g stroke="#c8102e" stroke-width="9" stroke-linecap="butt">
+    <line x1="104" y1="24" x2="104" y2="12"/>  <line x1="152" y1="24" x2="152" y2="12"/>
+    <line x1="104" y1="232" x2="104" y2="244"/> <line x1="152" y1="232" x2="152" y2="244"/>
+  </g>
+  <!-- navy center -->
+  <circle cx="128" cy="128" r="84" fill="#0b1f3a"/>
+  <circle cx="128" cy="128" r="84" fill="none" stroke="#1d3d6b" stroke-width="3"/>
+
+  <!-- crossed sticks: shaft + blade -->
+  <g stroke-linejoin="round">
+    <g transform="rotate(-38 128 128)">
+      <rect x="121" y="46" width="14" height="136" rx="5" fill="url(#stick)"/>
+      <path d="M121 172 h14 v16 q0 8 8 9 h30 q9 0 9 7 q0 8 -10 8 h-38 q-13 0 -13 -14 z" fill="url(#stick)"/>
+      <rect x="121" y="58" width="14" height="22" fill="#c8102e"/>
+    </g>
+    <g transform="rotate(38 128 128)">
+      <rect x="121" y="46" width="14" height="136" rx="5" fill="url(#stick)"/>
+      <path d="M135 172 h-14 v16 q0 8 -8 9 h-30 q-9 0 -9 7 q0 8 10 8 h38 q13 0 13 -14 z" fill="url(#stick)"/>
+      <rect x="121" y="58" width="14" height="22" fill="#c8102e"/>
+    </g>
+  </g>
+
+  <!-- puck at center ice -->
+  <ellipse cx="128" cy="132" rx="30" ry="11" fill="url(#puck)"/>
+  <rect x="98" y="120" width="60" height="12" fill="url(#puck)"/>
+  <ellipse cx="128" cy="120" rx="30" ry="11" fill="#30353d"/>
+  <ellipse cx="128" cy="120" rx="22" ry="7" fill="none" stroke="#4a515c" stroke-width="2"/>
+</svg>

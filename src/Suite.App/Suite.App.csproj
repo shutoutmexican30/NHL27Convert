@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\Suite.Convert27\Suite.Convert27.csproj" />
+    <ProjectReference Include="..\Suite.Textures\Suite.Textures.csproj" />
+    <ProjectReference Include="..\Suite.Rosters\Suite.Rosters.csproj" />
+    <ProjectReference Include="..\Suite.Scorebug\Suite.Scorebug.csproj" />
+    <ProjectReference Include="..\Suite.Gameplay\Suite.Gameplay.csproj" />
+    <ProjectReference Include="..\Suite.Sounds\Suite.Sounds.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>CenterIceModdingSuite</AssemblyName>
+    <RootNamespace>Suite.App</RootNamespace>
+    <Product>Center Ice Modding Suite</Product>
+    <AssemblyTitle>Center Ice Modding Suite (CIMS)</AssemblyTitle>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\cims.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\cims-logo-*.png" />
+    <Resource Include="Assets\cims.ico" />
+    <SplashScreen Include="Assets\splash.png" />
+    <None Include="Assets\cims-logo.svg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\**" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

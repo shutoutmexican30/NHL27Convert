@@ -1,0 +1,40 @@
+﻿<Application x:Class="Suite.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <Style x:Key="NavButton" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="#c9d3e0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="B" Background="Transparent" Padding="16,9" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="B" Property="Background" Value="#16253d" /></Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="B" Property="Background" Value="#1a2f50" />
+                <Setter TargetName="B" Property="BorderBrush" Value="#c8102e" />
+                <Setter Property="Foreground" Value="White" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="Chip" TargetType="Border">
+      <Setter Property="CornerRadius" Value="11" />
+      <Setter Property="Padding" Value="9,3" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+
+    <Style TargetType="Button" x:Key="Action">
+      <Setter Property="Background" Value="#243042" /><Setter Property="Foreground" Value="#e6ebf2" />
+      <Setter Property="BorderBrush" Value="#38465c" /><Setter Property="Padding" Value="12,5" /><Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+  </Application.Resources>
+</Application>

@@ -424,7 +424,7 @@ test-results/
 
 # Mac bundle stuff
 *.dmg
-*.app
+# ("*.app" removed: on Windows it matched the src/Suite.App project folder)
 
 # content below from: https://github.com/github/gitignore/blob/master/Global/macOS.gitignore
 # General
@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Center Ice Modding Suite
+/run/
