@@ -164,6 +164,21 @@ player, team, jersey number and position are identical across all 5 dbs (and the
 differ. Players a snapshot has that nhl_game lacks are left alone unless the API rosters them; then they are added to every db
 lacking them, within table max counts (layout guard applies).
 
+### Roster sync, read-only planning (built 2026-11-01)
+
+- `src\Suite.Rosters\NhlApi.cs`: standings/now + roster/<abbrev>/current, cached per day in
+  `%LOCALAPPDATA%\CenterIceModdingSuite\nhlapi\<date>\`, 1 s pacing, 429 → Retry-After / exponential backoff.
+- `data\nhlapi_teams.tsv` (hand-editable): API abbrev → NHL 24 team index (UTA → 22, LAK → 13, SJS → 25, TBL → 26, VGK → 30).
+- `RosterSync`: bio decoding (year since 1900, 0-based month/day; position 0 C, 1 LW, 2 RW, 3 D, 4 G; `game_id` is EA's id,
+  not the NHL id), player matching (birth date + last name, then birth date + full name, then unique full name), per-db plan
+  (Move, Number, Position, Release to FA, NotInDb, Same). `RosterCsv` reads the bio table from Worker CSV dumps (stopgap).
+- `tools\SyncPlan`: plans all 5 dumps against today's API. 2026-11-01: 32 teams, 803 players; nhl_game moves 503, numbers 296,
+  positions 72, releases 240, not in db 48, already right 225 (the other dbs: 494–509 moves, 257–341 releases, 75–79 not in
+  db); 721 API players matched in every db, 38 in some, 44 in none. Report in `%LOCALAPPDATA%\CenterIceModdingSuite\sync-plan.txt`.
+- To do before any write: send players in a club's system (API `prospects/<abbrev>`) to its AHL affiliate instead of free
+  agency; new players (NotInDb) from NHL 27 rows or templates (spec E step 5); portraits (download, crop, PortraitAssign);
+  the suite's T3DB writer + layout guard; saved-roster container (package-save.py); diff UI and the one button.
+
 ## Center ice importer (TheFaceoff.net) — queued
 
 User wants it, working like NHL27Kit's Faceoff window (feature reference only; our own code). Checked 2026-11-01:
