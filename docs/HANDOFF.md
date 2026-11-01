@@ -94,6 +94,19 @@ step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
   NHL 24 cannot get new texture folders (no assets), so extra NHL 27 kits must replace existing NHL 24 sets (via the variant
   map / jersey rows). Arizona exists only in NHL 24 and Utah only in NHL 27.
 
+### End Plastic Waste lock (2026-11-01, user rule)
+
+Every End Plastic Waste layer on every team's jersey is drawn as the tag on the very back hem. Layer placement is fixed per
+layer, so swapping images between layers moves the image to the other layer's spot. Implemented: role `epw_tag`, placement
+"back hem tag" (recognised by shape, the same image league-wide); `SlotRoles.EnforceEpwLock` resets any link (automatic or
+manual) that puts a non-tag image into a tag layer or a tag into another layer; the Slot map window locks the tag layer's
+role and refuses such picks with a message; `tests\Suite.Tests\EpwLockTests.cs` checks every possible link.
+
+Placement of the other layers: not found yet. The branding array is only a chunk referenced by three bundles; the per-layer
+placement must sit in the jersey's material/shader parameters (candidates: MeshVariationDatabase, ObjectBlueprint,
+SurfaceShaderPreset/AppearanceShaderPreset EBX of the jersey mesh). Next: EBX-dump those for one jersey and look for per-layer
+transforms. Editing placements would mean writing EBX, which the writer does not do yet; not attempted.
+
 ### Role-based slot map (built 2026-11-01)
 
 - `src\Suite.Convert27\SlotRoles.cs`: labels each branding layer (jersey 0–5, pants 0–2) as crest, shoulder, brand, shield,

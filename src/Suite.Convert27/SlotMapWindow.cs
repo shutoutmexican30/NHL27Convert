@@ -59,8 +59,19 @@ public sealed class SlotMapWindow : Window
             var label24 = e.Layers24.FirstOrDefault(l => l.Layer == link.Nhl24);
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
             row.Children.Add(Thumb(png24(link.Nhl24)));
-            row.Children.Add(new TextBlock { Text = $"NHL 24 layer {link.Nhl24}", Width = 95, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) });
-            var role = new ComboBox { ItemsSource = SlotRoles.Roles, SelectedItem = label24?.Role, Width = 95, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(new TextBlock
+            {
+                Text = $"NHL 24 layer {link.Nhl24}" + (label24?.Placement is { } place ? $"\n{place}" : ""),
+                Width = 110, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0),
+            });
+            bool isTag = label24?.Role == SlotRoles.EpwRole;
+            var role = new ComboBox
+            {
+                ItemsSource = SlotRoles.Roles, SelectedItem = label24?.Role, Width = 95, VerticalAlignment = VerticalAlignment.Center,
+                IsEnabled = !isTag, // End Plastic Waste is always the back hem tag on every jersey
+                ToolTip = isTag ? "End Plastic Waste: drawn as the tag on the very back hem of every jersey. Locked." : null,
+            };
+            ToolTipService.SetShowOnDisabled(role, true);
             role.SelectionChanged += (_, _) =>
             {
                 if (label24 is null) return;
@@ -71,9 +82,21 @@ public sealed class SlotMapWindow : Window
             var pick = new ComboBox { ItemsSource = options27, Width = 180, VerticalAlignment = VerticalAlignment.Center };
             pick.SelectedIndex = link.Nhl27 is { } n ? 1 + e.Layers27.OrderBy(l => l.Layer).ToList().FindIndex(l => l.Layer == n) : 0;
             var thumb27 = Thumb(link.Nhl27 is { } m ? png27(m) : null);
+            var previous = pick.SelectedIndex;
             pick.SelectionChanged += (_, _) =>
             {
+                var before = link.Nhl27;
                 link.Nhl27 = pick.SelectedIndex <= 0 ? null : e.Layers27.OrderBy(l => l.Layer).ElementAt(pick.SelectedIndex - 1).Layer;
+                if (SlotRoles.EnforceEpwLock(e) > 0)
+                {
+                    MessageBox.Show(this, "The End Plastic Waste layer is drawn as the tag on the very back hem of the jersey. " +
+                        "Only an End Plastic Waste (back tag) image can go there, and it cannot go into any other layer.",
+                        "Slot map", MessageBoxButton.OK, MessageBoxImage.Information);
+                    link.Nhl27 = before;
+                    pick.SelectedIndex = previous;
+                    return;
+                }
+                previous = pick.SelectedIndex;
                 link.Manual = true;
                 thumb27.Child = Image(link.Nhl27 is { } k ? png27(k) : null);
             };

@@ -41,7 +41,7 @@ public class SlotRolesTests
 
         var a = SlotRoles.Label(stl24);
         var b = SlotRoles.Label(stl27);
-        Assert.Equal("crest,shield,brand,patch,sponsor,shield", Roles(a));
+        Assert.Equal("crest,shield,brand,epw_tag,sponsor,shield", Roles(a));
         Assert.Equal("adidas", a[2].Detail);
         Assert.Equal("fanatics", b.Single(l => l.Role == "brand").Detail);
         var (links, noSlot) = SlotRoles.Map(a, b);
@@ -52,7 +52,7 @@ public class SlotRolesTests
 
         var c = SlotRoles.Label(ari24);
         var d = SlotRoles.Label(uta27);
-        Assert.Equal("crest,shoulder,shoulder,brand,shield,patch", Roles(c));
+        Assert.Equal("crest,shoulder,shoulder,brand,shield,epw_tag", Roles(c));
         var (l2, _) = SlotRoles.Map(c, d);
         Assert.Equal(0, l2.Single(l => l.Nhl24 == 0).Nhl27);        // coyote crest → mammoth crest
         Assert.Equal(3, l2.Single(l => l.Nhl24 == 3).Nhl27);        // adidas → Fanatics

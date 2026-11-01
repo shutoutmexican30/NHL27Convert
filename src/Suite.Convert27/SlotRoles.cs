@@ -4,13 +4,15 @@ using Suite.Core;
 
 namespace Suite.Convert27;
 
-/// <summary>What one branding-array layer is: crest, shoulder, brand (adidas/Fanatics), shield, patch (EPW), sponsor or blank.</summary>
+/// <summary>What one branding-array layer is: crest, shoulder, brand (adidas/Fanatics), shield, epw_tag, sponsor or blank.</summary>
 public sealed class LayerLabel
 {
     [JsonPropertyName("layer")] public int Layer { get; set; }
     [JsonPropertyName("role")] public string Role { get; set; } = "";
     /// <summary>Which logo, when it is a league-wide one (adidas, fanatics, epw...).</summary>
     [JsonPropertyName("detail")] public string? Detail { get; set; }
+    /// <summary>Where the game draws this layer on the jersey, when known (e.g. "back hem tag").</summary>
+    [JsonPropertyName("placement")] public string? Placement { get; set; }
     /// <summary>Set by hand; automatic labelling never changes it.</summary>
     [JsonPropertyName("manual")] public bool Manual { get; set; }
 }
@@ -47,7 +49,14 @@ public sealed class SlotMapEntry
 /// </summary>
 public static class SlotRoles
 {
-    public static readonly string[] Roles = ["crest", "shoulder", "brand", "shield", "patch", "sponsor", "blank"];
+    public static readonly string[] Roles = ["crest", "shoulder", "brand", "shield", "epw_tag", "sponsor", "blank"];
+
+    /// <summary>
+    /// Global rule (user, 2026-11-01): every End Plastic Waste layer, on every team's jersey, is drawn as the small tag on
+    /// the very back hem. Placement is fixed per layer, so only an End Plastic Waste (back tag) image may go into it.
+    /// </summary>
+    public const string EpwRole = "epw_tag";
+    public const string EpwPlacement = "back hem tag";
 
     static Dictionary<string, double[]>? _refs;
 
@@ -74,6 +83,11 @@ public static class SlotRoles
             if (s is null || IsBlank(s)) { labels.Add(new LayerLabel { Layer = layer, Role = "blank" }); continue; }
             var known = Refs().Select(r => (r.Key, d: LogoMatcher.Difference(s, r.Value))).Where(r => r.d <= LogoMatcher.AcceptMad)
                 .OrderBy(r => r.d).Select(r => r.Key).FirstOrDefault();
+            if (known == "patch_epw")
+            {
+                labels.Add(new LayerLabel { Layer = layer, Role = EpwRole, Detail = "End Plastic Waste", Placement = EpwPlacement });
+                continue;
+            }
             if (known is not null)
             {
                 var role = known.Split('_')[0];
@@ -92,6 +106,29 @@ public static class SlotRoles
                     a.Role = b.Role = "shoulder";
         foreach (var l in labels.Where(l => l.Role == "")) l.Role = "sponsor";
         return labels;
+    }
+
+    /// <summary>
+    /// The End Plastic Waste lock: an NHL 24 back-tag layer only takes an NHL 27 back-tag layer, and no other NHL 24 layer
+    /// takes the back tag. Any link that breaks this (automatic or hand-made) is reset to "keep NHL 24". Returns the count reset.
+    /// </summary>
+    public static int EnforceEpwLock(SlotMapEntry entry)
+    {
+        int reset = 0;
+        foreach (var link in entry.Links)
+        {
+            if (link.Nhl27 is not { } src) continue;
+            bool target24IsTag = entry.Layers24.Any(l => l.Layer == link.Nhl24 && l.Role == EpwRole);
+            bool source27IsTag = entry.Layers27.Any(l => l.Layer == src && l.Role == EpwRole);
+            if (target24IsTag != source27IsTag)
+            {
+                SuiteLog.Write($"slot map: refused NHL 27 layer {src} -> NHL 24 layer {link.Nhl24} in {entry.Folder24} {entry.Garment} (End Plastic Waste back tag must stay a back tag)");
+                link.Nhl27 = null;
+                reset++;
+            }
+        }
+        foreach (var l in entry.Links.Where(l => entry.Layers24.Any(x => x.Layer == l.Nhl24 && x.Role == EpwRole))) l.Role = EpwRole;
+        return reset;
     }
 
     /// <summary>Opaque single-colour placeholders (the grey squares) and fully transparent layers carry no logo.</summary>
@@ -159,6 +196,7 @@ public sealed class SlotMapStore
         var (links, noSlot) = SlotRoles.Map(entry.Layers24, entry.Layers27);
         var manual = entry.Links.Where(l => l.Manual).ToDictionary(l => l.Nhl24);
         entry.Links = links.Select(l => manual.TryGetValue(l.Nhl24, out var m) ? m : l).ToList();
+        SlotRoles.EnforceEpwLock(entry);
         var linked = entry.Links.Where(l => l.Nhl27 is not null).Select(l => l.Nhl27!.Value).ToHashSet();
         entry.NoSlot27 = entry.Layers27.Where(l => l.Role != "blank" && !linked.Contains(l.Layer)).Select(l => l.Layer).ToList();
         return entry;
@@ -167,6 +205,7 @@ public sealed class SlotMapStore
     static List<LayerLabel> MergeLabels(List<LayerLabel> saved, List<LayerLabel> auto)
     {
         var manual = saved.Where(l => l.Manual).ToDictionary(l => l.Layer);
-        return auto.Select(a => manual.TryGetValue(a.Layer, out var m) ? m : a).ToList();
+        // A layer recognised as End Plastic Waste stays the back tag even if it was relabelled by hand.
+        return auto.Select(a => a.Role != SlotRoles.EpwRole && manual.TryGetValue(a.Layer, out var m) ? m : a).ToList();
     }
 }
