@@ -197,6 +197,14 @@ lacking them, within table max counts (layout guard applies).
 - Fanatics mark confirmed in the collar spot (e.g. Utah 22_3, Boston 2_0). The jersey_cm is a full colour map with crest,
   stripes and branding baked in (legacy template layout, different from NHL 24's UVs): converting needs a UV remap legacy →
   NHL 24, using NHL 27's matching kits as the guide. Next: work out that remap, then add "Legacy uniforms" as a source in Convert 27.
+- Legacy has no branding slots (logos baked into jersey_cm). When a legacy kit fills an NHL 24 set that has branding arrays,
+  those layers default to fully transparent ("baked in: clear the layer", per layer, switchable) so nothing is doubled; the
+  End Plastic Waste back tag stays stock (locked).
+- User 2026-11-01: follow the NHL24Kit texture rules for which maps to keep. So: legacy `jersey_sm` / `font_sm` (shine/spec)
+  are NOT written into NHL 24 `_base_coeff` (rule 10: keep base coeff stock; foreign coeffs turned gameplay jerseys black);
+  `_base_color` keeps NHL 24's fabric-region alpha (rule 11, Alpha auto); normals (`jersey_0_nm`, `font_nm`) may be used for
+  NHL 24 `_normal` / `_base_normal` after the same UV remap; number font colour from `font_cm` follows rule 15
+  (transparent over black); every mip regenerated (rule 2).
 
 ## Center ice importer (TheFaceoff.net) — queued
 
