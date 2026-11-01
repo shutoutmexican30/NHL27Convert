@@ -94,6 +94,30 @@ step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
   NHL 24 cannot get new texture folders (no assets), so extra NHL 27 kits must replace existing NHL 24 sets (via the variant
   map / jersey rows). Arizona exists only in NHL 24 and Utah only in NHL 27.
 
+### Role-based slot map (built 2026-11-01)
+
+- `src\Suite.Convert27\SlotRoles.cs`: labels each branding layer (jersey 0–5, pants 0–2) as crest, shoulder, brand, shield,
+  patch, sponsor or blank. League-wide logos by 32×32 alpha silhouette against `data\logo_refs.json` (shield, adidas,
+  adidas stripes, Fanatics, End Plastic Waste; same logo = 0.0 apart, different logos ≥ 46, accept ≤ 24); blank = empty or
+  single-colour placeholder; layer 0 = crest; repeated image = shoulder pair; rest = sponsor/wordmark. Map = role to role,
+  k-th to k-th, at 100%; brand adidas → Fanatics; NHL 24 layers without a counterpart stay stock; NHL 27 layers without a
+  slot are listed (`noSlot27`).
+- Stored per (NHL 24 set, NHL 27 set, garment) in `%APPDATA%\CenterIceModdingSuite\data\slot_map.json`; labels and links
+  edited by hand are marked manual and kept on re-match.
+- Matcher: new pass 0 in `MatchLogoShapes` uses the slot map first (confidence 100%, reason lists every link); the old shape
+  and index passes only fill what is left.
+- UI: Convert 27 → "Slot map…" window: per garment, every NHL 24 layer with thumbnail, role (editable), the NHL 27 layer
+  that fills it (editable, or "keep NHL 24") with thumbnail, and the NHL 27 layers with no NHL 24 slot. "Save and re-match".
+- Verified on real layers (`tests\Suite.Tests\SlotRolesTests.cs`, runs where the decoded images exist): St. Louis NHL 24 home =
+  crest, shield, brand(adidas), patch, sponsor, shield; NHL 27 Fanatics found; adidas→Fanatics, shield→NHL 27 shield (layer 3),
+  EPW stays stock, NHL 27's second Stifel = no slot. Arizona home = crest, shoulder, shoulder, brand, shield, patch → Utah
+  crest→crest, brand→Fanatics, shield→shield; Utah's SME sponsor has no automatic slot (NHL 24 layer 5 is the EPW patch);
+  move it there by hand in the Slot map if wanted.
+- Variant map format 2 (`tools\make_variant_map.py`): `extraKits` per team = NHL 27 adidas sets with no NHL 24 folder (besides
+  the default home/away), each with `replaces24` = suggested old NHL 24 adidas alternate (never home/away/retro, sets NHL 27
+  still ships last, each used once). Shown in the matcher's variant line; nothing is applied from it yet. User copies of
+  format 1 are backed up as `variant_map.json.before-format2` and replaced.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.

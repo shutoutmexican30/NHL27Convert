@@ -18,5 +18,6 @@
   <ItemGroup>
     <None Include="viewer\**" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\tools\nhl27_bridge.py" Link="tools\nhl27_bridge.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\logo_refs.json" Link="data\logo_refs.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

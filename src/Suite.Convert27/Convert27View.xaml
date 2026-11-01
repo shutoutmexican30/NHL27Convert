@@ -72,6 +72,7 @@
         </WrapPanel>
         <DockPanel Margin="0,8,0,0">
           <Button DockPanel.Dock="Right" Content="Edit variant map" Click="EditVariants_Click" ToolTip="data\variant_map.json: default home/away variant per team in both games (hand-editable)" />
+          <Button DockPanel.Dock="Right" Content="Slot map…" Click="SlotMap_Click" Margin="0,0,6,0" ToolTip="Branding layers by role (crest, shoulder, brand, shield, patch, sponsor) in both games, and which NHL 27 layer fills each NHL 24 layer. Editable." />
           <TextBlock Text="{Binding VariantInfo}" Foreground="#9fb4cf" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
         </DockPanel>
       </StackPanel>

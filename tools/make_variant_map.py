@@ -49,6 +49,23 @@ def side(csv_dir, folders):
     return out
 
 
+def extra_kits(team, folders24, folders27):
+    """NHL 27 adidas sets the team has and NHL 24 has no folder for, with a suggested NHL 24 set to replace."""
+    t24, t27 = team["nhl24"], team["nhl27"]
+    have24 = sorted(f.split("/")[2] for f in folders24 if f.startswith(t24["folder"] + "/adidas/"))
+    have27 = sorted(f.split("/")[2] for f in folders27 if f.startswith(t27["folder"] + "/adidas/"))
+    defaults27 = {t27.get("home"), t27.get("away")}
+    extras = [s for s in have27 if s not in have24 and s not in defaults27]
+    order = {w: i for i, w in enumerate(NUMBERS)}
+    # Old alternates first: never NHL 24's own home/away, and sets NHL 27 still ships under the same name come last.
+    free = [s for s in have24 if s not in ("home", "away", t24.get("home"), t24.get("away"))]
+    free.sort(key=lambda s: (s in have27, order.get(s, 99)))
+    out = []
+    for s in sorted(extras, key=lambda s: order.get(s, 99)):
+        out.append({"nhl27": s, "variant27": order.get(s), "replaces24": free.pop(0) if free else None})
+    return out
+
+
 def main():
     n24_csv, n27_csv, f24, f27, out_path = sys.argv[1:6]
     folders24 = set(open(f24, encoding="utf-8").read().split())
@@ -58,14 +75,19 @@ def main():
     for idx in sorted(set(a) | set(b), key=int):
         if idx not in a or idx not in b:
             continue
-        teams.append({"index": int(idx), "name24": a[idx]["name"], "name27": b[idx]["name"],
-                      "nhl24": {k: v for k, v in a[idx].items() if k != "name"},
-                      "nhl27": {k: v for k, v in b[idx].items() if k != "name"}})
+        team = {"index": int(idx), "name24": a[idx]["name"], "name27": b[idx]["name"],
+                "nhl24": {k: v for k, v in a[idx].items() if k != "name"},
+                "nhl27": {k: v for k, v in b[idx].items() if k != "name"}}
+        team["extraKits"] = extra_kits(team, folders24, folders27)
+        teams.append(team)
     doc = {
-        "format": 1,
+        "format": 2,
         "comment": "Hand-editable. Default home (dark) / away (light) jersey variant per team, from stockteamjerseys "
                    "(isdefault=1, islightcolor). Folder = texture set folder (0 home, 1 away, n = number word). "
-                   "The Convert 27 matcher pairs NHL 24 home with NHL 27 home and away with away using this file.",
+                   "The Convert 27 matcher pairs NHL 24 home with NHL 27 home and away with away using this file. "
+                   "extraKits: NHL 27 adidas sets with no NHL 24 folder (besides the default home/away). NHL 24 cannot get new "
+                   "texture folders, so each can replace an existing NHL 24 set: 'replaces24' is a suggestion (an old adidas "
+                   "alternate, never home/away/retro); set it to null to skip. Nothing is applied from here.",
         "teams": teams,
     }
     with open(out_path, "w", encoding="utf-8") as f:

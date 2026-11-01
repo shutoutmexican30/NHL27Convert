@@ -1,6 +1,6 @@
 {
- "format": 1,
- "comment": "Hand-editable. Default home (dark) / away (light) jersey variant per team, from stockteamjerseys (isdefault=1, islightcolor). Folder = texture set folder (0 home, 1 away, n = number word). The Convert 27 matcher pairs NHL 24 home with NHL 27 home and away with away using this file.",
+ "format": 2,
+ "comment": "Hand-editable. Default home (dark) / away (light) jersey variant per team, from stockteamjerseys (isdefault=1, islightcolor). Folder = texture set folder (0 home, 1 away, n = number word). The Convert 27 matcher pairs NHL 24 home with NHL 27 home and away with away using this file. extraKits: NHL 27 adidas sets with no NHL 24 folder (besides the default home/away). NHL 24 cannot get new texture folders, so each can replace an existing NHL 24 set: 'replaces24' is a suggestion (an old adidas alternate, never home/away/retro); set it to null to skip. Nothing is applied from here.",
  "teams": [
   {
    "index": 1,
@@ -23,7 +23,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 2,
@@ -46,7 +53,29 @@
     "away": "fourteen",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "fifteen",
+     "variant27": 15,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 3,
@@ -69,7 +98,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 4,
@@ -92,7 +128,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 5,
@@ -115,7 +158,19 @@
     "away": "thirteen",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 6,
@@ -138,7 +193,24 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 7,
@@ -161,7 +233,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "colorado"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 8,
@@ -184,7 +268,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 9,
@@ -207,7 +303,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 10,
@@ -230,7 +338,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 11,
@@ -253,7 +373,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 12,
@@ -276,7 +408,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 13,
@@ -299,7 +438,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 14,
@@ -322,7 +468,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 15,
@@ -345,7 +503,8 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 16,
@@ -368,7 +527,8 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 17,
@@ -391,7 +551,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 18,
@@ -414,7 +581,8 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 19,
@@ -437,7 +605,24 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 20,
@@ -460,7 +645,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 21,
@@ -483,7 +675,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 22,
@@ -506,7 +705,19 @@
     "away": "thirteen",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 23,
@@ -529,7 +740,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 24,
@@ -552,7 +775,29 @@
     "away": "fifteen",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 25,
@@ -575,7 +820,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 26,
@@ -598,7 +855,19 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 27,
@@ -621,7 +890,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 28,
@@ -644,7 +920,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 29,
@@ -667,7 +950,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 30,
@@ -690,7 +980,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 31,
@@ -713,7 +1010,14 @@
     "away": "eleven",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "two"
+    }
+   ]
   },
   {
    "index": 32,
@@ -736,7 +1040,8 @@
     "away": "nine",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 33,
@@ -759,7 +1064,8 @@
     "home": "nine",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 34,
@@ -782,7 +1088,8 @@
     "home": "nine",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 35,
@@ -805,7 +1112,8 @@
     "away": "nine",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 36,
@@ -828,7 +1136,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 37,
@@ -851,7 +1160,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 38,
@@ -874,7 +1184,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 39,
@@ -897,7 +1208,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 40,
@@ -920,7 +1232,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 41,
@@ -943,7 +1256,34 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 42,
@@ -966,7 +1306,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 43,
@@ -989,7 +1330,29 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "colorado"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 44,
@@ -1012,7 +1375,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 45,
@@ -1035,7 +1399,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 46,
@@ -1058,7 +1423,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 47,
@@ -1081,7 +1447,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 48,
@@ -1104,7 +1471,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 49,
@@ -1127,7 +1495,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 50,
@@ -1150,7 +1519,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 51,
@@ -1173,7 +1543,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 52,
@@ -1196,7 +1567,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 53,
@@ -1219,7 +1591,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 54,
@@ -1242,7 +1615,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 55,
@@ -1265,7 +1639,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 56,
@@ -1288,7 +1663,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 57,
@@ -1311,7 +1687,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 58,
@@ -1334,7 +1711,29 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 59,
@@ -1357,7 +1756,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 60,
@@ -1380,7 +1780,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 61,
@@ -1403,7 +1820,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 62,
@@ -1426,7 +1844,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 63,
@@ -1449,7 +1868,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 64,
@@ -1472,7 +1908,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 65,
@@ -1495,7 +1932,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 66,
@@ -1518,7 +1956,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 67,
@@ -1541,7 +1980,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 68,
@@ -1564,7 +2004,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 69,
@@ -1587,7 +2028,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 70,
@@ -1610,7 +2052,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 71,
@@ -1633,7 +2076,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 72,
@@ -1656,7 +2100,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 73,
@@ -1679,7 +2140,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 74,
@@ -1702,7 +2164,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 75,
@@ -1725,7 +2188,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 76,
@@ -1748,7 +2212,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 77,
@@ -1771,7 +2236,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 78,
@@ -1794,7 +2260,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 79,
@@ -1817,7 +2284,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 80,
@@ -1840,7 +2308,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 81,
@@ -1863,7 +2332,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 82,
@@ -1886,7 +2356,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 83,
@@ -1909,7 +2380,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 84,
@@ -1932,7 +2404,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 85,
@@ -1955,7 +2428,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 86,
@@ -1978,7 +2452,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 87,
@@ -2001,7 +2476,8 @@
     "away": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 88,
@@ -2024,7 +2500,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 89,
@@ -2047,7 +2524,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 90,
@@ -2070,7 +2548,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 91,
@@ -2093,7 +2572,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 92,
@@ -2116,7 +2596,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 93,
@@ -2139,7 +2620,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 94,
@@ -2162,7 +2644,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 95,
@@ -2185,7 +2668,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 98,
@@ -2208,7 +2692,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 99,
@@ -2231,7 +2716,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 100,
@@ -2254,7 +2740,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 101,
@@ -2277,7 +2764,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 102,
@@ -2300,7 +2788,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 103,
@@ -2323,7 +2812,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 104,
@@ -2346,7 +2836,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 105,
@@ -2369,7 +2860,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 106,
@@ -2392,7 +2884,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 107,
@@ -2415,7 +2908,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 108,
@@ -2438,7 +2932,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 109,
@@ -2461,7 +2956,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 110,
@@ -2484,7 +2980,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 111,
@@ -2507,7 +3020,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 112,
@@ -2530,7 +3044,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 113,
@@ -2553,7 +3068,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 114,
@@ -2576,7 +3092,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 115,
@@ -2599,7 +3116,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 116,
@@ -2622,7 +3140,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 117,
@@ -2645,7 +3164,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 118,
@@ -2668,7 +3188,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 119,
@@ -2691,7 +3212,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 120,
@@ -2714,7 +3236,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 121,
@@ -2737,7 +3260,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 122,
@@ -2760,7 +3284,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 123,
@@ -2783,7 +3308,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 124,
@@ -2806,7 +3332,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 125,
@@ -2829,7 +3356,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 126,
@@ -2852,7 +3380,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 127,
@@ -2875,7 +3404,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 128,
@@ -2898,7 +3428,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 129,
@@ -2921,7 +3452,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 130,
@@ -2944,7 +3476,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 131,
@@ -2967,7 +3500,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 132,
@@ -2990,7 +3524,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 133,
@@ -3013,7 +3548,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 134,
@@ -3036,7 +3572,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 135,
@@ -3059,7 +3596,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 136,
@@ -3082,7 +3620,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 137,
@@ -3105,7 +3644,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 138,
@@ -3128,7 +3684,29 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 139,
@@ -3151,7 +3729,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 140,
@@ -3174,7 +3753,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 141,
@@ -3197,7 +3777,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 142,
@@ -3220,7 +3801,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 143,
@@ -3243,7 +3825,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 144,
@@ -3266,7 +3849,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 145,
@@ -3289,7 +3873,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 146,
@@ -3312,7 +3897,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 147,
@@ -3335,7 +3921,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 148,
@@ -3358,7 +3945,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 149,
@@ -3381,7 +3969,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 150,
@@ -3404,7 +3993,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 151,
@@ -3427,7 +4017,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 152,
@@ -3450,7 +4057,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 153,
@@ -3473,7 +4081,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 154,
@@ -3496,7 +4105,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 155,
@@ -3519,7 +4129,24 @@
     "home": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 156,
@@ -3542,7 +4169,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 157,
@@ -3565,7 +4193,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 158,
@@ -3588,7 +4217,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 162,
@@ -3611,7 +4241,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 163,
@@ -3634,7 +4265,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 164,
@@ -3657,7 +4289,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 165,
@@ -3680,7 +4313,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 166,
@@ -3703,7 +4337,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 167,
@@ -3726,7 +4361,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 168,
@@ -3749,7 +4385,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 169,
@@ -3772,7 +4409,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 170,
@@ -3795,7 +4433,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 171,
@@ -3818,7 +4457,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 172,
@@ -3841,7 +4481,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 173,
@@ -3864,7 +4505,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 174,
@@ -3887,7 +4529,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 175,
@@ -3910,7 +4553,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 176,
@@ -3933,7 +4577,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 177,
@@ -3956,7 +4601,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 178,
@@ -3979,7 +4625,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 179,
@@ -4002,7 +4649,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 180,
@@ -4025,7 +4673,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 181,
@@ -4048,7 +4697,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 182,
@@ -4071,7 +4721,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 183,
@@ -4094,7 +4745,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 184,
@@ -4117,7 +4769,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 185,
@@ -4140,7 +4793,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 186,
@@ -4163,7 +4817,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 187,
@@ -4186,7 +4841,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 188,
@@ -4209,7 +4865,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 189,
@@ -4232,7 +4889,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 190,
@@ -4255,7 +4913,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 191,
@@ -4278,7 +4937,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 192,
@@ -4301,7 +4961,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 193,
@@ -4324,7 +4985,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 194,
@@ -4347,7 +5009,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 195,
@@ -4370,7 +5033,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 196,
@@ -4393,7 +5057,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 197,
@@ -4416,7 +5081,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 198,
@@ -4439,7 +5105,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 199,
@@ -4462,7 +5129,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 200,
@@ -4485,7 +5153,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 201,
@@ -4508,7 +5177,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 202,
@@ -4531,7 +5201,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 203,
@@ -4554,7 +5225,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 204,
@@ -4577,7 +5249,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 206,
@@ -4600,7 +5273,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 207,
@@ -4623,7 +5297,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 208,
@@ -4646,7 +5321,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 209,
@@ -4669,7 +5345,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 210,
@@ -4692,7 +5369,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 211,
@@ -4715,7 +5393,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 212,
@@ -4738,7 +5417,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 213,
@@ -4761,7 +5441,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 214,
@@ -4784,7 +5465,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 215,
@@ -4807,7 +5489,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 216,
@@ -4830,7 +5513,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 217,
@@ -4853,7 +5537,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 218,
@@ -4876,7 +5561,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 219,
@@ -4899,7 +5585,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 220,
@@ -4922,7 +5609,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 221,
@@ -4945,7 +5633,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 222,
@@ -4968,7 +5657,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 223,
@@ -4991,7 +5681,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 224,
@@ -5014,7 +5705,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 225,
@@ -5037,7 +5729,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 226,
@@ -5060,7 +5753,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 227,
@@ -5083,7 +5777,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 228,
@@ -5106,7 +5801,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 229,
@@ -5129,7 +5825,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 230,
@@ -5152,7 +5849,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 231,
@@ -5175,7 +5873,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 232,
@@ -5198,7 +5897,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 233,
@@ -5221,7 +5921,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 234,
@@ -5244,7 +5945,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 235,
@@ -5267,7 +5969,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 236,
@@ -5290,7 +5993,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 237,
@@ -5313,7 +6017,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 238,
@@ -5336,7 +6041,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 239,
@@ -5359,7 +6065,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 240,
@@ -5382,7 +6089,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 241,
@@ -5405,7 +6113,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 242,
@@ -5428,7 +6137,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 243,
@@ -5451,7 +6161,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 244,
@@ -5474,7 +6185,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 245,
@@ -5497,7 +6209,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 246,
@@ -5520,7 +6233,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 247,
@@ -5543,7 +6257,8 @@
     "home": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 249,
@@ -5566,7 +6281,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 250,
@@ -5589,7 +6305,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 251,
@@ -5612,7 +6329,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 252,
@@ -5635,7 +6353,8 @@
     "away": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 253,
@@ -5658,7 +6377,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 254,
@@ -5681,7 +6401,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 255,
@@ -5704,7 +6425,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 256,
@@ -5727,7 +6449,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 257,
@@ -5750,7 +6473,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 258,
@@ -5773,7 +6497,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 259,
@@ -5796,7 +6521,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 260,
@@ -5819,7 +6545,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 261,
@@ -5842,7 +6569,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 263,
@@ -5865,7 +6593,8 @@
     "away": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 264,
@@ -5888,7 +6617,8 @@
     "away": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 265,
@@ -5911,7 +6641,8 @@
     "away": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 266,
@@ -5934,7 +6665,8 @@
     "away": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 267,
@@ -5957,7 +6689,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 270,
@@ -5980,7 +6713,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 271,
@@ -6003,7 +6737,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 272,
@@ -6026,7 +6761,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 278,
@@ -6049,7 +6785,19 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 279,
@@ -6072,7 +6820,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 280,
@@ -6095,7 +6860,39 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": "six"
+    },
+    {
+     "nhl27": "fifteen",
+     "variant27": 15,
+     "replaces24": "seven"
+    }
+   ]
   },
   {
    "index": 281,
@@ -6118,7 +6915,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 282,
@@ -6141,7 +6955,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 283,
@@ -6164,7 +6995,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 284,
@@ -6187,7 +7040,34 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 285,
@@ -6210,7 +7090,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "colorado"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 286,
@@ -6233,7 +7135,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 287,
@@ -6256,7 +7180,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentythree"
+    }
+   ]
   },
   {
    "index": 288,
@@ -6279,7 +7225,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 289,
@@ -6302,7 +7270,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 290,
@@ -6325,7 +7315,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 291,
@@ -6348,7 +7355,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 292,
@@ -6371,7 +7395,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentythree"
+    }
+   ]
   },
   {
    "index": 293,
@@ -6394,7 +7440,19 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 294,
@@ -6417,7 +7475,19 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    }
+   ]
   },
   {
    "index": 295,
@@ -6440,7 +7510,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 296,
@@ -6463,7 +7550,19 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 297,
@@ -6486,7 +7585,34 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 298,
@@ -6509,7 +7635,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 299,
@@ -6532,7 +7675,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "six"
+    }
+   ]
   },
   {
    "index": 300,
@@ -6555,7 +7715,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 301,
@@ -6578,7 +7760,39 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "fifteen",
+     "variant27": 15,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 302,
@@ -6601,7 +7815,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "five"
+    }
+   ]
   },
   {
    "index": 303,
@@ -6624,7 +7860,29 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": "twentytwo"
+    }
+   ]
   },
   {
    "index": 304,
@@ -6647,7 +7905,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 305,
@@ -6670,7 +7945,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 306,
@@ -6693,7 +7985,24 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "three"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "four"
+    }
+   ]
   },
   {
    "index": 307,
@@ -6716,7 +8025,24 @@
     "home": "four",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentythree"
+    }
+   ]
   },
   {
    "index": 308,
@@ -6739,7 +8065,8 @@
     "home": "four",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 309,
@@ -6762,7 +8089,29 @@
     "away": "three",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": "two"
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": "twentytwo"
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": "twentythree"
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 310,
@@ -6785,7 +8134,8 @@
     "home": "four",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 311,
@@ -6808,7 +8158,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 312,
@@ -6831,7 +8182,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 313,
@@ -6854,7 +8206,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 314,
@@ -6877,7 +8230,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 317,
@@ -6900,7 +8254,8 @@
     "away": "home",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 318,
@@ -6923,7 +8278,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 319,
@@ -6946,7 +8302,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 320,
@@ -6969,7 +8326,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 321,
@@ -6992,7 +8350,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 322,
@@ -7015,7 +8374,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 323,
@@ -7038,7 +8398,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 324,
@@ -7061,7 +8422,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 325,
@@ -7084,7 +8446,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 326,
@@ -7107,7 +8470,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 327,
@@ -7130,7 +8494,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 328,
@@ -7153,7 +8518,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 329,
@@ -7176,7 +8542,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 330,
@@ -7199,7 +8566,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 331,
@@ -7222,7 +8590,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 332,
@@ -7245,7 +8614,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 333,
@@ -7268,7 +8638,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 334,
@@ -7291,7 +8662,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 335,
@@ -7314,7 +8686,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 336,
@@ -7337,7 +8710,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 337,
@@ -7360,7 +8734,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 338,
@@ -7383,7 +8758,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 339,
@@ -7406,7 +8782,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 340,
@@ -7429,7 +8806,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 341,
@@ -7452,7 +8830,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 342,
@@ -7475,7 +8854,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 343,
@@ -7498,7 +8878,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 344,
@@ -7521,7 +8902,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 345,
@@ -7544,7 +8926,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 346,
@@ -7567,7 +8950,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 347,
@@ -7590,7 +8974,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 348,
@@ -7613,7 +8998,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 349,
@@ -7636,7 +9022,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 350,
@@ -7659,7 +9046,8 @@
     "home": "twentyone",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 351,
@@ -7682,7 +9070,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 352,
@@ -7705,7 +9094,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 353,
@@ -7728,7 +9118,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 354,
@@ -7751,7 +9142,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 355,
@@ -7774,7 +9166,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 356,
@@ -7797,7 +9190,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 357,
@@ -7820,7 +9214,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 358,
@@ -7843,7 +9238,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 359,
@@ -7866,7 +9262,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 360,
@@ -7889,7 +9286,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 361,
@@ -7912,7 +9310,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 362,
@@ -7935,7 +9334,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 363,
@@ -7958,7 +9358,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 364,
@@ -7981,7 +9382,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 365,
@@ -8004,7 +9406,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 366,
@@ -8027,7 +9430,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 367,
@@ -8050,7 +9454,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 368,
@@ -8073,7 +9478,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 369,
@@ -8096,7 +9502,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 370,
@@ -8119,7 +9526,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 371,
@@ -8142,7 +9550,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 372,
@@ -8165,7 +9574,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 373,
@@ -8188,7 +9598,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 374,
@@ -8211,7 +9622,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 375,
@@ -8234,7 +9646,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 376,
@@ -8257,7 +9670,8 @@
     "home": "eleven",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 381,
@@ -8280,7 +9694,49 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 382,
@@ -8303,7 +9759,39 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 383,
@@ -8326,7 +9814,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 384,
@@ -8349,7 +9838,49 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "four",
+     "variant27": 4,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 385,
@@ -8372,7 +9903,69 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "four",
+     "variant27": 4,
+     "replaces24": null
+    },
+    {
+     "nhl27": "five",
+     "variant27": 5,
+     "replaces24": null
+    },
+    {
+     "nhl27": "six",
+     "variant27": 6,
+     "replaces24": null
+    },
+    {
+     "nhl27": "seven",
+     "variant27": 7,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eight",
+     "variant27": 8,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 386,
@@ -8395,7 +9988,59 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "four",
+     "variant27": 4,
+     "replaces24": null
+    },
+    {
+     "nhl27": "five",
+     "variant27": 5,
+     "replaces24": null
+    },
+    {
+     "nhl27": "six",
+     "variant27": 6,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 387,
@@ -8418,7 +10063,34 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 388,
@@ -8441,7 +10113,84 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "three",
+     "variant27": 3,
+     "replaces24": null
+    },
+    {
+     "nhl27": "four",
+     "variant27": 4,
+     "replaces24": null
+    },
+    {
+     "nhl27": "five",
+     "variant27": 5,
+     "replaces24": null
+    },
+    {
+     "nhl27": "six",
+     "variant27": 6,
+     "replaces24": null
+    },
+    {
+     "nhl27": "seven",
+     "variant27": 7,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eight",
+     "variant27": 8,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    },
+    {
+     "nhl27": "fourteen",
+     "variant27": 14,
+     "replaces24": null
+    },
+    {
+     "nhl27": "fifteen",
+     "variant27": 15,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 389,
@@ -8464,7 +10213,44 @@
     "away": "away",
     "homeExists": true,
     "awayExists": true
-   }
+   },
+   "extraKits": [
+    {
+     "nhl27": "two",
+     "variant27": 2,
+     "replaces24": null
+    },
+    {
+     "nhl27": "ten",
+     "variant27": 10,
+     "replaces24": null
+    },
+    {
+     "nhl27": "eleven",
+     "variant27": 11,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twelve",
+     "variant27": 12,
+     "replaces24": null
+    },
+    {
+     "nhl27": "thirteen",
+     "variant27": 13,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentytwo",
+     "variant27": 22,
+     "replaces24": null
+    },
+    {
+     "nhl27": "twentythree",
+     "variant27": 23,
+     "replaces24": null
+    }
+   ]
   },
   {
    "index": 390,
@@ -8487,7 +10273,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 393,
@@ -8510,7 +10297,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 394,
@@ -8533,7 +10321,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 395,
@@ -8556,7 +10345,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 396,
@@ -8573,7 +10363,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 397,
@@ -8590,7 +10381,8 @@
     "homeVariant": 10,
     "home": "ten",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 398,
@@ -8613,7 +10405,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 399,
@@ -8636,7 +10429,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 600,
@@ -8659,7 +10453,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 601,
@@ -8682,7 +10477,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 602,
@@ -8705,7 +10501,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 603,
@@ -8728,7 +10525,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 604,
@@ -8751,7 +10549,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 605,
@@ -8774,7 +10573,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 606,
@@ -8797,7 +10597,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 607,
@@ -8820,7 +10621,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 608,
@@ -8843,7 +10645,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 609,
@@ -8866,7 +10669,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 610,
@@ -8889,7 +10693,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 611,
@@ -8912,7 +10717,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 612,
@@ -8935,7 +10741,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 613,
@@ -8958,7 +10765,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 614,
@@ -8981,7 +10789,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 615,
@@ -9004,7 +10813,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 616,
@@ -9027,7 +10837,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 617,
@@ -9050,7 +10861,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 618,
@@ -9073,7 +10885,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 619,
@@ -9096,7 +10909,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 620,
@@ -9119,7 +10933,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 621,
@@ -9142,7 +10957,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 622,
@@ -9165,7 +10981,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 623,
@@ -9188,7 +11005,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 624,
@@ -9211,7 +11029,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 625,
@@ -9234,7 +11053,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 626,
@@ -9257,7 +11077,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 627,
@@ -9280,7 +11101,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 628,
@@ -9303,7 +11125,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 629,
@@ -9326,7 +11149,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 630,
@@ -9349,7 +11173,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 631,
@@ -9372,7 +11197,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 632,
@@ -9395,7 +11221,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 633,
@@ -9418,7 +11245,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 634,
@@ -9441,7 +11269,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 635,
@@ -9464,7 +11293,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 636,
@@ -9487,7 +11317,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 637,
@@ -9510,7 +11341,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 638,
@@ -9533,7 +11365,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 639,
@@ -9556,7 +11389,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 640,
@@ -9579,7 +11413,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 641,
@@ -9602,7 +11437,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 642,
@@ -9625,7 +11461,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 643,
@@ -9648,7 +11485,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 644,
@@ -9671,7 +11509,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 645,
@@ -9694,7 +11533,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 646,
@@ -9717,7 +11557,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 647,
@@ -9740,7 +11581,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 648,
@@ -9763,7 +11605,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 649,
@@ -9786,7 +11629,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 650,
@@ -9809,7 +11653,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 651,
@@ -9832,7 +11677,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 652,
@@ -9855,7 +11701,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 653,
@@ -9878,7 +11725,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 654,
@@ -9901,7 +11749,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 655,
@@ -9924,7 +11773,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 656,
@@ -9947,7 +11797,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 657,
@@ -9970,7 +11821,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 658,
@@ -9993,7 +11845,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 659,
@@ -10016,7 +11869,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 660,
@@ -10039,7 +11893,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 661,
@@ -10062,7 +11917,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 662,
@@ -10085,7 +11941,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 663,
@@ -10108,7 +11965,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 664,
@@ -10131,7 +11989,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 665,
@@ -10154,7 +12013,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 666,
@@ -10177,7 +12037,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 667,
@@ -10200,7 +12061,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 668,
@@ -10223,7 +12085,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 669,
@@ -10246,7 +12109,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 670,
@@ -10269,7 +12133,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 671,
@@ -10292,7 +12157,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 672,
@@ -10315,7 +12181,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 673,
@@ -10338,7 +12205,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 674,
@@ -10361,7 +12229,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 675,
@@ -10384,7 +12253,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 676,
@@ -10407,7 +12277,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 677,
@@ -10430,7 +12301,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 678,
@@ -10453,7 +12325,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 679,
@@ -10476,7 +12349,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 680,
@@ -10499,7 +12373,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 681,
@@ -10522,7 +12397,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 682,
@@ -10545,7 +12421,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 683,
@@ -10568,7 +12445,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 684,
@@ -10591,7 +12469,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 685,
@@ -10614,7 +12493,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 686,
@@ -10637,7 +12517,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 687,
@@ -10660,7 +12541,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 688,
@@ -10683,7 +12565,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 689,
@@ -10706,7 +12589,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 690,
@@ -10729,7 +12613,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 691,
@@ -10752,7 +12637,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 692,
@@ -10775,7 +12661,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 693,
@@ -10798,7 +12685,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 694,
@@ -10821,7 +12709,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 695,
@@ -10844,7 +12733,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 696,
@@ -10867,7 +12757,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 697,
@@ -10890,7 +12781,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 698,
@@ -10913,7 +12805,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 699,
@@ -10936,7 +12829,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 700,
@@ -10959,7 +12853,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 701,
@@ -10982,7 +12877,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 702,
@@ -11005,7 +12901,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 703,
@@ -11028,7 +12925,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 704,
@@ -11051,7 +12949,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 705,
@@ -11074,7 +12973,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 706,
@@ -11097,7 +12997,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 707,
@@ -11120,7 +13021,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 708,
@@ -11143,7 +13045,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 709,
@@ -11166,7 +13069,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 710,
@@ -11189,7 +13093,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 711,
@@ -11212,7 +13117,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 712,
@@ -11235,7 +13141,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 713,
@@ -11258,7 +13165,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 714,
@@ -11281,7 +13189,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 715,
@@ -11304,7 +13213,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 716,
@@ -11327,7 +13237,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 717,
@@ -11350,7 +13261,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 718,
@@ -11373,7 +13285,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 719,
@@ -11396,7 +13309,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 720,
@@ -11419,7 +13333,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 882,
@@ -11436,7 +13351,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": true
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 883,
@@ -11453,7 +13369,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 884,
@@ -11470,7 +13387,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 885,
@@ -11487,7 +13405,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 886,
@@ -11504,7 +13423,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 887,
@@ -11521,7 +13441,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 888,
@@ -11538,7 +13459,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 889,
@@ -11555,7 +13477,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 890,
@@ -11572,7 +13495,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 891,
@@ -11589,7 +13513,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 892,
@@ -11606,7 +13531,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 893,
@@ -11623,7 +13549,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 894,
@@ -11640,7 +13567,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 895,
@@ -11657,7 +13585,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 896,
@@ -11674,7 +13603,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 897,
@@ -11691,7 +13621,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 898,
@@ -11708,7 +13639,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 899,
@@ -11725,7 +13657,8 @@
     "homeVariant": 1,
     "home": "away",
     "homeExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 990,
@@ -11748,7 +13681,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 991,
@@ -11771,7 +13705,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 992,
@@ -11794,7 +13729,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 993,
@@ -11817,7 +13753,8 @@
     "home": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 995,
@@ -11840,7 +13777,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   },
   {
    "index": 996,
@@ -11863,7 +13801,8 @@
     "away": "away",
     "homeExists": false,
     "awayExists": false
-   }
+   },
+   "extraKits": []
   }
  ]
 }

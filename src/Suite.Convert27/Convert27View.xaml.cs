@@ -159,6 +159,13 @@ public partial class Convert27View : UserControl
     }
 
     /// <summary>Writes the whole mod list into the game through the NHL24Kit worker.</summary>
+    void SlotMap_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new SlotMapWindow(_vm.SlotMaps, _vm.SlotMapItems()) { Owner = Window.GetWindow(this) };
+        w.ShowDialog();
+        if (w.Changed) _vm.Repropose(keepManual: true);
+    }
+
     async void Apply_Click(object sender, RoutedEventArgs e)
     {
         var problems = ModApply.Problems(_vm.Settings);

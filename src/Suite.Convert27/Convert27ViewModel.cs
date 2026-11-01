@@ -17,6 +17,8 @@ public sealed class Convert27ViewModel : Observable
     public Nhl27Catalog? Catalog27 { get; private set; }
     public Nhl24Catalog? Catalog24 { get; private set; }
     public VariantMap Variants { get; private set; } = new();
+    /// <summary>Role-based branding layer maps (%APPDATA%\CenterIceModdingSuite\data\slot_map.json).</summary>
+    public SlotMapStore SlotMaps { get; private set; } = new();
     string _variantInfo = "";
     /// <summary>The team's default home/away variants in both games, shown above the matcher.</summary>
     public string VariantInfo { get => _variantInfo; set => Set(ref _variantInfo, value); }
@@ -59,7 +61,9 @@ public sealed class Convert27ViewModel : Observable
             VariantInfo = vt is null
                 ? "No variant map entry for this team (Edit variant map to add one)."
                 : $"Default variants — NHL 24 {value}: home = {vt.Nhl24.Home} ({vt.Nhl24.HomeVariant}), away = {vt.Nhl24.Away} ({vt.Nhl24.AwayVariant})" +
-                  $"   ↔   NHL 27 {vt.Nhl27.Folder}: home = {vt.Nhl27.Home} ({vt.Nhl27.HomeVariant}), away = {vt.Nhl27.Away} ({vt.Nhl27.AwayVariant})";
+                  $"   ↔   NHL 27 {vt.Nhl27.Folder}: home = {vt.Nhl27.Home} ({vt.Nhl27.HomeVariant}), away = {vt.Nhl27.Away} ({vt.Nhl27.AwayVariant})" +
+                  (vt.ExtraKits.Count == 0 ? "" : "   ·   extra NHL 27 kits: " +
+                      string.Join(", ", vt.ExtraKits.Select(k => $"{k.Nhl27} → replaces {k.Replaces24 ?? "(none)"}")));
             if (value is null || Catalog24 is null) return;
             var prefix = $"{TextureName.SkaterPrefix}nhl/{value}/";
             foreach (var f in Catalog24.ByFolder.Keys.Where(f => f.StartsWith(prefix, StringComparison.Ordinal))
@@ -106,6 +110,7 @@ public sealed class Convert27ViewModel : Observable
         {
             Project = MatchProject.Load();
             Variants = VariantMap.Load();
+            SlotMaps = SlotMapStore.Load();
             Status = "Loading the NHL 27 asset index...";
             var i27 = IndexStore.GetAsync(IndexStore.Nhl27, Settings, progress: s => Status = s);
             var i24 = IndexStore.GetAsync(IndexStore.Nhl24, Settings, progress: s => Status = s);
@@ -312,6 +317,38 @@ public sealed class Convert27ViewModel : Observable
 
         int filled = 0, swapped = 0;
 
+        // Pass 0: the role-based slot map (crest→crest, brand adidas→Fanatics, shield→shield, ...), exact at 100%.
+        var store = SlotMaps;
+        foreach (var row in Rows)
+        {
+            if (!row.IsArray || row.Manual || row.Kind != SourceKind.Stock) continue;
+            var name = row.Name;
+            if (name.Role != "color" || !name.Garment.StartsWith("branding", StringComparison.Ordinal)) continue;
+            if (!candidates.TryGetValue(name.Garment, out var cands)) continue;
+            var images24 = row.Layers.Select(l => (l.Layer, (string?)Stock24.GetValueOrDefault($"{row.Slot}#{l.Layer}"))).ToList();
+            var images27 = cands.Where(c => c.Layer is not null).Select(c => (c.Layer!.Value, (string?)c.Png)).ToList();
+            if (images24.All(i => i.Item2 is null) || images27.Count == 0) continue;
+            var entry = store.Resolve(_current.Folder24, _folder27, name.Garment, images24, images27);
+            var used = ClaimedFor(name.Garment);
+            int linked = 0;
+            foreach (var link in entry.Links.Where(l => l.Nhl27 is not null))
+            {
+                var layer = row.Layers.FirstOrDefault(l => l.Layer == link.Nhl24);
+                var source = cands.FirstOrDefault(c => c.Layer == link.Nhl27).Name;
+                if (layer is null || source is null || layer.Source27 is not null || layer.FilePath is not null) continue;
+                layer.Source27 = source;
+                used.Add(source);
+                arrayLayerSource[(name.Garment, layer.Layer)] = source;
+                linked++;
+            }
+            if (linked == 0) continue;
+            row.Confidence = 1.0;
+            var roles = string.Join(", ", entry.Links.Select(l => $"{l.Nhl24}:{l.Role}" + (l.Nhl27 is null ? "→stock" : $"→{l.Nhl27}")));
+            row.Reason = $"slot map ({roles})" + (entry.NoSlot27.Count > 0 ? $"; NHL 27 layer(s) {string.Join(",", entry.NoSlot27)} have no NHL 24 slot" : "");
+            filled += linked;
+        }
+        store.Save();
+
         // Pass 1: the arrays are what the game actually uses, so they are matched first and claim their layers.
         foreach (var row in Rows)
         {
@@ -390,6 +427,26 @@ public sealed class Convert27ViewModel : Observable
             foreach (var r in Rows) UpdateThumbs(r);
             SuiteLog.Write($"logo shapes: matched {filled} layer(s), {swapped} by layer index, in {Short(_current.Folder24)}");
         }
+    }
+
+    /// <summary>The slot-map entries of the current folder pair, with image lookups for both games' layers.</summary>
+    public List<(SlotMapEntry Entry, Func<int, string?> Png24, Func<int, string?> Png27)> SlotMapItems()
+    {
+        var items = new List<(SlotMapEntry, Func<int, string?>, Func<int, string?>)>();
+        if (_current is null || _folder27 is null || Catalog27 is null) return items;
+        var textures27 = Catalog27.ByFolder.TryGetValue(_folder27, out var t) ? t : [];
+        foreach (var entry in SlotMaps.Entries.Where(e => e.Folder24 == _current.Folder24 && e.Folder27 == _folder27).OrderBy(e => e.Garment))
+        {
+            var array = Rows.FirstOrDefault(r => r.IsArray && r.Name.Garment == entry.Garment && r.Name.Role == "color");
+            if (array is null) continue;
+            var garment = entry.Garment;
+            items.Add((entry,
+                layer => Stock24.GetValueOrDefault($"{array.Slot}#{layer}"),
+                layer => textures27.Select(x => (x, n: TextureName.Parse(x.Name)))
+                    .Where(x => x.n.Garment == garment && x.n.Role == "color" && x.n.Layer == layer && !x.n.IsArrayName)
+                    .Select(x => TextureImages.Nhl27Png(x.x.Name)).FirstOrDefault(File.Exists)));
+        }
+        return items;
     }
 
     static bool IsLogoGarment(string garment) =>

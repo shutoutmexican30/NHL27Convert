@@ -27,6 +27,15 @@ public sealed class VariantMap
         [JsonPropertyName("name27")] public string Name27 { get; set; } = "";
         [JsonPropertyName("nhl24")] public Side Nhl24 { get; set; } = new();
         [JsonPropertyName("nhl27")] public Side Nhl27 { get; set; } = new();
+        /// <summary>NHL 27 kits with no NHL 24 folder and the NHL 24 set each would replace (a suggestion; null = skip).</summary>
+        [JsonPropertyName("extraKits")] public List<ExtraKit> ExtraKits { get; set; } = [];
+    }
+
+    public sealed class ExtraKit
+    {
+        [JsonPropertyName("nhl27")] public string Nhl27 { get; set; } = "";
+        [JsonPropertyName("variant27")] public int? Variant27 { get; set; }
+        [JsonPropertyName("replaces24")] public string? Replaces24 { get; set; }
     }
 
     [JsonPropertyName("format")] public int Format { get; set; } = 1;
@@ -39,6 +48,12 @@ public sealed class VariantMap
     public static VariantMap Load()
     {
         if (!File.Exists(UserPath) && File.Exists(ShippedPath)) File.Copy(ShippedPath, UserPath);
+        // A newer shipped format (2 adds extraKits) replaces an older user copy; the old one is kept beside it.
+        if (File.Exists(UserPath) && File.Exists(ShippedPath) && Parse(File.ReadAllText(ShippedPath)).Format > Parse(File.ReadAllText(UserPath)).Format)
+        {
+            File.Copy(UserPath, UserPath + $".before-format{Parse(File.ReadAllText(ShippedPath)).Format}", true);
+            File.Copy(ShippedPath, UserPath, true);
+        }
         return File.Exists(UserPath) ? Parse(File.ReadAllText(UserPath)) : new VariantMap();
     }
 
