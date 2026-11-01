@@ -73,6 +73,27 @@ crashed the game when loading a match). Ideas for CIMS: Play page, mod packs, ex
 Jersey Studio, rink/centre-ice tools, NHL API sync (spec E). Its Core (own Frostbite reader/writer without FMT) is what CIMS
 step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
 
+## Legacy jerseys and slot mapping (investigated 2026-11-01, read only)
+
+- NHL 27 has no textures named `*legacy*` for uniforms (only arena props: dashers, concrete, stairs...). Its `rbk` and
+  `nineties` sets have the same 11 slots as NHL 24's. Every NHL 27 set also ships a **plain `jersey_*_color`** (crest and
+  branding baked in) next to the layered `_base_` + branding textures. Plain NHL 27 textures share NHL 24's UV layout (crest,
+  hem, sleeves, collar in the same places; designs differ), see `docs\screenshots\2026-11-01-legacy-layout.png`.
+- Branding arrays: 6 jersey layers and 3 pant layers in both games. **Layer meaning is per jersey, not global**
+  (`docs\screenshots\2026-11-01-slot-layers.png`):
+  - Boston `twentythree` is the same jersey in both games: layers identical 1:1 (bear, orange shield, stripes, EPW, BRUINS x2).
+  - St. Louis NHL 24 home [crest, shield, adidas, EPW, Stifel, shield] vs NHL 27 `fourteen` [crest, Stifel gold, Fanatics,
+    shield, Stifel, shield purple]; pants 24 [crest, blank, shield] vs 27 [shield, "SL", shield purple].
+  - Arizona NHL 24 home [crest, shoulder, shoulder, adidas, shield, EPW] vs Utah `twelve` [crest, shoulder, shoulder,
+    Fanatics, shield, SME Steel]; pants 24 [blank, blank, shield] vs 27 [U logo, shield].
+  - So the slot map must be **per jersey by role** (crest, shoulder L/R, brand, shield, patch, sponsor, wordmark), not by
+    index. Proposed: auto-tag roles by shape against reference logos (NHL shield, adidas, Fanatics, EPW are the same image
+    league-wide; crest = layer 0; repeated image = shoulder pair), store per-folder role tables in `data\slot_map.json`,
+    matcher maps role-to-role at 100%, unmapped NHL 27 roles listed as "no NHL 24 slot", editable table with thumbnails.
+- Jersey sets: NHL 27 has 3–6 more sets per team (`ten`–`fifteen`, the new 2026–27 kits incl. new default home/away);
+  NHL 24 cannot get new texture folders (no assets), so extra NHL 27 kits must replace existing NHL 24 sets (via the variant
+  map / jersey rows). Arizona exists only in NHL 24 and Utah only in NHL 27.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
