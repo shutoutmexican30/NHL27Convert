@@ -156,6 +156,23 @@ team*40+slot, sort order, string table layout, recomputed CRCs, no NHL 27-only c
 db's header and table descriptors byte for byte with stock and refuses the write on any difference other than record contents
 and CRCs; it runs on every db in the target list, including the saved roster.
 
+### Sync rule refinement (DB thread, 2026-11-01)
+
+Do not copy nhl_game rows into the other dbs. Apply the same NHL API result to each db on its own terms: match players by id,
+move bio team + roster row (key team*40+slot) using that db's own free slots and rows. Post-sync check: for every NHL-rostered
+player, team, jersey number and position are identical across all 5 dbs (and the save when present); slot order and lines may
+differ. Players a snapshot has that nhl_game lacks are left alone unless the API rosters them; then they are added to every db
+lacking them, within table max counts (layout guard applies).
+
+## Center ice importer (TheFaceoff.net) — queued
+
+User wants it, working like NHL27Kit's Faceoff window (feature reference only; our own code). Checked 2026-11-01:
+robots.txt allows crawling (`Disallow: *?lightbox=`; crawl-delay 10 for some bots). The site's FAQ: "Use of graphics for
+personal use only is permitted with credit and link back to thefaceoff.net". So: downloads only on user action, local cache
+(`%LOCALAPPDATA%\CenterIceModdingSuite\faceoff`), ≥ 10 s between requests, visible credit + link, and **never include
+TheFaceoff.net images in exported/shared mod packs**. Pages: `/ice-nhl`, `/ice-all`, `/ice-ahl`… (league lists),
+`/center-ice-archive`, dynamic center-ice items (sitemaps `dynamic-center-ice_*`). Utah's Mammoth center ice → ice_centerlogo_22.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
