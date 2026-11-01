@@ -54,7 +54,8 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
      `game-UPDATE`. The original `NHL24PC\game` and `game-UPDATE` are untouched (clean fallback). CIMS settings:
      `ApplyTargetDir = ...\NHL24PC-CIMS\game` (backup `settings.json.before-cims-merged`); `Nhl24GameDir` still points at the
      original so ORIGINAL previews stay stock. The folder meets every guard rule (no links, Data+Patch, writable).
-     **Waiting for the user to boot the game once from `NHL24PC-CIMS\Play NHL 24.bat`; nothing is applied until then.**
+     **Boot test passed 2026-11-01 03:45 UTC:** the user launched `NHL24PC-CIMS\Play NHL 24.bat` and played a game. The merged
+     folder is the live play/apply target from now on (applies only with the game closed; one-team test first for new kinds of mods).
      `D:\CIMS-test\NHL24-merged` (test copy, no update eboot) can be deleted.
 
 ## NHL27Kit (friend's tool, reviewed 2026-11-01)
