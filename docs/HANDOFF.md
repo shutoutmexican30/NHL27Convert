@@ -111,8 +111,9 @@ step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
 - Verified on real layers (`tests\Suite.Tests\SlotRolesTests.cs`, runs where the decoded images exist): St. Louis NHL 24 home =
   crest, shield, brand(adidas), patch, sponsor, shield; NHL 27 Fanatics found; adidas→Fanatics, shield→NHL 27 shield (layer 3),
   EPW stays stock, NHL 27's second Stifel = no slot. Arizona home = crest, shoulder, shoulder, brand, shield, patch → Utah
-  crest→crest, brand→Fanatics, shield→shield; Utah's SME sponsor has no automatic slot (NHL 24 layer 5 is the EPW patch);
-  move it there by hand in the Slot map if wanted.
+  crest→crest, brand→Fanatics, shield→shield; Utah's SME sponsor has no slot. Each NHL 24 layer has a fixed placement on
+  the jersey (user, 2026-11-01: End Plastic Waste is the tag on the very back of the jersey), so a logo put into another
+  role's layer appears at that layer's spot: never move a sponsor into the patch layer. The patch layer stays stock.
 - Variant map format 2 (`tools\make_variant_map.py`): `extraKits` per team = NHL 27 adidas sets with no NHL 24 folder (besides
   the default home/away), each with `replaces24` = suggested old NHL 24 adidas alternate (never home/away/retro, sets NHL 27
   still ships last, each used once). Shown in the matcher's variant line; nothing is applied from it yet. User copies of
