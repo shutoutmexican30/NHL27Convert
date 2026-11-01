@@ -132,6 +132,30 @@ transforms. Editing placements would mean writing EBX, which the writer does not
   still ships last, each used once). Shown in the matcher's variant line; nothing is applied from it yet. User copies of
   format 1 are backed up as `variant_map.json.before-format2` and replaced.
 
+## Roster databases: every location (enumerated 2026-11-01, read only)
+
+In-game legacy files (same in the original and the merged copy): `gamemodes/database/t3db/nhl_game.db` (+ nhl_game-meta.xml),
+`gamemodes/roster/initial_experience.db`, `entry_draft.db`, `expansion_draft.db`, `threes_campaign.db` (all five use
+nhl_game-meta.xml), and 8 language dbs `loc/{cze_cz,eng_us,fin_fi,fre_fr,ger_de,lng_lg,rus_ru,swe_se}.db` (+ meta). The
+**6th roster location is the saved roster** in emulator save data (`user\home\1000\savedata\CUSA37933\...`): it only exists
+after a roster is saved in game; today both NHL24PC and NHL24PC-CIMS have only `Profile0` (172 KB DATA). An older saved roster
+is `RosterConversion\save-original\roster.db` (9,272,746 bytes; container handling in package-save.py). Sync must include it
+when present, writing only NHL24PC-CIMS's copy, backed up first, never touching league* rows of a career.
+
+Consistency (1.60 dumps in `RosterConversion\more-dumps\`, nhl_game 1.60 in `more-dumps\nhl_game_160`): all five dbs have the
+same table sizes (exhibitionplayers 17,766 rows, exhibitionrostertable 19,030). Players present in several dbs have **identical
+data** (0 field differences besides row index). Rosters differ a lot: team-membership differences vs nhl_game =
+initial_experience 8,148, entry_draft 6,790, expansion_draft 6,790, threes_campaign 5,980; each of the four holds ~1,100
+players nhl_game does not. (`RosterConversion\nhl24-csv` is an older nhl_game, 8,132 players; do not use it as the 1.60 stock.)
+So the four mode dbs are older roster snapshots; a sync that should make every mode current must write the same rosters into
+all of them.
+
+**Hard rule, layout guard (user, 2026-11-01):** every db write (sync, RosterPort, overrides) keeps NHL 24's layout: same
+tables, columns, bit widths, table order, max/valid record counts (never grow past stock max; reuse rows), key scheme
+team*40+slot, sort order, string table layout, recomputed CRCs, no NHL 27-only columns. A layout guard compares the written
+db's header and table descriptors byte for byte with stock and refuses the write on any difference other than record contents
+and CRCs; it runs on every db in the target list, including the saved roster.
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
