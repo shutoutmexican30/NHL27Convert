@@ -179,6 +179,25 @@ lacking them, within table max counts (layout guard applies).
   agency; new players (NotInDb) from NHL 27 rows or templates (spec E step 5); portraits (download, crop, PortraitAssign);
   the suite's T3DB writer + layout guard; saved-roster container (package-save.py); diff UI and the one button.
 
+## Legacy uniforms (PS3 NHL, 26-27 set with Fanatics, 2026-11-01)
+
+- Source (user's mod, read only): `C:\Users\devin\Downloads\26-27 Conversion.zip\26-27Extras\Main Release\BLUS31540\USRDIR\rendering\jersey`
+  (that ".zip" is a folder). Copied to `C:\Users\devin\Downloads\legacy-uniforms\26-27\` (160 files: 77 `texlib_1_<team>_<uni>`,
+  82 `name_1_<team>_<uni>_cm`, `Object_10_RWGOBJECTTYPE_RASTER`; ~1.1 GB).
+- Format confirmed: RW4 PS3 (`89 'RW4ps3' 00`); descriptors `00 00 0d e1` (format u32 BE +4: 0x83f1 DXT1, 0x83f3 DXT5,
+  0x6007 name maps; w/h u16 BE +0x14/+0x16; mips +0x18); pixel data from 0x600, linear DXT, full mip chains back to back.
+  Every texlib is 14,681,536 bytes: font_cm/nm DXT5 1024, font_sm DXT1 1024, jersey_cm/sm DXT1 2048, jersey_0_nm DXT5 2048.
+  `name_*_cm` = 256×256 format 0x6007 (name/number placement maps), not decoded yet.
+- Reader: `src\Suite.Core\Legacy\Rw4Reader.cs`; tool `tools\LegacyExtract` decodes all 462 rasters (24 s, parallel) to
+  `...\legacy-uniforms\26-27\png\` and writes `_contact_jersey_cm.png` (labels team_uni).
+- Coverage: all 32 teams, 2–3 kits each (77). vs the earlier 63-set upload: +1_3, 14_2, 14_3, 15_0, 15_1, 16_3, 16_4, 17_0,
+  17_1, 18_2, 18_3, 19_0, 19_1, 19_2; nothing missing. Team order (from the art): 0 ANA, 1 WPG, 2 BOS, 3 BUF, 4 CGY, 5 CAR,
+  6 CHI, 7 COL, 8 CBJ, 9 DAL, 10 DET, 11 EDM, 12 FLA, 13 LAK, 14 MIN, 15 MTL, 16 NSH, 17 NJD, 18 NYI, 19 NYR, 20 OTT, 21 PHI,
+  22 UTA (Mammoth art), 23 PIT, 24 STL, 25 SJS, 26 TBL, 27 TOR, 28 VAN, 29 WSH, **30 SEA, 31 VGK** (NHL 24 is 30 VGK, 31 SEA).
+- Fanatics mark confirmed in the collar spot (e.g. Utah 22_3, Boston 2_0). The jersey_cm is a full colour map with crest,
+  stripes and branding baked in (legacy template layout, different from NHL 24's UVs): converting needs a UV remap legacy →
+  NHL 24, using NHL 27's matching kits as the guide. Next: work out that remap, then add "Legacy uniforms" as a source in Convert 27.
+
 ## Center ice importer (TheFaceoff.net) — queued
 
 User wants it, working like NHL27Kit's Faceoff window (feature reference only; our own code). Checked 2026-11-01:
