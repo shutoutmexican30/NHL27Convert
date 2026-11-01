@@ -57,6 +57,22 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
      **Waiting for the user to boot the game once from `NHL24PC-CIMS\Play NHL 24.bat`; nothing is applied until then.**
      `D:\CIMS-test\NHL24-merged` (test copy, no update eboot) can be deleted.
 
+## NHL27Kit (friend's tool, reviewed 2026-11-01)
+
+`C:\Users\devin\Downloads\NHL27Kit-1.0.0\NHL27Kit-1.0.0\NHL27Kit.exe` (1.0.0, "Made By Sonku"): self-contained single-file
+.NET WPF app (NHL27Kit.dll + NHL27Kit.Core.dll + BCnEncoder, no FMT) for **NHL 27 PS5 on KytyPS5**; edits the NHL 27 game
+files in place, keeps original bytes in `%LOCALAPPDATA%\NHL27Kit\mods` for Restore, needs `oo2core_9_win64.dll` (Oodle) from FMT.
+Reviewed from its README and bundle structure only (not run, not decompiled; reusing its code needs the author's source and
+permission). Pages: Play (launch emulator + settings + builds), Explorer (all assets, previews, hex, export), Textures (gallery,
+full size, PNG/DDS export, replace incl. array layers), Sounds (play/export/replace; ATRAC9 decode, Opus encode), Mods (apply,
+restore, export/import `.nhl27mod` packs), Roster (players, bios, ratings, portraits, NHL API sync, lines), Database (every
+table + text DBs, length limits), Uniforms (3D on the game's jersey/pants/sock models, kit/logo replace, helmet/glove colours,
+jersey slots add/move/rename/remove, legacy jersey converter, Jersey Studio from create-a-team templates), Teams (names, abbrs,
+colours, arena, rivals, affiliates, logos all styles, centre ice incl. TheFaceoff.net converter), Scorebug (preview; its saving
+crashed the game when loading a match). Ideas for CIMS: Play page, mod packs, export everywhere, hex/explorer, jersey slots,
+Jersey Studio, rink/centre-ice tools, NHL API sync (spec E). Its Core (own Frostbite reader/writer without FMT) is what CIMS
+step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
+
 ## Goal and decisions
 
 - A **new program**, not an NHL24Kit tab: Center Ice Modding Suite (short CIMS), exe `CenterIceModdingSuite.exe`.
