@@ -53,6 +53,7 @@ public sealed class SuiteSettings
     public string ApplyTargetDir { get; set; } = "";
     /// <summary>Last folder of replacement textures used in Uniform Studio.</summary>
     public string ReplacementDir { get; set; } = "";
+
     public string PythonExe { get; set; } = "python";
     public int Workers { get; set; } = Environment.ProcessorCount;
 
