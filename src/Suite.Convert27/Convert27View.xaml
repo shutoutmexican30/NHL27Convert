@@ -69,6 +69,8 @@
                    ToolTip="A folder of your own replacement images. Match from folder fills the rows that are still stock, by name and material role." />
           <Button Content="Browse…" Click="ReplacementBrowse_Click" />
           <Button Content="Match from folder" Click="MatchFolder_Click" />
+          <Button Content="Stamp a logo…" Click="Stamp_Click" ToolTip="Paint a logo onto a colour map and bake it into the exported texture, for sponsors the branding arrays have no slot for." />
+
         </WrapPanel>
         <DockPanel Margin="0,8,0,0">
           <Button DockPanel.Dock="Right" Content="Edit variant map" Click="EditVariants_Click" ToolTip="data\variant_map.json: default home/away variant per team in both games (hand-editable)" />
@@ -105,6 +107,14 @@
                   <TextBlock Text="{Binding Leaf}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Slot}" />
                   <TextBlock Foreground="#8c97a8" FontSize="11"><Run Text="{Binding Garment, Mode=OneWay}" /> · <Run Text="{Binding Role, Mode=OneWay}" /></TextBlock>
                 </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="This slot is" Width="150" IsReadOnly="True" SortMemberPath="What">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding What}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#c9d6e6"
+                           ToolTip="What the game draws in this NHL 24 slot, for this team and garment." />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

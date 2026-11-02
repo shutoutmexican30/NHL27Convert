@@ -15,6 +15,22 @@ public sealed class FolderMatch
     public List<SlotMatch> Rows { get; set; } = [];
 }
 
+/// <summary>
+/// One logo painted onto a garment's colour map. X/Y/Size are fractions of that map (0..1), so a stamp is independent
+/// of the texture's resolution. The logo is baked into the exported colour texture, which is how a sponsor reaches a kit
+/// whose branding array has no free slice.
+/// </summary>
+public sealed class StampEntry
+{
+    public string Slot { get; set; } = "";
+    public string Image { get; set; } = "";
+    /// <summary>The art the logo is painted onto (stock or NHL 27 colour map) when the stamp was placed.</summary>
+    public string Base { get; set; } = "";
+    public double X { get; set; } = 0.5;
+    public double Y { get; set; } = 0.5;
+    public double Size { get; set; } = 0.25;
+    public bool Enabled { get; set; } = true;
+}
 /// <summary>A saved matcher session (%APPDATA%\CenterIceModdingSuite\projects\*.json). Hand-editable.</summary>
 public sealed class MatchProject
 {
@@ -22,6 +38,8 @@ public sealed class MatchProject
     public string Name { get; set; } = "Convert 27";
     public Dictionary<string, string> TeamMap { get; set; } = new(Matcher.DefaultTeamMap);
     public List<FolderMatch> Folders { get; set; } = [];
+    /// <summary>Logos painted onto colour maps (see <see cref="StampEntry"/>).</summary>
+    public List<StampEntry> Stamps { get; set; } = [];
 
     static readonly JsonSerializerOptions Json = new()
     {
@@ -64,6 +82,8 @@ public sealed class MatchProject
                 var layers = row.Layers
                     .Select(l => (l.Layer, Path: l.FilePath ?? (l.Source27 is null ? null : TextureImages.Nhl27Png(l.Source27))))
                     .Where(l => l.Path is not null)
+                    // Pants rule: every pants set already has the NHL shield on the back; the shield never goes on pants.
+                    .Where(l => row.Garment != "branding_pant" || !SlotRoles.LooksLikeShield(l.Path))
                     .ToDictionary(l => l.Layer, l => l.Path!);
                 if (layers.Count > 0) mod.Replacements.Add(new TextureReplacement(row.Slot, "", layers, row.Alpha));
                 continue;
@@ -74,6 +94,7 @@ public sealed class MatchProject
                 SourceKind.File when row.FilePath is not null => row.FilePath,
                 _ => null,
             };
+            if (source is not null && row.Garment == "branding_pant" && SlotRoles.LooksLikeShield(source)) continue;
             if (source is not null) mod.Replacements.Add(new TextureReplacement(row.Slot, source, null, row.Alpha));
         }
         return mod;

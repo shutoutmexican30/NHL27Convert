@@ -59,6 +59,7 @@ public static class SlotRoles
     public const string EpwPlacement = "back hem tag";
 
     static Dictionary<string, double[]>? _refs;
+    public static bool HasManufacturerReferences => Refs().ContainsKey("brand_adidas") && Refs().ContainsKey("brand_fanatics");
 
     static Dictionary<string, double[]> Refs()
     {
@@ -71,9 +72,21 @@ public static class SlotRoles
             _refs[p.Name] = p.Value.EnumerateArray().Select(v => v.GetDouble()).ToArray();
         return _refs;
     }
+    /// <summary>
+    /// The league-wide logo a decoded image matches ("brand_fanatics", "patch_epw", ...), or null. Used to find the
+    /// Fanatics mark in another NHL 27 set when the paired set has no brand layer of its own.
+    /// </summary>
+    public static string? KnownLogo(string? png)
+    {
+        if (png is null) return null;
+        var s = LogoMatcher.Silhouette(png);
+        if (s is null || IsBlank(s)) return null;
+        return Refs().Select(r => (r.Key, d: LogoMatcher.Difference(s, r.Value)))
+            .Where(r => r.d <= LogoMatcher.AcceptMad).OrderBy(r => r.d).Select(r => r.Key).FirstOrDefault();
+    }
 
     /// <summary>Automatic labels for a garment's layers. <paramref name="images"/>: layer → PNG/DDS path (null = no image).</summary>
-    public static List<LayerLabel> Label(IReadOnlyList<(int Layer, string? Image)> images)
+    public static List<LayerLabel> Label(IReadOnlyList<(int Layer, string? Image)> images, string? garment = null)
     {
         var sil = images.ToDictionary(i => i.Layer, i => i.Image is null ? null : LogoMatcher.Silhouette(i.Image));
         var labels = new List<LayerLabel>();
@@ -97,7 +110,13 @@ public static class SlotRoles
             labels.Add(new LayerLabel { Layer = layer, Role = "" });
         }
         // Layer 0 is the crest when it is not a league-wide logo.
-        if (labels.FirstOrDefault(l => l.Layer == 0) is { Role: "" } first) first.Role = "crest";
+        if (garment == "branding_pant")
+        {
+            // Pants reorder the league shield and club mark between games (e.g. STL: shield, SL, shield).
+            // The first actual club image is the crest, not whichever image happens to be layer zero.
+            if (labels.FirstOrDefault(l => l.Role == "") is { } club) club.Role = "crest";
+        }
+        else if (labels.FirstOrDefault(l => l.Layer == 0) is { Role: "" } first) first.Role = "crest";
         // Repeated images (left/right shoulder, two wordmarks) are a pair.
         var open = labels.Where(l => l.Role == "").ToList();
         foreach (var a in open)
@@ -128,6 +147,47 @@ public static class SlotRoles
             }
         }
         foreach (var l in entry.Links.Where(l => entry.Layers24.Any(x => x.Layer == l.Nhl24 && x.Role == EpwRole))) l.Role = EpwRole;
+        return reset;
+    }
+
+    /// <summary>
+    /// Looser than <see cref="KnownLogo"/>: true when an image is the NHL shield even as rendered a little differently by
+    /// either game (different logos are >= 46 apart on the silhouette scale, so 40 still separates them).
+    /// </summary>
+    public static bool LooksLikeShield(string? png)
+    {
+        if (png is null || !File.Exists(png) || !Refs().TryGetValue("shield", out var shield)) return false;
+        var s = LogoMatcher.Silhouette(png);
+        return s is not null && !IsBlank(s) && LogoMatcher.Difference(s, shield) <= PantsShieldMad;
+    }
+
+    public const double PantsShieldMad = 40;
+
+    /// <summary>
+    /// Pants rule (user, 2026-11-02): every NHL 24 pants set already carries the NHL shield on the back, so no pants layer
+    /// ever takes the shield from NHL 27 and the shield layers themselves stay stock. A team-logo layer is only ever
+    /// filled by a club mark.
+    /// </summary>
+    public static int EnforcePantsCrestLock(SlotMapEntry entry)
+    {
+        if (entry.Garment != "branding_pant") return 0;
+        int reset = 0;
+        foreach (var link in entry.Links)
+        {
+            bool shield24 = entry.Layers24.Any(l => l.Layer == link.Nhl24 && l.Role == "shield");
+            bool shield27 = link.Nhl27 is { } src27 && entry.Layers27.Any(l => l.Layer == src27 && l.Role == "shield");
+            if (link.Nhl27 is not null && (shield24 || shield27))
+            {
+                link.Nhl27 = null;
+                reset++;
+                continue;
+            }
+            if (!entry.Layers24.Any(l => l.Layer == link.Nhl24 && l.Role == "crest")) continue;
+            link.Role = "crest";
+            if (link.Nhl27 is not { } source || entry.Layers27.Any(l => l.Layer == source && l.Role == "crest")) continue;
+            link.Nhl27 = null;
+            reset++;
+        }
         return reset;
     }
 
@@ -191,21 +251,24 @@ public sealed class SlotMapStore
     {
         var entry = Find(folder24, folder27, garment);
         if (entry is null) { entry = new SlotMapEntry { Folder24 = folder24, Folder27 = folder27, Garment = garment }; Entries.Add(entry); }
-        entry.Layers24 = MergeLabels(entry.Layers24, SlotRoles.Label(images24));
-        entry.Layers27 = MergeLabels(entry.Layers27, SlotRoles.Label(images27));
+        entry.Layers24 = MergeLabels(entry.Layers24, SlotRoles.Label(images24, garment), garment == "branding_pant");
+        entry.Layers27 = MergeLabels(entry.Layers27, SlotRoles.Label(images27, garment), garment == "branding_pant");
         var (links, noSlot) = SlotRoles.Map(entry.Layers24, entry.Layers27);
         var manual = entry.Links.Where(l => l.Manual).ToDictionary(l => l.Nhl24);
         entry.Links = links.Select(l => manual.TryGetValue(l.Nhl24, out var m) ? m : l).ToList();
+        ManufacturerBranding.RequireFanaticsLinks(entry);
+        SlotRoles.EnforcePantsCrestLock(entry);
         SlotRoles.EnforceEpwLock(entry);
         var linked = entry.Links.Where(l => l.Nhl27 is not null).Select(l => l.Nhl27!.Value).ToHashSet();
         entry.NoSlot27 = entry.Layers27.Where(l => l.Role != "blank" && !linked.Contains(l.Layer)).Select(l => l.Layer).ToList();
         return entry;
     }
 
-    static List<LayerLabel> MergeLabels(List<LayerLabel> saved, List<LayerLabel> auto)
+    static List<LayerLabel> MergeLabels(List<LayerLabel> saved, List<LayerLabel> auto, bool protectPantsCrests)
     {
         var manual = saved.Where(l => l.Manual).ToDictionary(l => l.Layer);
         // A layer recognised as End Plastic Waste stays the back tag even if it was relabelled by hand.
-        return auto.Select(a => a.Role != SlotRoles.EpwRole && manual.TryGetValue(a.Layer, out var m) ? m : a).ToList();
+        return auto.Select(a => a.Role != SlotRoles.EpwRole && !ManufacturerBranding.IsAdidas(a)
+            && !(protectPantsCrests && a.Role == "crest") && manual.TryGetValue(a.Layer, out var m) ? m : a).ToList();
     }
 }

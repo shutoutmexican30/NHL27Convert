@@ -130,6 +130,7 @@ public partial class Convert27View : UserControl
     /// <summary>Shows every saved mod with its replacements, and the apply/restore buttons.</summary>
     void ModList_Click(object sender, RoutedEventArgs e) => new ModListWindow(_vm.Settings).ShowDialog();
 
+
     void ReplacementBrowse_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Replacement texture folder (DDS / PNG)" };
@@ -156,6 +157,26 @@ public partial class Convert27View : UserControl
         {
             _vm.Busy = false;
         }
+    }
+
+    /// <summary>Paints a logo onto the selected colour slot and bakes it into that slot's exported texture.</summary>
+    void Stamp_Click(object sender, RoutedEventArgs e)
+    {
+        var row = (Grid.SelectedItem as SlotMatch)
+            ?? _vm.Rows.FirstOrDefault(r => !r.IsArray && r.Garment == "jersey" && r.Role == "color" && !r.Name.IsBase)
+            ?? _vm.Rows.FirstOrDefault(r => !r.IsArray && r.Role == "color");
+        if (row is null) { _vm.Status = "Select a colour slot first (jersey, pant or sock colour)."; return; }
+        var basePath = row.Kind == SourceKind.Nhl27 && row.Source27 is not null
+            ? TextureImages.Nhl27Png(row.Source27)
+            : _vm.Stock24.GetValueOrDefault(row.Slot);
+        if (basePath is null || !File.Exists(basePath)) { _vm.Status = "That slot has no colour art to stamp on yet."; return; }
+        try
+        {
+            var existing = _vm.Project.Stamps.FirstOrDefault(s => s.Slot == row.Slot);
+            var w = new StampWindow(row.Slot, basePath, existing) { Owner = Window.GetWindow(this) };
+            if (w.ShowDialog() == true && w.Result is { } stamp) _vm.ApplyStamp(stamp);
+        }
+        catch (Exception ex) { _vm.Status = "Could not open the stamp window: " + ex.Message; }
     }
 
     /// <summary>Writes the whole mod list into the game through the NHL24Kit worker.</summary>
@@ -232,7 +253,7 @@ public partial class Convert27View : UserControl
         {
             row.Manual = true;
             row.Reason = "layers edited by hand";
-            _vm.UpdateThumbs(row);
+            _vm.RefreshViewer(row);
         }
     }
 

@@ -39,6 +39,8 @@ public sealed class Convert27ViewModel : Observable
     string? _folder27;
     bool _busy;
     FolderMatch? _current;
+    /// <summary>Per garment: the Fanatics colour/normal taken from another NHL 27 set when the paired one has none.</summary>
+    readonly Dictionary<string, (Nhl27Texture Color, Nhl27Texture Normal)?> _fanaticsCache = new(StringComparer.Ordinal);
 
     public Convert27ViewModel(SuiteSettings settings)
     {
@@ -249,6 +251,71 @@ public sealed class Convert27ViewModel : Observable
         _folder24 = null;
         Folder24 = keep;
     }
+    /// <summary>Re-sends everything one row contributes, so an edit shows immediately.</summary>
+    public void RefreshViewer(SlotMatch row)
+    {
+        UpdateThumbs(row);
+        _ = PushRightAsync(row);
+    }
+
+    /// <summary>Names every slot for the selected team: what the game draws there, for this garment and set.</summary>
+    void LabelSlots()
+    {
+        if (_current is null) return;
+        var entries = SlotMaps.Entries.Where(e => e.Folder24 == _current.Folder24 && e.Folder27 == _folder27).ToList();
+        foreach (var row in Rows)
+        {
+            var name = row.Name;
+            LayerLabel? label = null;
+            if (name.Layer is { } layer && entries.FirstOrDefault(e => e.Garment == name.Garment) is { } entry)
+                label = entry.Layers24.FirstOrDefault(l => l.Layer == layer);
+            var what = Describe(name, label);
+            // A layer with no slice in the NHL 24 array cannot be written, however it was labelled.
+            if (name.Layer is { } slice && name.Garment.StartsWith("branding", StringComparison.Ordinal))
+            {
+                var array = Rows.FirstOrDefault(r => r.IsArray && r.Garment == name.Garment && r.Role == "color");
+                if (array is not null && !Stock24.ContainsKey($"{array.Slot}#{slice}"))
+                    what = $"No slice {slice} in NHL 24 (not written)";
+            }
+            row.What = what;
+        }
+    }
+
+    /// <summary>One slot in words. Branding layers follow the slot map; everything else follows the texture name.</summary>
+    static string Describe(TextureName n, LayerLabel? label)
+    {
+        if (label is not null)
+            return label.Role switch
+            {
+                "crest" => n.Garment == "branding_pant" ? "Club mark (pants)" : "Team crest",
+                "shield" => "NHL shield",
+                "brand" => label.Detail?.StartsWith("adidas", StringComparison.OrdinalIgnoreCase) == true
+                    ? "Adidas → Fanatics (brand)" : "Fanatics (brand)",
+                "epw_tag" => "End Plastic Waste · back-hem tag",
+                "sponsor" => label.Detail is { } detail ? detail + " · sponsor" : "Sponsor",
+                "shoulder" => "Shoulder logo",
+                "blank" => "Blank in NHL 24",
+                _ => label.Role,
+            };
+        return n.Garment switch
+        {
+            "jersey" or "pant" or "sock" => (n.IsBase, n.Role) switch
+            {
+                (true, "color") => Cap(n.Garment) + " base colour (fabric regions)",
+                (true, "coeff") => Cap(n.Garment) + " material coeff (kept stock)",
+                (true, _) => Cap(n.Garment) + " base normal",
+                (false, "color") => Cap(n.Garment) + " colour art",
+                (false, "coeff") => Cap(n.Garment) + " material coeff",
+                _ => Cap(n.Garment) + " normal map",
+            },
+            "font" => n.Role == "color" ? "Numbers font" : "Font " + n.Role,
+            "helmetlogo" => "Helmet sponsor",
+            _ => n.Garment + " " + n.Role,
+        };
+    }
+
+    static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
     void ShowRows()
     {
         foreach (var r in Rows) r.PropertyChanged -= OnRowChanged;
@@ -260,6 +327,7 @@ public sealed class Convert27ViewModel : Observable
             r.SourceTextChanged = ResolveSourceText;
             Rows.Add(r);
         }
+        LabelSlots();
         _ = DecodeSourcesAsync(Rows.ToList());
         _ = PushRightAsync();
     }
@@ -271,10 +339,69 @@ public sealed class Convert27ViewModel : Observable
         Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s);
         if (folder != _folder24) return;
         foreach (var r in Rows) UpdateThumbs(r);
+        ClampArrayLayers();
         MatchLogoShapes();
         CompositeBaseColours();
+        LabelSlots();
+        BakeStamps();
         Status = $"{folder}: {Rows.Count} slots, {Rows.Count(r => r.Kind != SourceKind.Stock || r.Layers.Any(l => l.Source27 != null))} with a source. {Stock24.Count} stock images.";
         await PushRightAsync();
+    }
+
+    /// <summary>
+    /// Hides the array layer rows the destination array cannot hold. The row count came from the numbered `_N_color`
+    /// textures, but the array usually has fewer slices (Detroit jersey 4 of 6, pant 2 of 3; Florida jersey 6 of 7), which
+    /// is what put a "free sponsor slot" in the grid that could never be written. Filled rows are kept and labelled.
+    /// </summary>
+    void ClampArrayLayers()
+    {
+        int removed = 0;
+        foreach (var row in Rows.Where(r => r.IsArray && r.Name.Role == "color" && IsLogoGarment(r.Name.Garment)).ToList())
+        {
+            int slices = Matcher.SliceCount(Stock24, row.Slot);
+            if (slices == 0) continue;
+            int hidden = Matcher.ClampToSlices(row, slices);
+            if (hidden == 0) continue;
+            removed += hidden;
+            row.Reason = $"{row.Layers.Count} layer(s) in the NHL 24 array; {hidden} more had no slice and were hidden";
+        }
+        if (removed > 0) SuiteLog.Write($"array layers: hid {removed} layer row(s) with no slice in {Short(_current?.Folder24)}");
+    }
+
+    /// <summary>
+    /// The Fanatics mark for one garment. The paired NHL 27 set is preferred, otherwise the nearest other set that has
+    /// one is used: the mark is the same image league-wide, so the brand layer is never left stock as Adidas. Null when
+    /// no decoded NHL 27 set supplies both its colour and its normal map.
+    /// </summary>
+    (Nhl27Texture Color, Nhl27Texture Normal)? FanaticsFromAnyNhl27Set(string garment, string? preferTeam)
+    {
+        if (_fanaticsCache.TryGetValue(garment, out var cached)) return cached;
+        (Nhl27Texture, Nhl27Texture)? hit = null;
+        if (Catalog27 is not null)
+        {
+            foreach (var folder in Catalog27.ByFolder.Keys
+                         .OrderBy(f => TextureName.Parse(f + "/x").Team == preferTeam ? 0 : 1)
+                         .ThenBy(f => f, StringComparer.Ordinal))
+            {
+                var list = Catalog27.ByFolder[folder];
+                foreach (var tex in list)
+                {
+                    if (!tex.Name.Contains(garment + "_", StringComparison.Ordinal)) continue;
+                    var n = TextureName.Parse(tex.Name);
+                    if (n.Garment != garment || n.Role != "color" || n.Layer is not { } layer || n.IsArrayName) continue;
+                    var png = TextureImages.Nhl27Png(tex.Name);
+                    if (!File.Exists(png) || SlotRoles.KnownLogo(png) != "brand_fanatics") continue;
+                    var normal = list.FirstOrDefault(x => TextureName.Parse(x.Name) is { Role: "normal" } m
+                        && m.Garment == garment && m.Layer == layer);
+                    if (normal is null || !File.Exists(TextureImages.Nhl27Png(normal.Name))) continue;
+                    hit = (tex, normal);
+                    break;
+                }
+                if (hit is not null) break;
+            }
+        }
+        _fanaticsCache[garment] = hit;
+        return hit;
     }
 
     /// <summary>
@@ -382,22 +509,7 @@ public sealed class Convert27ViewModel : Observable
                 byShape++;
             }
 
-            // Manufacturer/logo swap (adidas → Fanatics): only when exactly one layer is left over, so there is
-            // no ambiguity about which layer it maps to.
-            var unmatched = row.Layers.Where(l => l.Source27 is null && l.FilePath is null).ToList();
-            var unclaimed = items.Where(i => !used.Contains(i.Name)).ToList();
-            if (unmatched.Count == 1 && unclaimed.Count > 0)
-            {
-                var same = unclaimed.FirstOrDefault(i => i.Layer == unmatched[0].Layer);
-                var pick = same.Name ?? (unclaimed.Count == 1 ? unclaimed[0].Name : null);
-                if (pick is not null)
-                {
-                    unmatched[0].Source27 = pick;
-                    used.Add(pick);
-                    arrayLayerSource[(name.Garment, unmatched[0].Layer)] = pick;
-                    byIndex++;
-                }
-            }
+            // Never guess a logo from its layer number. Roles own manufacturer/team marks.
 
             if (byShape + byIndex > 0)
             {
@@ -422,11 +534,98 @@ public sealed class Convert27ViewModel : Observable
             filled++;
         }
 
-        if (filled > 0)
+        // Required branding rules also repair old saved/manual picks. Normal maps follow
+        // the selected logo's source layer, never the destination's numeric index.
+        foreach (var array in Rows.Where(r => r.IsArray && r.Role == "color" && IsLogoGarment(r.Garment)))
+        {
+            if (!candidates.TryGetValue(array.Garment, out var cands)) continue;
+            var entry = store.Resolve(_current.Folder24, _folder27, array.Garment,
+                array.Layers.Select(l => (l.Layer, (string?)Stock24.GetValueOrDefault($"{array.Slot}#{l.Layer}"))).ToList(),
+                cands.Where(c => c.Layer is not null).Select(c => (c.Layer!.Value, (string?)c.Png)).ToList());
+            foreach (var label in entry.Layers24.Where(l => ManufacturerBranding.IsAdidas(l)
+                         || (array.Garment == "branding_pant" && l.Role == "crest")))
+            {
+                var link = entry.Links.FirstOrDefault(l => l.Nhl24 == label.Layer);
+                var color = array.Layers.FirstOrDefault(l => l.Layer == label.Layer);
+                var candidate = cands.FirstOrDefault(c => c.Layer == link?.Nhl27);
+                if (color is null) continue;
+                if (link?.Nhl27 is null || candidate.Name is null)
+                {
+                    // Adidas may never survive a conversion, and the Fanatics mark is the same image league-wide, so when
+                    // the paired set has no brand layer the colour and its normal are taken from the nearest set that has one.
+                    var alt = ManufacturerBranding.IsAdidas(label)
+                        ? FanaticsFromAnyNhl27Set(array.Garment, TextureName.Parse(_current.Folder24 + "/x").Team)
+                        : null;
+                    if (alt is not null)
+                    {
+                        ManufacturerBranding.ApplyToRows(Rows, new BrandingLayerSet(array.Slot, label.Layer,
+                            TextureImages.Nhl27Png(alt.Value.Color.Name), TextureImages.Nhl27Png(alt.Value.Normal.Name)),
+                            "Adidas → Fanatics logo + normal from another NHL 27 set (the paired set has no brand layer)");
+                        continue;
+                    }
+                    color.Source27 = null; color.FilePath = null;
+                    var oldNormal = Rows.FirstOrDefault(r => r.IsArray && r.Garment == array.Garment && r.Role == "normal")?
+                        .Layers.FirstOrDefault(l => l.Layer == label.Layer);
+                    if (oldNormal is not null) { oldNormal.Source27 = null; oldNormal.FilePath = null; }
+                    array.Reason = ManufacturerBranding.IsAdidas(label) ? "REQUIRED: Fanatics artwork/normal missing; cannot export Adidas"
+                        : "Pants team logo has no club-mark match; kept stock (not the NHL shield)";
+                    continue;
+                }
+                color.Source27 = candidate.Name; color.FilePath = null;
+                var normal = textures.FirstOrDefault(t => TextureName.Parse(t.Name) is { Role: "normal" } n
+                    && n.Garment == array.Garment && n.Layer == link.Nhl27);
+                if (normal is not null && File.Exists(TextureImages.Nhl27Png(normal.Name)))
+                {
+                    ManufacturerBranding.ApplyToRows(Rows, new BrandingLayerSet(array.Slot, label.Layer,
+                        candidate.Png, TextureImages.Nhl27Png(normal.Name)), ManufacturerBranding.IsAdidas(label) ? null
+                            : "Pants club logo + matching normal; NHL shield is not a fallback");
+                }
+                else array.Reason = "Required matching logo normal map is missing; check before exporting";
+            }
+        }
+        int shields = KeepShieldOffPants();
+        store.Save();
+        if (filled > 0 || shields > 0)
         {
             foreach (var r in Rows) UpdateThumbs(r);
             SuiteLog.Write($"logo shapes: matched {filled} layer(s), {swapped} by layer index, in {Short(_current.Folder24)}");
         }
+    }
+
+    /// <summary>
+    /// Last word on pants (user rule): every NHL 24 pants set already has the NHL shield on the back, so a pants layer
+    /// never ends up with the shield - not from the slot map, a shape match, a saved pick or a dropped file. Layers whose
+    /// stock image is the shield stay stock too. The normal map of a reset layer goes back to stock with it.
+    /// Returns the number of layers reset.
+    /// </summary>
+    int KeepShieldOffPants()
+    {
+        int reset = 0;
+        string? Png(string? source27, string? file) => file ?? (source27 is null ? null : TextureImages.Nhl27Png(source27));
+        foreach (var array in Rows.Where(r => r.IsArray && r.Garment == "branding_pant" && r.Role == "color"))
+        foreach (var layer in array.Layers.Where(l => l.Source27 is not null || l.FilePath is not null))
+        {
+            bool stockShield = SlotRoles.LooksLikeShield(Stock24.GetValueOrDefault($"{array.Slot}#{layer.Layer}"));
+            if (!stockShield && !SlotRoles.LooksLikeShield(Png(layer.Source27, layer.FilePath))) continue;
+            layer.Source27 = null; layer.FilePath = null;
+            var normal = Rows.FirstOrDefault(r => r.IsArray && r.Garment == "branding_pant" && r.Role == "normal")?
+                .Layers.FirstOrDefault(l => l.Layer == layer.Layer);
+            if (normal is not null) { normal.Source27 = null; normal.FilePath = null; }
+            var single = Rows.FirstOrDefault(r => !r.IsArray && r.Garment == "branding_pant" && r.Role == "color" && r.Name.Layer == layer.Layer);
+            if (single is not null) single.ClearSource();
+            array.Reason = $"pants layer {layer.Layer} kept stock: " + (stockShield ? "it is the NHL shield (already on the back of every pants set)"
+                : "the NHL shield never replaces a pants team logo");
+            SuiteLog.Write($"pants rule: layer {layer.Layer} of {array.Slot} kept stock ({(stockShield ? "stock shield" : "NHL 27 shield refused")})");
+            reset++;
+        }
+        foreach (var row in Rows.Where(r => !r.IsArray && r.Garment == "branding_pant" && r.Role == "color" && r.Kind != SourceKind.Stock))
+        {
+            if (!SlotRoles.LooksLikeShield(Png(row.Kind == SourceKind.Nhl27 ? row.Source27 : null, row.Kind == SourceKind.File ? row.FilePath : null))) continue;
+            row.ClearSource();
+            row.Reason = "kept stock: the NHL shield never replaces a pants team logo";
+            reset++;
+        }
+        return reset;
     }
 
     /// <summary>The slot-map entries of the current folder pair, with image lookups for both games' layers.</summary>
@@ -462,6 +661,8 @@ public sealed class Convert27ViewModel : Observable
         foreach (var r in rows) UpdateThumbs(r);
         MatchLogoShapes();
         CompositeBaseColours();
+        LabelSlots();
+        BakeStamps();
         // The NHL 27 sources are decoded now: push the right side so the viewer shows the new art
         // instead of the stock NHL 24 textures it grabbed before the decode finished.
         await PushRightAsync();
@@ -528,7 +729,7 @@ public sealed class Convert27ViewModel : Observable
         layer.Source27 = null;
         layer.FilePath = path;
         row.Reason = "layer set by hand";
-        UpdateThumbs(row);
+        RefreshViewer(row);
     }
 
     public void Save()
@@ -543,9 +744,84 @@ public sealed class Convert27ViewModel : Observable
         var folders = currentFolderOnly && _current is not null ? [_current] : Project.Folders;
         var sources = folders.SelectMany(f => f.Rows).SelectMany(r => r.Layers.Select(l => l.Source27).Append(r.Kind == SourceKind.Nhl27 ? r.Source27 : null))
             .Where(n => n is not null && Catalog27.ByName.ContainsKey(n)).Select(n => Catalog27.ByName[n!]).ToList();
+        // Manufacturer recognition needs every candidate's real alpha, not just an old saved layer pick.
+        foreach (var folder in folders)
+            if (folder.Folder27 is not null && Catalog27.ByFolder.TryGetValue(folder.Folder27, out var textures))
+                sources.AddRange(textures.Where(t => TextureName.Parse(t.Name) is { Layer: not null } n
+                    && n.Role is "color" or "normal" && IsLogoGarment(n.Garment)));
         await Images.Nhl27Async(sources, s => Status = s);
         Project.Save();
         var mod = Project.ToModFile(name, folders);
+        var manufacturerLayers = new List<BrandingLayerSet>();
+        foreach (var folder in folders)
+        {
+            var arrays = folder.Rows.Where(r => r.IsArray && r.Role == "color" && IsLogoGarment(r.Garment)).ToList();
+            if (arrays.Count == 0) continue;
+            if (!SlotRoles.HasManufacturerReferences) throw new InvalidOperationException("Manufacturer logo references are missing; cannot verify Adidas → Fanatics branding.");
+            Status = "Checking Adidas → Fanatics branding: " + folder.Folder24;
+            var stock = await Images.Nhl24FolderAsync(folder.Folder24);
+            var textures = folder.Folder27 is not null && Catalog27.ByFolder.TryGetValue(folder.Folder27, out var ts) ? ts : [];
+            foreach (var array in arrays)
+            {
+                // A layer with no slice in the NHL 24 array can never be written there: drop it instead of refusing the
+                // whole set (the NHL 24 array usually holds fewer slices than the numbered logo textures).
+                var present = array.Layers.Where(l => stock.TryGetValue($"{array.Slot}#{l.Layer}", out var image) && File.Exists(image)).ToList();
+                var absent = array.Layers.Where(l => !present.Contains(l)).Select(l => l.Layer).ToList();
+                if (absent.Count > 0)
+                {
+                    SuiteLog.Write($"{array.Slot}: layer(s) {string.Join(",", absent)} have no slice in NHL 24 and are not written");
+                    ManufacturerBranding.PruneLayers(mod, array.Slot[..^"_color_array".Length], absent);
+                }
+                if (present.Count == 0)
+                    throw new InvalidOperationException($"No stock branding images for {array.Slot}; cannot verify manufacturer/team-logo roles.");
+                var labels24 = SlotRoles.Label(present.Select(l => (l.Layer, (string?)stock.GetValueOrDefault($"{array.Slot}#{l.Layer}"))).ToList(), array.Garment);
+                var adidas = labels24.Where(ManufacturerBranding.IsAdidas).ToList();
+                var candidates = textures.Where(t => TextureName.Parse(t.Name) is { Role: "color", Layer: not null } n
+                    && n.Garment == array.Garment).Select(t => (Layer: TextureName.Parse(t.Name).Layer!.Value, Png: TextureImages.Nhl27Png(t.Name))).ToList();
+                var labels27 = SlotRoles.Label(candidates.Select(c => (c.Layer, (string?)c.Png)).ToList(), array.Garment);
+                if (array.Garment == "branding_pant")
+                {
+                    var crest = labels27.FirstOrDefault(l => l.Role == "crest");
+                    foreach (var target in labels24.Where(l => l.Role == "crest"))
+                    {
+                        var crestNormal = crest is null ? null : textures.FirstOrDefault(t => TextureName.Parse(t.Name) is { Role: "normal" } n
+                            && n.Garment == array.Garment && n.Layer == crest.Layer);
+                        if (crest is null || crestNormal is null || !File.Exists(TextureImages.Nhl27Png(crestNormal.Name)))
+                        {
+                            ManufacturerBranding.KeepStockLayer(mod, array.Slot, target.Layer);
+                            continue;
+                        }
+                        manufacturerLayers.Add(new BrandingLayerSet(array.Slot, target.Layer,
+                            candidates.First(c => c.Layer == crest.Layer).Png, TextureImages.Nhl27Png(crestNormal.Name)));
+                    }
+                }
+                if (adidas.Count == 0) continue;
+                var fanatics = labels27.Where(ManufacturerBranding.IsFanatics).ToList();
+                string? png = null, normalPng = null;
+                if (fanatics.Count > 0)
+                {
+                    var fanLayer = fanatics[0].Layer;
+                    png = candidates.First(c => c.Layer == fanLayer).Png;
+                    var normal = textures.FirstOrDefault(t => TextureName.Parse(t.Name) is { Role: "normal" } n
+                        && n.Garment == array.Garment && n.Layer == fanLayer);
+                    normalPng = normal is null ? null : TextureImages.Nhl27Png(normal.Name);
+                }
+                if (png is null || normalPng is null || !File.Exists(normalPng))
+                {
+                    // Same rule as the matcher: the mark and its normal come from another NHL 27 set rather than failing.
+                    var alt = FanaticsFromAnyNhl27Set(array.Garment, TextureName.Parse(folder.Folder24 + "/x").Team);
+                    if (alt is not null)
+                    {
+                        png = TextureImages.Nhl27Png(alt.Value.Color.Name);
+                        normalPng = TextureImages.Nhl27Png(alt.Value.Normal.Name);
+                    }
+                }
+                if (png is null || normalPng is null || !File.Exists(png) || !File.Exists(normalPng))
+                    throw new InvalidOperationException($"Fanatics logo and normal map missing for {folder.Folder24}/{array.Garment}, and no NHL 27 set supplies them. Adidas branding cannot be kept in a converted kit.");
+                foreach (var label in adidas) manufacturerLayers.Add(new BrandingLayerSet(array.Slot, label.Layer, png, normalPng));
+            }
+        }
+        ManufacturerBranding.ApplyToMod(mod, manufacturerLayers);
         var path = mod.Save();
         Status = $"Saved mod '{name}' with {mod.Replacements.Count} replacements: {path}";
         return path;
@@ -596,6 +872,7 @@ public sealed class Convert27ViewModel : Observable
     }
 
     // ---------------------------------------------------------------- viewer
+
 
     /// <summary>Sends the team's DB colours to the viewer so the helmet and gloves use the right colours.</summary>
     void PushColors()
@@ -681,6 +958,7 @@ public sealed class Convert27ViewModel : Observable
     /// </summary>
     public string? ArtImageFor(SlotMatch row)
     {
+        if (row.Kind == SourceKind.File && row.FilePath is not null) return ImageFor(row);
         if (row.Name.IsBase && Catalog27 is not null && _folder27 is not null
             && Catalog27.ByFolder.TryGetValue(_folder27, out var textures))
         {
@@ -710,7 +988,9 @@ public sealed class Convert27ViewModel : Observable
             if (row.Manual || row.IsArray) continue;
             if (!row.Name.IsBase || row.Name.Role != "color") continue;
             if (row.Kind != SourceKind.Nhl27 || row.Source27 is null) continue;
-            var basePng = TextureImages.Nhl27Png(row.Source27);
+            // Region codes/layout belong to the NHL 24 destination, not the NHL 27 source.
+            var basePng = Stock24.GetValueOrDefault(row.Slot);
+            if (basePng is null) continue;
             if (!File.Exists(basePng)) continue;
             var plainCanonical = row.Name.Canonical.Replace("_base_", "_");
             var plain = textures.FirstOrDefault(t => TextureName.Parse(t.Name).Canonical == plainCanonical);
@@ -722,8 +1002,8 @@ public sealed class Convert27ViewModel : Observable
             row.FilePath = composite;
             row.Source27 = null;
             row.Kind = SourceKind.File;
-            row.Alpha = null;
-            row.Reason = "plain art + _base_ fabric alpha (keeps a sponsor that has no logo slot)";
+            row.Alpha = "auto";
+            row.Reason = "plain art + NHL 24 fabric alpha (keeps a sponsor that has no logo slot)";
             made++;
         }
         if (made > 0)
@@ -753,6 +1033,43 @@ public sealed class Convert27ViewModel : Observable
     }
 
     public string? StockImage(SlotMatch row) => Stock24.GetValueOrDefault(row.Slot) ?? Stock24.GetValueOrDefault(row.Slot + "#0");
+
+    /// <summary>
+    /// Bakes every saved stamp into its slot's colour art and points the row at the result. Stamps live in the project,
+    /// so they survive re-matching; the row then exports like any other file source.
+    /// </summary>
+    public void BakeStamps()
+    {
+        if (Project.Stamps.Count == 0) return;
+        int baked = 0;
+        foreach (var stamp in Project.Stamps.Where(s => s.Enabled))
+        {
+            var row = Rows.FirstOrDefault(r => r.Slot == stamp.Slot);
+            if (row is null || row.IsArray) continue;
+            var basePath = File.Exists(stamp.Base) ? stamp.Base : Stock24.GetValueOrDefault(row.Slot);
+            if (basePath is null || !File.Exists(basePath)) { Status = "Stamp skipped: no colour art for " + row.Leaf; continue; }
+            if (!File.Exists(stamp.Image)) { Status = "Stamp skipped: the logo file is gone (" + stamp.Image + ")"; continue; }
+            var png = TextureImages.Stamp(basePath, stamp.Image, stamp.X, stamp.Y, stamp.Size, stamp.Slot + "|" + stamp.Image);
+            if (png is null) continue;
+            row.Kind = SourceKind.File;
+            row.FilePath = png;
+            row.Confidence = 1;
+            row.Manual = true;
+            row.Reason = $"logo stamped at {stamp.X:P0}/{stamp.Y:P0}, {stamp.Size:P0} of the map";
+            baked++;
+        }
+        if (baked > 0) foreach (var r in Rows) UpdateThumbs(r);
+    }
+
+    /// <summary>Adds or replaces the stamp for its slot, bakes it and saves the project.</summary>
+    public void ApplyStamp(StampEntry stamp)
+    {
+        Project.Stamps.RemoveAll(s => s.Slot == stamp.Slot);
+        Project.Stamps.Add(stamp);
+        BakeStamps();
+        Project.Save();
+        Status = $"Stamped {Path.GetFileName(stamp.Image)} onto {stamp.Slot.Split('/')[^1]}: baked into the colour map and saved with the project";
+    }
 
     public void UpdateThumbs(SlotMatch row)
     {

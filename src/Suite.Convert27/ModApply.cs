@@ -27,6 +27,35 @@ public static class ModApply
 
     public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count);
 
+    /// <summary>
+    /// Every replacement must point at a source image that still exists (or be a generated coeff). Checked before an
+    /// apply so a moved or renamed file is reported up front instead of failing halfway through a write.
+    /// </summary>
+    public static List<string> SourceProblems(IEnumerable<ModFile> mods)
+    {
+        var problems = new List<string>();
+        foreach (var mod in mods)
+        foreach (var l in mod.Legacy ?? [])
+            if (!File.Exists(l.Source)) problems.Add($"{mod.Name}: {l.Name} has no source file ({l.Source})");
+        foreach (var mod in mods)
+        foreach (var r in mod.Replacements)
+        {
+            var slot = r.Slot.Split('/')[^1];
+            if (r.Layers is { Count: > 0 })
+            {
+                foreach (var (layer, source) in r.Layers)
+                {
+                    if (source.StartsWith("coeff:", StringComparison.Ordinal)) continue;
+                    if (!File.Exists(source)) problems.Add($"{mod.Name}: layer {layer} of {slot} has no source file ({source})");
+                }
+                continue;
+            }
+            if (r.Source.Length == 0) { problems.Add($"{mod.Name}: {slot} is an array entry with no layers"); continue; }
+            if (!File.Exists(r.Source)) problems.Add($"{mod.Name}: {slot} has no source file ({r.Source})");
+        }
+        return problems;
+    }
+
     public static string WritePlan(IEnumerable<ModFile> mods)
     {
         // Legacy files (roster databases) are not sent to the Worker: its writer cannot reach TOC chunks. They are written
@@ -52,6 +81,10 @@ public static class ModApply
     {
         var mods = LoadMods();
         if (TotalReplacements(mods) == 0) return Task.FromResult((false, "The mod list is empty."));
+        var missing = SourceProblems(mods);
+        if (missing.Count > 0)
+            return Task.FromResult((false, $"Apply refused: {missing.Count} source file(s) are missing.\n" +
+                string.Join("\n", missing.Take(12)) + (missing.Count > 12 ? $"\n… and {missing.Count - 12} more" : "")));
         return ApplyPlanAsync(s, WritePlan(mods), progress, ct);
     }
 

@@ -65,17 +65,22 @@ public sealed class SlotMapWindow : Window
                 Width = 110, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0),
             });
             bool isTag = label24?.Role == SlotRoles.EpwRole;
+            bool isAdidas = label24 is not null && ManufacturerBranding.IsAdidas(label24);
+            bool isPantsCrest = e.Garment == "branding_pant" && label24?.Role == "crest";
             var role = new ComboBox
             {
                 ItemsSource = SlotRoles.Roles, SelectedItem = label24?.Role, Width = 95, VerticalAlignment = VerticalAlignment.Center,
-                IsEnabled = !isTag, // End Plastic Waste is always the back hem tag on every jersey
-                ToolTip = isTag ? "End Plastic Waste: drawn as the tag on the very back hem of every jersey. Locked." : null,
+                IsEnabled = !isTag && !isAdidas && !isPantsCrest,
+                ToolTip = isTag ? "End Plastic Waste: drawn as the tag on the very back hem of every jersey. Locked."
+                    : isAdidas ? "Adidas branding must become Fanatics, including its normal map/mask."
+                    : isPantsCrest ? "The pants team-logo slot takes the club mark, never the NHL shield." : null,
             };
             ToolTipService.SetShowOnDisabled(role, true);
             role.SelectionChanged += (_, _) =>
             {
                 if (label24 is null) return;
-                label24.Role = (string)role.SelectedItem; label24.Manual = true; link.Role = label24.Role;
+                if (role.SelectedItem is not string selectedRole) return;
+                label24.Role = selectedRole; label24.Manual = true; link.Role = label24.Role;
             };
             row.Children.Add(role);
             row.Children.Add(new TextBlock { Text = "  ←  ", VerticalAlignment = VerticalAlignment.Center, Foreground = Muted });
@@ -94,6 +99,15 @@ public sealed class SlotMapWindow : Window
                         "Slot map", MessageBoxButton.OK, MessageBoxImage.Information);
                     link.Nhl27 = before;
                     pick.SelectedIndex = previous;
+                    return;
+                }
+                var chosen = e.Layers27.FirstOrDefault(l => l.Layer == link.Nhl27);
+                if ((isAdidas && (chosen is null || !ManufacturerBranding.IsFanatics(chosen)))
+                    || (isPantsCrest && chosen is not null && chosen.Role != "crest"))
+                {
+                    link.Nhl27 = before; pick.SelectedIndex = previous;
+                    MessageBox.Show(this, isAdidas ? "Adidas branding must be replaced by Fanatics, including the normal map/mask."
+                        : "This pants slot is the team logo. Pick a club crest/wordmark, not the NHL shield.", "Branding rule");
                     return;
                 }
                 previous = pick.SelectedIndex;

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  NHL 24 (CUSA37933) APP_VER 01.60 - the code patches the "NHL24PC V3.2" repack bakes into eboot.bin,
+  expressed as runtime memory patches so a CLEAN 1.60 extract stays stock.
+
+  Drop this file in <emulator folder>\user\patches\ and start with the memory patcher enabled
+  (shadPS4 style: nhl24.exe -p nhl24.xml). Addresses use the patch repository convention
+  Address = 0x400000 + eboot.bin file offset.
+
+  Where this comes from: a byte diff of the repack's patched game-UPDATE\eboot.bin against the untouched
+  eboot.bin.orig kept beside it (188,338,041 bytes; 21 differing bytes in 7 runs). The two runs inside the
+  resource area (file 0x09059F50 and 0x09059F54) are language/loc data and are left out of the active
+  entries: text is better patched on disk and can be reloaded at runtime.
+
+  VERIFY BEFORE RELYING ON IT: run one clean 1.60 session per entry and confirm the symptom goes away.
+  The names say what each byte does to the machine code; they are read off the disassembly, not from the
+  repack's source.
+-->
+<Patch>
+
+  <!-- 0x065324F0: 74 to EB. je to jmp: always take the branch. Same technique the upstream project uses
+       for its synchronous replay compression fix, at a different address. -->
+  <Metadata Name="Repack A - force the branch at 0x065324F0 (je to jmp)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x0A5324F0" Value="0xEB"/>
+    </PatchList>
+  </Metadata>
+
+  <!-- 0x05C30524: 8A 86 6E 01 00 00 to 31 C0 90 90 90 90. mov al,[rsi+0x16E] to xor eax,eax + 4 nops,
+       so the value read there is always 0. Consistent with switching one effect off. -->
+  <Metadata Name="Repack B - zero the byte read at [rsi+0x16E] (0x05C30524)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x09C30524" Value="0x31"/>
+      <Line Type="byte" Address="0x09C30525" Value="0xC0"/>
+      <Line Type="byte" Address="0x09C30526" Value="0x90"/>
+      <Line Type="byte" Address="0x09C30527" Value="0x90"/>
+      <Line Type="byte" Address="0x09C30528" Value="0x90"/>
+      <Line Type="byte" Address="0x09C30529" Value="0x90"/>
+    </PatchList>
+  </Metadata>
+
+  <!-- 0x04DD0FC7: 0F B6 8B 6E 01 to 31 C9 0F 1F 44. movzx ecx,[rbx+0x16E] to xor ecx,ecx + nops:
+       the same 0x16E field, read through another register, forced to 0. -->
+  <Metadata Name="Repack C - zero the byte read at [rbx+0x16E] (0x04DD0FC7)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x08DD0FC7" Value="0x31"/>
+      <Line Type="byte" Address="0x08DD0FC8" Value="0xC9"/>
+      <Line Type="byte" Address="0x08DD0FC9" Value="0x0F"/>
+      <Line Type="byte" Address="0x08DD0FCA" Value="0x1F"/>
+      <Line Type="byte" Address="0x08DD0FCB" Value="0x44"/>
+    </PatchList>
+  </Metadata>
+
+  <!-- 0x05AC37E5: 0F 85 8B 17 to 66 0F 1F 44. jne rel32 to a multi-byte nop: the conditional jump is
+       removed, execution always falls through. -->
+  <Metadata Name="Repack D - remove the conditional jump at 0x05AC37E5 (jne to nop)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x09AC37E5" Value="0x66"/>
+      <Line Type="byte" Address="0x09AC37E6" Value="0x0F"/>
+      <Line Type="byte" Address="0x09AC37E7" Value="0x1F"/>
+      <Line Type="byte" Address="0x09AC37E8" Value="0x44"/>
+    </PatchList>
+  </Metadata>
+
+  <!-- 0x01E9819B: 01 to 00. A single flag byte, no instruction decode involved. Off by default: nothing in
+       the repack's readme says what it toggles, so enable it only if a symptom needs it. -->
+  <Metadata Name="Repack flag byte at 0x01E9819B (01 to 00), purpose unknown" isEnabled="false" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x05E9819B" Value="0x00"/>
+    </PatchList>
+  </Metadata>
+
+  <!-- Reference only, NOT code: the repack's language/loc edits inside the resource area. Leave disabled;
+       patch text on disk, because the game can reload that data at runtime. -->
+  <Metadata Name="Repack loc data edits (resource area) - disabled, use the on-disk edition" isEnabled="false" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <Line Type="byte" Address="0x0D059F50" Value="0x00"/>
+      <Line Type="byte" Address="0x0D059F51" Value="0x0F"/>
+      <Line Type="byte" Address="0x0D059F54" Value="0x70"/>
+      <Line Type="byte" Address="0x0D059F55" Value="0x08"/>
+    </PatchList>
+  </Metadata>
+
+</Patch>

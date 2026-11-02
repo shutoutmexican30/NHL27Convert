@@ -69,6 +69,36 @@ public static class ImageIO
         return new Rgba(width, height, dst);
     }
 
+    /// <summary>Bilinear resize to an exact size (stamped logos are scaled, and nearest-neighbour would look blocky).</summary>
+    public static Rgba ResizeSmooth(Rgba src, int width, int height)
+    {
+        if (src.Width == width && src.Height == height) return src;
+        var dst = new byte[width * height * 4];
+        double sx = (double)src.Width / width, sy = (double)src.Height / height;
+        Parallel.For(0, height, y =>
+        {
+            double fy = Math.Max(0, (y + 0.5) * sy - 0.5);
+            int y0 = (int)fy, y1 = Math.Min(src.Height - 1, y0 + 1);
+            double wy = fy - y0;
+            for (int x = 0; x < width; x++)
+            {
+                double fx = Math.Max(0, (x + 0.5) * sx - 0.5);
+                int x0 = (int)fx, x1 = Math.Min(src.Width - 1, x0 + 1);
+                double wx = fx - x0;
+                int o = (y * width + x) * 4;
+                int i00 = (y0 * src.Width + x0) * 4, i10 = (y0 * src.Width + x1) * 4;
+                int i01 = (y1 * src.Width + x0) * 4, i11 = (y1 * src.Width + x1) * 4;
+                for (int c = 0; c < 4; c++)
+                {
+                    double top = src.Pixels[i00 + c] * (1 - wx) + src.Pixels[i10 + c] * wx;
+                    double bottom = src.Pixels[i01 + c] * (1 - wx) + src.Pixels[i11 + c] * wx;
+                    dst[o + c] = (byte)Math.Round(top * (1 - wy) + bottom * wy);
+                }
+            }
+        });
+        return new Rgba(width, height, dst);
+    }
+
     /// <summary>Box-filter downscale, used for viewer previews (the viewer never needs more than 2048).</summary>
     public static Rgba Shrink(Rgba src, int maxSide)
     {

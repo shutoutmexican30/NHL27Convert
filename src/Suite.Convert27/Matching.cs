@@ -43,6 +43,9 @@ public sealed class SlotMatch : Observable
     public string Reason { get => _reason; set => Set(ref _reason, value); }
     /// <summary>Set once the user has touched this row; re-proposing never overwrites a manual row.</summary>
     public bool Manual { get => _manual; set => Set(ref _manual, value); }
+    string _what = "";
+    /// <summary>What this slot is for the game, in words (team crest, brand, back-hem tag, sponsor...).</summary>
+    public string What { get => _what; set => Set(ref _what, value); }
     /// <summary>"auto" keeps the game's fabric-region alpha (rule 11), "nodimples" also maps 102 to 51, null = image alpha.</summary>
     public string? Alpha { get => _alpha; set => Set(ref _alpha, value); }
     public List<LayerMatch> Layers { get; set; } = [];
@@ -221,6 +224,28 @@ public static class Matcher
         row.Reason = count == 0
             ? "no layers found"
             : $"{count} logo layers: layer order differs between games, choose each one by hand (logos come from arrays, rule 12)";
+    }
+
+    /// <summary>
+    /// How many slices an NHL 24 array really has, counted from the dumped per-slice images ("slot#0", "slot#1", ...).
+    /// The numbered `_N_color` textures are a different, larger set (Detroit jersey: six of them, four slices).
+    /// </summary>
+    public static int SliceCount(IReadOnlyDictionary<string, string> stock, string arraySlot)
+    {
+        int n = 0;
+        while (stock.ContainsKey($"{arraySlot}#{n}")) n++;
+        return n;
+    }
+
+    /// <summary>
+    /// Drops the array layer rows the destination array cannot hold, so a "free" layer that can never be written stops
+    /// appearing in the grid. Rows the user already filled are kept - they are labelled and pruned at export - so no work
+    /// is silently dropped. Returns how many rows were removed.
+    /// </summary>
+    public static int ClampToSlices(SlotMatch row, int slices)
+    {
+        if (slices <= 0) return 0;
+        return row.Layers.RemoveAll(l => l.Layer >= slices && l.Source27 is null && l.FilePath is null);
     }
 
     static void Use(SlotMatch row, Nhl27Texture t, double confidence, string reason)

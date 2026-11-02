@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Suite.Core;
 
@@ -22,7 +24,7 @@ public sealed class TextureImages(SuiteSettings settings)
     /// map). Base slots get this so a sponsor that only exists in the plain colour map still reaches the game while the
     /// fabric regions stay intact.
     /// </summary>
-    public static string? CompositeArtWithBaseAlpha(string artPng, string basePng, string key)
+    public static string? CompositeArtWithBaseAlpha(string artPng, string basePng, string key, string? cacheDirectory = null)
     {
         try
         {
@@ -31,7 +33,10 @@ public sealed class TextureImages(SuiteSettings settings)
             if (art.Width != baseImg.Width || art.Height != baseImg.Height)
                 art = ImageIO.Resize(art, baseImg.Width, baseImg.Height);
             for (int i = 3; i < art.Pixels.Length; i += 4) art.Pixels[i] = baseImg.Pixels[i];
-            var outPath = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.DroppedImages, "composite")), SuitePaths.Flatten(key) + ".png");
+            // The logical key joins two full asset paths with '|': invalid on Windows,
+            // and even sanitised it can exceed the filename/path limit. Keep it opaque.
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+            var outPath = Path.Combine(SuitePaths.Ensure(cacheDirectory ?? Path.Combine(SuitePaths.DroppedImages, "composite")), cacheKey + ".png");
             var stamp = File.Exists(outPath) ? File.GetLastWriteTimeUtc(outPath) : DateTime.MinValue;
             if (stamp < File.GetLastWriteTimeUtc(artPng) || stamp < File.GetLastWriteTimeUtc(basePng))
                 ImageIO.SavePng(art, outPath);
@@ -40,6 +45,52 @@ public sealed class TextureImages(SuiteSettings settings)
         catch (Exception ex)
         {
             SuiteLog.Write("composite art+alpha: " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Paints <paramref name="logoPng"/> onto <paramref name="basePng"/> at a fraction of the map (x/y = centre, size =
+    /// the logo's longest side as a fraction of the map). The destination alpha is kept, so a fabric-region map stays
+    /// valid; only RGB and the logo's own coverage change.
+    /// </summary>
+    public static string? Stamp(string basePng, string logoPng, double x, double y, double size, string key, string? cacheDirectory = null)
+    {
+        try
+        {
+            var art = ImageIO.Load(basePng);
+            var logo = ImageIO.Load(logoPng);
+            double scale = Math.Max(0.01, Math.Min(4.0, size)) * Math.Min(art.Width, art.Height) / Math.Max(1, Math.Max(logo.Width, logo.Height));
+            int w = Math.Max(1, (int)Math.Round(logo.Width * scale));
+            int h = Math.Max(1, (int)Math.Round(logo.Height * scale));
+            var small = ImageIO.ResizeSmooth(logo, w, h);
+            int left = (int)Math.Round(x * art.Width - w / 2.0);
+            int top = (int)Math.Round(y * art.Height - h / 2.0);
+            for (int sy2 = 0; sy2 < h; sy2++)
+            {
+                int dy = top + sy2;
+                if (dy < 0 || dy >= art.Height) continue;
+                for (int sx2 = 0; sx2 < w; sx2++)
+                {
+                    int dx = left + sx2;
+                    if (dx < 0 || dx >= art.Width) continue;
+                    int si = (sy2 * w + sx2) * 4, di = (dy * art.Width + dx) * 4;
+                    double a = small.Pixels[si + 3] / 255.0;
+                    if (a <= 0) continue;
+                    for (int c = 0; c < 3; c++)
+                        art.Pixels[di + c] = (byte)Math.Round(art.Pixels[di + c] * (1 - a) + small.Pixels[si + c] * a);
+                }
+            }
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                key + "|" + x.ToString("F4") + "|" + y.ToString("F4") + "|" + size.ToString("F4") + "|" +
+                File.GetLastWriteTimeUtc(basePng).Ticks + "|" + File.GetLastWriteTimeUtc(logoPng).Ticks)));
+            var outPath = Path.Combine(SuitePaths.Ensure(cacheDirectory ?? Path.Combine(SuitePaths.DroppedImages, "stamp")), cacheKey + ".png");
+            if (!File.Exists(outPath)) ImageIO.SavePng(art, outPath);
+            return outPath;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("stamp: " + ex.Message);
             return null;
         }
     }

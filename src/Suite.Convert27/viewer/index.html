@@ -361,33 +361,81 @@ applyMode();
 view('fit');
 
 // ---------------------------------------------------------------- numbers and name on the jersey
-// The number glyphs are taken from the game's font atlas (the small digit row), so a replaced font shows here.
+// The number glyphs come from the game's font atlas (the small digit row), so a replaced font shows here.
+// The cells below were measured on the 2048-square NHL 27 atlas. NHL 24's atlas is 1024 square with the
+// same layout, so every cell is scaled to the atlas that actually arrives instead of assuming 2048.
+// Each glyph keeps its own cell width (a '1' is much narrower than a '9'), and the panel canvas matches
+// the plane's real 0.38 x 0.46 m aspect, so nothing is stretched: the digits keep the game's proportions.
 const DIGIT_CELLS = [[18,173],[208,303],[402,557],[594,749],[781,946],[978,1133],[1170,1325],[1362,1517],[1555,1710],[1746,1901]];
 const DIGIT_ROW = [1490, 1775];
+const DIGIT_ATLAS = 2048;
+// The atlas letter rows, measured on the same 2048-square NHL 27 atlas. Every set (and NHL 24's 1024-square atlas) uses
+// the same layout, so these are scaled exactly like the digits; the wide C/A marks are left out on purpose.
+// Both rows are exactly the same cap height (173 px): scaling per row is what keeps every letter the same size,
+// even though the letters are split across two rows of the sheet.
+const LETTER_ROWS = [[10, 182], [202, 374]];
+const LETTER_CELLS = {
+  A: [0, 12, 115], B: [0, 140, 243], C: [0, 268, 371], D: [0, 396, 499], E: [0, 524, 627],
+  F: [0, 652, 755], G: [0, 780, 883], H: [0, 908, 1011], I: [0, 1036, 1075], J: [0, 1164, 1267],
+  K: [0, 1292, 1397], L: [0, 1420, 1523], M: [0, 1612, 1715], N: [0, 1804, 1907], O: [0, 1932, 2035],
+  P: [1, 12, 115], Q: [1, 140, 243], R: [1, 268, 371], S: [1, 396, 499], T: [1, 524, 627],
+  U: [1, 652, 755], V: [1, 780, 883], W: [1, 972, 1075], X: [1, 1163, 1268], Y: [1, 1291, 1396],
+  Z: [1, 1419, 1524], "'": [0, 1551, 1583], ".": [0, 1747, 1771], "-": [1, 1612, 1651],
+};
+// The plane placeJerseyNumber puts on the jersey back, in metres.
+const PANEL = { w: 0.38, h: 0.46 };
+// Panel texture resolution: about 1.6x the atlas glyph height, so the digits stay sharp without going soft.
+const PANEL_TPM = 1680;
 
 function composeJerseyText(atlas, number = '92', name = 'COOLEY') {
-  const W = 1024, H = 1024;
+  const W = Math.round(PANEL.w * PANEL_TPM), H = Math.round(PANEL.h * PANEL_TPM);
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
-  // Name arched above the number, like a real jersey back. The atlas letter cells are not mapped yet, so the
-  // name uses a bold block face; the number glyphs come straight from the game's font atlas.
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '700 235px "Arial Narrow", Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(name, W / 2, 130);
+  const aw = atlas.naturalWidth || atlas.width || DIGIT_ATLAS;
+  const ah = atlas.naturalHeight || atlas.height || DIGIT_ATLAS;
+  const s = aw / DIGIT_ATLAS;
 
-  const [y0, y1] = DIGIT_ROW;
-  const draw = (digit, dx) => {
-    const [x0, x1] = DIGIT_CELLS[Math.max(0, Math.min(9, digit))];
-    ctx.drawImage(atlas, x0, y0, x1 - x0 + 1, y1 - y0 + 1, dx, 250, 430, 560);
-  };
-  draw(parseInt(number[0], 10) || 0, 70);
-  draw(parseInt(number[1] ?? number[0], 10) || 0, 524);
+  // Name above the number, in the game's own lettering: every glyph comes from the atlas, so a replaced font or a
+  // team's own letter shape shows here exactly as it will in game. Unknown characters are skipped.
+  const nameH = 0.054 * PANEL_TPM;
+  const nameTracking = 0.02 * nameH;   // the atlas cells already carry their own side bearings
+  const letters = [...String(name).toUpperCase()].map(ch => LETTER_CELLS[ch]).filter(Boolean).map(([row, x0, x1]) => {
+    const [y0, y1] = LETTER_ROWS[row];
+    const sx = x0 * s, sy = y0 * s;
+    const sw = Math.min((x1 - x0 + 1) * s, aw - sx);
+    const sh = Math.min((y1 - y0 + 1) * s, ah - sy);
+    return { sx, sy, sw, sh, w: sw * nameH / sh };
+  });
+  if (letters.length > 0) {
+    let nx = (W - (letters.reduce((a, l) => a + l.w, 0) + nameTracking * (letters.length - 1))) / 2;
+    const ny = 0.026 * PANEL_TPM;
+    for (const l of letters) {
+      ctx.drawImage(atlas, l.sx, l.sy, l.sw, l.sh, nx, ny, l.w, nameH);
+      nx += l.w + nameTracking;
+    }
+  }
+  const glyphs = String(number).padStart(2, '0').split('').map(ch => {
+    const [x0, x1] = DIGIT_CELLS[Math.max(0, Math.min(9, parseInt(ch, 10) || 0))];
+    const sx = x0 * s, sy = DIGIT_ROW[0] * s;
+    return { sx, sy, sw: Math.min((x1 - x0 + 1) * s, aw - sx), sh: Math.min((DIGIT_ROW[1] - DIGIT_ROW[0] + 1) * s, ah - sy) };
+  }).filter(g => g.sw > 0 && g.sh > 0);
+  if (glyphs.length === 0) return c;
+
+  const height = 0.285 * PANEL_TPM;   // a real back number is roughly 28 cm tall
+  const gap = -0.03 * height;         // the two digits butt together, as they do in game
+  const widths = glyphs.map(g => g.sw * height / g.sh);
+  let x = (W - (widths.reduce((a, b) => a + b, 0) + gap * (glyphs.length - 1))) / 2;
+  const top = 0.118 * PANEL_TPM;
+  glyphs.forEach((g, i) => {
+    ctx.drawImage(atlas, g.sx, g.sy, g.sw, g.sh, x, top, widths[i], height);
+    x += widths[i] + gap;
+  });
   return c;
 }
 
@@ -421,10 +469,9 @@ function placeJerseyNumber(side, tex) {
   const box = new THREE.Box3().setFromObject(jersey);
   const size = new THREE.Vector3();
   box.getSize(size);
-  // Real jersey back lettering: a ~30 cm number with the name above it, so the panel is sized in metres,
-  // not as a fraction of the mesh bounds.
-  const W = 0.38, H = 0.46;
-  const geo = new THREE.PlaneGeometry(W, H);
+  // Real jersey back lettering: a ~28 cm number with the name above it, so the panel is sized in metres,
+  // not as a fraction of the mesh bounds. The texture is composed at this exact aspect (see PANEL).
+  const geo = new THREE.PlaneGeometry(PANEL.w, PANEL.h);
   const mat = new THREE.MeshStandardMaterial({
     map: tex, transparent: true, roughness: 0.85, metalness: 0, side: THREE.DoubleSide,
     depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
