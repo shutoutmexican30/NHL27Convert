@@ -30,8 +30,18 @@ Last updated: 2026-11-02.
 - Both equipment dumps expose the **same** id space: 24 `brand` values and 14 `equipment` values. That closes the door on
   "add a new id": the model is chosen by index inside that fixed space, so a model NHL 24 does not ship has no row to sit
   in either.
-- [ ] **First gear swap**: pick a shared model whose NHL 27 art differs meaningfully, rebuild its colour (BC1) and normal
-      (BC5) chunks, write to the test copy, read back, restore check. Then assign through the existing DB rows.
+- **Blocker found for the first gear swap (2026-11-02):** `MeshExport --texture-resource` is the only path that yields a
+  texture's 132-byte `.res` header (and with it the resource's chunk GUID), and FMT refuses to open the read view with
+  `"You are unable to read & write to the Game Folder. Please restart the Application as Administrator."` This is **not** an
+  ACL problem: a non-elevated write+delete probe inside `%LOCALAPPDATA%\CenterIceModdingSuite\nhl24view` succeeds, and the
+  view has `package.mft`, `Data`, `Patch`; FMT simply requires the process to be an administrator. The suite's own reader
+  does not need FMT - only this header/GUID mapping does. Candidate pair already chosen:
+  `content/character/skater/goalie/pads/brians/gnetik/textures/goalie_pads_brians_gnetik_4_color` and `_normal`.
+- [ ] Run once **elevated** (no ACL or guard change):
+      `dotnet run --project tools\MeshExport -- "<read view>" "<out>" --texture-resource <color name> <normal name>`
+      then build both chunks and write them to the test copy with `tools\TextureChunk build|apply`.
+- [ ] **First gear swap**: rebuild that model's colour (BC1) and normal (BC5), write to the test copy, read back, restore
+      check, then assign through the existing DB rows.
 
 ## 3. Faces (from the Codex handoff; prototype only, `game_ready: false`)
 
