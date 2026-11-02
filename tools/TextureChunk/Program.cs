@@ -100,6 +100,18 @@ if (mode == "apply")
     return 0;
 }
 
+// ------------------------------------------------------------------ resource header (no FMT, no elevation)
+if (mode == "res")
+{
+    if (args.Length < 4) { Console.Error.WriteLine("usage: TextureChunk res <game> <texture name> <out.res>"); return 2; }
+    var host = Path.GetFullPath(args[1]).TrimEnd(Path.DirectorySeparatorChar);
+    var found = TextureResource.Read(host, args[2]);
+    if (found is null) { Console.Error.WriteLine("no bundle declares " + args[2]); return 1; }
+    File.WriteAllBytes(args[3], found.Bytes);
+    Console.WriteLine($"res {found.Bytes.Length} bytes from {Path.GetFileName(found.Toc)} -> {Path.GetFileName(found.Cas)} @ {found.Offset:N0}");
+    return 0;
+}
+
 // ------------------------------------------------------------------ read-only modes
 var res2 = TextureRes.Parse(File.ReadAllBytes(args[1]));
 Console.WriteLine($"res   {res2.Width}x{res2.Height}  mips {res2.MipCount}  block {res2.BlockBytes}  payload {res2.PayloadSize:N0} bytes  chunk {res2.ChunkGuid}");

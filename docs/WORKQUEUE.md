@@ -37,6 +37,14 @@ Last updated: 2026-11-02.
   view has `package.mft`, `Data`, `Patch`; FMT simply requires the process to be an administrator. The suite's own reader
   does not need FMT - only this header/GUID mapping does. Candidate pair already chosen:
   `content/character/skater/goalie/pads/brians/gnetik/textures/goalie_pads_brians_gnetik_4_color` and `_normal`.
+- **Attempted the FMT-free route and did not finish it (2026-11-02).** `src\Suite.Core\Frostbite\TextureResource.cs` is a
+  scaffold that scans TOCs, reads each bundle manifest and looks for the texture's RES entry, and `TextureChunk res
+  <game> <name> <out.res>` drives it. It currently resolves **nothing** (`no bundle declares ...`), so the manifest/RES
+  offset assumptions are wrong. The likely cause is that I re-derived the manifest layout instead of reusing
+  `BundleChunks.Find`, which is **proven** (it replaces UI-texture chunks in bundles today). Next step: add a RES lookup to
+  `BundleChunks` using its working parse (same `ebxAt`/`resAt`/pair-index logic it already applies to chunks) rather than
+  keeping the duplicate. Verify against the FMT-exported `.res` files in `work\fabric24-resources`, which must match byte
+  for byte.
 - [ ] Run once **elevated** (no ACL or guard change):
       `dotnet run --project tools\MeshExport -- "<read view>" "<out>" --texture-resource <color name> <normal name>`
       then build both chunks and write them to the test copy with `tools\TextureChunk build|apply`.
