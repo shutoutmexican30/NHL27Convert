@@ -140,9 +140,14 @@ Last updated: 2026-11-02.
   **8,980 of 19,116 inventory rows now carry a guessed role (47 %, up from 414 / 2 %)** - NHL 27 8,869 of its 11,233,
   NHL 24 only 111 of 7,883 because its art is dumped per folder through the Worker. Counts: sponsor/other 6,495,
   shield 1,615, blank 292, epw_tag 214, brand:adidas 170, brand:fanatics 135, brand:adidas_stripes 59.
-- **Limitation to remember**: the silhouette test only recognises *league-wide* marks (shield, adidas, Fanatics, EPW, blank).
-  A team crest and a sponsor both report `sponsor/other`, because nothing in the reference set is a team logo. Splitting
-  those needs a per-team crest reference - the natural next improvement.
+- **Crest split from sponsor (2026-11-02).** `tools\LogoInventory` now builds **737 crest references** - one per team and
+  garment, taken from that team's own branding layer 0 - and tests them after the league-wide marks. Result on the same
+  19,116 rows: `sponsor/other` 6,495 -> **4,597** and a new **crest 1,898**, with every other bucket unchanged
+  (shield 1,615, blank 292, epw_tag 214, adidas 170, fanatics 135, adidas_stripes 59). Verified against the known slot
+  pattern: Detroit's away jersey now reads crest, shield, brand:adidas, epw_tag, sponsor/other, shield and the `eleven`
+  set reads crest, shield, **brand:fanatics**, ... - exactly what the role work established by hand.
+- This crest reference is also the matching signal the face work needs for licensed heads, since those are named after the
+  player rather than an id.
 - [ ] NHL 24 side of the inventory is still 111 of 7,883; filling it means dumping those folders through the Worker first.
 
 ## 6. Machine / environment (user actions)
