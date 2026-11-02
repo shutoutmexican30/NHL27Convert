@@ -60,11 +60,14 @@ public static class ModApply
         var problems = Problems(s);
         if (problems.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", problems));
         var target = Full(s.ApplyTargetDir);
+        if (await WorkerGuard.ProblemAsync(s, target, ct) is { } stale) return (false, stale);
         progress?.Invoke("Backing up TOCs and CAS lengths...");
         var backup = ApplyTarget.Backup(target);
         if (Baseline(target) is null) File.WriteAllText(BaselineFile(target), backup); // first backup of a stock game = baseline
         PrepareFmt(target);
-        return await RunWorkerAsync(s, ["apply", target, planPath], progress, ct);
+        var applied = await RunWorkerAsync(s, ["apply", target, planPath], progress, ct);
+        if (applied.Ok) WorkerGuard.MarkApplied(target);
+        return applied;
     }
 
     /// <summary>Restores the stock game, then verifies it against the baseline backup and fixes any difference.</summary>
@@ -73,7 +76,9 @@ public static class ModApply
         var problems = Problems(s);
         if (problems.Count > 0) return (false, "Restore refused:\n" + string.Join("\n", problems));
         var target = Full(s.ApplyTargetDir);
+        if (await WorkerGuard.ProblemAsync(s, target, ct) is { } stale) return (false, stale);
         var (ok, message) = await RunWorkerAsync(s, ["restore", target], progress, ct);
+        if (ok) WorkerGuard.ClearMark(target);
         var baseline = Baseline(target);
         if (baseline is null) return (ok, message + " (no suite baseline to verify against)");
         progress?.Invoke("Verifying against the stock backup...");
