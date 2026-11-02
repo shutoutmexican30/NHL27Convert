@@ -45,13 +45,20 @@ Last updated: 2026-11-02.
 
 ## 4. NHL 27 LT/L2 skating + vision-control behaviour
 
-- Names only so far: `gVisionControlPenaltyFriction`, `gVisionControlMaxSpeedMultiplier`,
-  `gVisionControlNumTicksInBetweenBackToBackExplicitSideRequestToAddPenalty`,
-  `gEnablePTMVisionControlFrictionPenalty_Paranoia2026`, `gEnableSpeedDependentSmoothingVisionControl_Paranoia2026`,
-  plus shared `gFacingAngleBlendPivotSpam*`, `gProtectPuckWithVisionControlFriction`, `gPuckCarrierPivotMaxSpeedToAllowAccel`.
-- **No defaults, registrations, callers or patch sites validated. No write made.** Remapping is out of scope (user chose
-  behaviour only).
-- [ ] Locate and verify the registrations + physics code, then define an honest approximation/backport scope.
+- Name census (2026-11-02, re-checked): **43 globals exist only in NHL 27, 28 are shared, 26 only in NHL 24.**
+  Directly relevant to the LT behaviour: 27-only `gVisionControlPenaltyFriction`, `gVisionControlMaxSpeedMultiplier`,
+  `gVisionControlMaxSpeedMultiplierMultiplier`, `gVisionControlNumTicksInBetweenBackToBackExplicitSideRequestToAddPenalty`;
+  shared `gFacingAngleBlendPivotSpamMinCount/MaxCount/MinEffect/MaxEffect`, `gProtectPuckWithVisionControlFriction`,
+  `gPuckCarrierPivotMaxSpeedToAllowAccel`. Evidence: `lt-tuning-comparison.json` (work folder).
+- **Where the values are not:** the names sit in a plain NUL-separated string table inside each executable (NHL 24 eboot
+  188,338,041 bytes: `gFacingAngleBlendPivotSpamMaxEffect` @152,369,947; NHL 27 eboot 281,346,759: `gVisionControlPenaltyFriction`
+  @229,726,607). The bytes after each name are just the next string, so there is no name->value record beside them.
+  The values therefore live in a tunable/profile EBX or as compiled constants, not in the string table.
+- **No defaults, callers or patch sites validated. No write made.** Remapping is out of scope (user chose behaviour only).
+- [ ] **Next concrete step**: hunt the tuning asset. Run `tools\MeshExport --inventory` over both games with a filter for
+      tunable/profile/gameplay EBX (the earlier NHL 27 inventory was a narrow 1,521-asset slice and contained none of these
+      names), then diff the field lists. If the values are EBX fields, a backport needs an EBX writer - which does not exist
+      yet, so this stays analysis until that lands.
 
 ## 5. Matcher / suite backlog
 
