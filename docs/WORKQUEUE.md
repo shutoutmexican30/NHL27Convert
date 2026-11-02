@@ -37,7 +37,21 @@ Last updated: 2026-11-02.
 
 - Staged: `outputs\face-feasibility\prototype\demidov-surface-prototype.lod0.bin` — 3,157 vertices mapped, skinning/UV/
   indices untouched, tangents recomputed, exact position read-back. **Not a complete face, never applied.**
-- [ ] Eyes / eyelashes mapping (eye UVs differ between games; lash UVs ambiguous).
+- **Eyes and eyelashes - sized, topology confirmed (2026-11-02).** Section inventory of the same head from both games:
+
+  | Section | NHL 24 (indexed) | NHL 27 (expanded) | Triangles |
+  |---|---|---|---|
+  | `mat_head` | 3,157 verts | 18,042 = 6,014 x 3 | **6,014 both** |
+  | `mat_eyes` | 198 verts | 960 = 320 x 3 | **320 both** |
+  | `mat_eyelashes` | 64 verts | 252 = 84 x 3 (Demidov only) | **84 both** |
+
+  So all three sections have **identical triangle counts** and the same indexed-vs-expanded difference the head transfer
+  already handles - the quantized-UV surface transfer generalises to eyes and lashes without new format work.
+  Two findings that shape it: `mat_eyelashes` is **absent from 5 of the 6 sampled NHL 27 heads** (only Demidov has one), so
+  the converter must keep the template's lashes when the source has none - which is exactly what the staged prototype does;
+  and NHL 27 eyes carry **max one influence** (rigid on the eye bone) versus up to four for lashes.
+- [ ] Run the quantized-UV overlap test per section (`mat_eyes`, `mat_eyelashes`) instead of head-only, to confirm the
+      correspondence the way `mat_head` was confirmed (3,146 of 3,146 UVs shared).
 - [ ] Face texture conversion (needs the BC5 path we now have + BC1).
 - [ ] Destination slot audit — do not overwrite shared head 60008 in the playable copy (Demidov's head is shared by 62
       players, Yurov's by 24).
