@@ -78,6 +78,15 @@ public static class RosterSyncRun
         }
 
         var overrides = LineOverrides.Load(LineOverridesPath);
+        // Portrait slots planned by Portraits (portraits\plan.json): only players moved to a new slot change in the databases.
+        var planFile = Path.Combine(Portraits.Dir, "plan.json");
+        Dictionary<string, int>? portraitArt = null;
+        if (File.Exists(planFile))
+        {
+            var planned = System.Text.Json.JsonSerializer.Deserialize<List<PortraitAssignment>>(File.ReadAllText(planFile)) ?? [];
+            portraitArt = planned.Where(p => p.NewSlot && p.Png is not null).ToDictionary(p => p.GameId, p => p.ArtId);
+            notes.Add($"Portraits: {portraitArt.Count} players get a new portrait slot");
+        }
         var ratings = Ratings.Build(Directory.Exists(Ratings.Nhl27Dir) ? Ratings.Nhl27Dir : null, RosterDbJob.BeforeDump(dbs[0].Name), dbs[0].MetaXml, notes);
         var outcomes = new List<DbOutcome>();
         var placements = new List<(string Db, Dictionary<long, string> P)>();
@@ -86,7 +95,7 @@ public static class RosterSyncRun
         {
             var outDb = Path.Combine(RosterDbJob.WorkDir, db.Name, db.Name + ".db");
             var teamsDump = db == dbs[0] ? null : RosterDbJob.BeforeDump(dbs[0].Name);
-            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings);
+            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings, portraitArt);
             File.WriteAllLines(Path.Combine(RosterDbJob.WorkDir, db.Name, "changes.tsv"),
                 report.Changes.Concat(report.Warnings.Select(w => "Warning\t" + w)));
             var problems = new List<string>();

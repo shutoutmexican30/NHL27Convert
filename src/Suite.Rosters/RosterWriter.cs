@@ -64,7 +64,7 @@ public static class RosterWriter
 
     public static WriteReport Write(string dbName, string dumpDir, string outDir,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
-        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null)
+        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null, IReadOnlyDictionary<string, int>? portraitArt = null)
     {
         var report = new WriteReport { Db = dbName };
         var bio = T3Csv.Load(dumpDir, Bio);
@@ -334,6 +334,19 @@ public static class RosterWriter
                     ratings.TryAdd(ai.Get(r, "game_id"), cols.ToDictionary(c => c, c => ai.Int(r, c)));
             }
         var none = new Dictionary<string, int>();
+        // Portraits: players given a new portrait slot point at it (artid) and show it (hasportrait), in every database.
+        if (portraitArt is not null)
+        {
+            int set = 0;
+            foreach (var b in bioRows)
+                if (portraitArt.TryGetValue(bio.Get(b, "game_id"), out var art) && (bio.Int(b, "artid") != art || bio.Int(b, "hasportrait") != 1))
+                {
+                    bio.Set(b, "artid", art);
+                    bio.Set(b, "hasportrait", 1);
+                    set++;
+                }
+            report.Counts["PortraitSlotsSet"] = set;
+        }
         // New ratings (NHL 27, else the main database's) go into this database first and drive the lines.
         if (newRatings is not null)
         {
