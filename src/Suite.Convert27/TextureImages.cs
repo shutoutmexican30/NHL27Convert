@@ -147,9 +147,10 @@ public sealed class TextureImages(SuiteSettings settings)
     }
 
     /// <summary>Stock NHL 24 images for every texture in a folder. Keys are slot names; array layers are "slot#layer".</summary>
-    public async Task<Dictionary<string, string>> Nhl24FolderAsync(string folder, Action<string>? progress = null, CancellationToken ct = default)
+    public async Task<Dictionary<string, string>> Nhl24FolderAsync(string folder, Action<string>? progress = null,
+        CancellationToken ct = default, IReadOnlyList<string>? expected = null)
     {
-        var dumpDir = await DumpDirAsync(folder, progress, ct);
+        var dumpDir = await DumpDirAsync(folder, progress, ct, expected);
         var result = new ConcurrentDictionary<string, string>();
         if (dumpDir is null) return [];
         var files = Directory.GetFiles(dumpDir, "*.dds");
@@ -175,13 +176,34 @@ public sealed class TextureImages(SuiteSettings settings)
         return new Dictionary<string, string>(result);
     }
 
-    async Task<string?> DumpDirAsync(string folder, Action<string>? progress, CancellationToken ct)
+    /// <summary>
+    /// A cached dump is only usable when it holds the arrays the folder actually has. Carolina and Calgary ship no branding
+    /// art in their cached dumps, which made every branding layer read as blank; a partial cache is re-dumped, not trusted.
+    /// </summary>
+    public static bool DumpCovers(string dumpDir, IReadOnlyList<string>? expected)
+    {
+        if (expected is null || expected.Count == 0) return true;
+        var have = Directory.GetFiles(dumpDir, "*.dds").Select(f => Path.GetFileNameWithoutExtension(f) ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in expected)
+        {
+            var leaf = name.Split('/')[^1];
+            if (!leaf.EndsWith("_color_array", StringComparison.Ordinal)) continue;
+            bool any = have.Contains(leaf) || have.Any(h => h.StartsWith(leaf + "#", StringComparison.OrdinalIgnoreCase));
+            if (!any) return false;
+        }
+        return true;
+    }
+
+    async Task<string?> DumpDirAsync(string folder, Action<string>? progress, CancellationToken ct, IReadOnlyList<string>? expected = null)
     {
         var flat = SuitePaths.Flatten(folder);
         var own = Path.Combine(SuitePaths.Nhl24Refs, flat);
-        if (Directory.Exists(own) && Directory.GetFiles(own, "*.dds").Length > 0) return own;
+        if (Directory.Exists(own) && Directory.GetFiles(own, "*.dds").Length > 0 && DumpCovers(own, expected)) return own;
         var legacy = Path.Combine(settings.LegacyRefsDir, flat);
-        if (Directory.Exists(legacy) && Directory.GetFiles(legacy, "*.dds").Length > 0) return legacy;
+        if (Directory.Exists(legacy) && Directory.GetFiles(legacy, "*.dds").Length > 0 && DumpCovers(legacy, expected))
+            return legacy;
+        if (Directory.Exists(legacy) || Directory.Exists(own))
+            SuiteLog.Write($"NHL 24 dump for {folder} does not cover its arrays; re-dumping into the suite cache");
         if (!Worker.Available(settings)) return null;
 
         await _workerGate.WaitAsync(ct);

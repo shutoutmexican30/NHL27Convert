@@ -336,7 +336,7 @@ public sealed class Convert27ViewModel : Observable
     {
         if (_folder24 is null) return;
         var folder = _folder24;
-        Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s);
+        Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s, expected: ExpectedFor(folder));
         if (folder != _folder24) return;
         foreach (var r in Rows) UpdateThumbs(r);
         ClampArrayLayers();
@@ -347,6 +347,12 @@ public sealed class Convert27ViewModel : Observable
         Status = $"{folder}: {Rows.Count} slots, {Rows.Count(r => r.Kind != SourceKind.Stock || r.Layers.Any(l => l.Source27 != null))} with a source. {Stock24.Count} stock images.";
         await PushRightAsync();
     }
+
+    /// <summary>The texture names the index says this folder has, used to reject a partial stock dump.</summary>
+    IReadOnlyList<string>? ExpectedFor(string folder) =>
+        Catalog24 is not null && Catalog24.ByFolder.TryGetValue(folder, out var slots)
+            ? slots.Select(s => s.Name).ToList()
+            : null;
 
     /// <summary>
     /// Hides the array layer rows the destination array cannot hold. The row count came from the numbered `_N_color`
