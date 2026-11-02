@@ -85,13 +85,14 @@ public sealed class RosterDbJob(SuiteSettings settings)
     /// </summary>
     public async Task<(WriteReport Report, GuardResult Guard, string AfterDump)> WriteAsync(DbTarget db, JsonElement beforeTables, string outDb,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
-        IReadOnlySet<string>? onlyTeams = null, string? teamsDump = null, Action<string>? progress = null, CancellationToken ct = default)
+        IReadOnlySet<string>? onlyTeams = null, string? teamsDump = null, Action<string>? progress = null, CancellationToken ct = default,
+        LineOverrides? lineOverrides = null)
     {
         var work = SuitePaths.Ensure(Path.Combine(WorkDir, db.Name));
         string before = BeforeDump(db.Name), edit = Path.Combine(work, "edit"), after = Path.Combine(work, "after");
         progress?.Invoke($"{db.Name}: applying the NHL API rosters");
         if (Directory.Exists(edit)) Directory.Delete(edit, true);
-        var report = RosterWriter.Write(db.Name, before, edit, api, prospects, teamMap, onlyTeams, teamsDump);
+        var report = RosterWriter.Write(db.Name, before, edit, api, prospects, teamMap, onlyTeams, teamsDump, lineOverrides);
         progress?.Invoke($"{db.Name}: writing");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outDb))!);
         await Worker.RunAsync(settings, ["db-import", db.DbPath, db.MetaXml, edit, outDb], ct);

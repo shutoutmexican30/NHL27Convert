@@ -77,6 +77,7 @@ public static class RosterSyncRun
             }
         }
 
+        var overrides = LineOverrides.Load(LineOverridesPath);
         var outcomes = new List<DbOutcome>();
         var placements = new List<(string Db, Dictionary<long, string> P)>();
         var checkApi = onlyTeams is null ? api : api.Where(kv => onlyTeams.Contains(kv.Key)).ToDictionary();
@@ -84,7 +85,7 @@ public static class RosterSyncRun
         {
             var outDb = Path.Combine(RosterDbJob.WorkDir, db.Name, db.Name + ".db");
             var teamsDump = db == dbs[0] ? null : RosterDbJob.BeforeDump(dbs[0].Name);
-            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct);
+            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides);
             File.WriteAllLines(Path.Combine(RosterDbJob.WorkDir, db.Name, "changes.tsv"),
                 report.Changes.Concat(report.Warnings.Select(w => "Warning\t" + w)));
             var problems = new List<string>();
@@ -107,6 +108,24 @@ public static class RosterSyncRun
             .Select(id => $"{id}: " + string.Join(", ", placements.Where(p => p.P.ContainsKey(id)).Select(p => $"{p.Db} {p.P[id]}")))
             .ToList();
         return new SyncRunResult(day, outcomes, disagree, notes);
+    }
+
+    /// <summary>Hand-made line choices (see <see cref="LineOverrides"/>); created with an example the first time.</summary>
+    public static string LineOverridesPath
+    {
+        get
+        {
+            var path = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Roaming, "data")), "lines_overrides.json");
+            if (!File.Exists(path))
+                File.WriteAllLines(path,
+                [
+                    "// Line overrides for the roster sync: team (NHL API abbreviation) -> slot -> \"First Last\".",
+                    "// Slots are roster columns: l1c l1lw l1rw ... l3rd, g1 g2, pp_1c, pk4_1ld, s1 ... Example:",
+                    "// { \"BOS\": { \"l1c\": \"Elias Lindholm\", \"g1\": \"Jeremy Swayman\" } }",
+                    "{}",
+                ]);
+            return path;
+        }
     }
 
     /// <summary>The roster databases in the game (the saved roster, the sixth, is handled apart), main database first.</summary>

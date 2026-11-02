@@ -46,6 +46,9 @@ public class RosterWriterTests : IDisposable
                 p.Name is "a" ? "1" : "0", "3", (10 + n).ToString(),
             }.Concat(Slots.Select(s => s == p.Slot || (s == "pp_1c" && p.Name is "a" or "h") ? "1" : "0")).ToArray()), 30);
         Table("exhibitionfreeagents", ["playerindex"], [], 5);
+        // Ratings: h (90) is better than g (70), so h centres the top line.
+        Table("exhibitionskaterai", ["game_id", "skill_overall"],
+            People.Select((p, n) => new[] { (100 + n).ToString(), (p.Name switch { "h" => 90, "g" => 70, _ => 80 }).ToString() }), 20);
         Table("exhibitionteams", ["index", "abbrname", "ahlaffiliate", "league"],
             [["0", "AAA", "2", "0"], ["1", "BBB", "-1", "0"], ["2", "CCC", "-1", "1"]], 5);
     }

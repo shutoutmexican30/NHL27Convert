@@ -64,7 +64,7 @@ public static class RosterWriter
 
     public static WriteReport Write(string dbName, string dumpDir, string outDir,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
-        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null)
+        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null)
     {
         var report = new WriteReport { Db = dbName };
         var bio = T3Csv.Load(dumpDir, Bio);
@@ -74,6 +74,7 @@ public static class RosterWriter
         // The small roster databases have no team table; they use the main database's (teamsDir).
         var tm = T3Csv.Load(File.Exists(T3Csv.PathOf(dumpDir, Teams)) || teamsDir is null ? dumpDir : teamsDir, Teams);
         int roSlots = ro.Rows.Count, faSlots = fa.Rows.Count, bioSlots = bio.Rows.Count;
+        var stockRoster = ro.Rows.Take(ro.ValidCount).Select(r => string.Join(",", r)).ToList();
 
         // Who is who.
         var bioRows = bio.Rows.Take(bio.ValidCount).ToList();
@@ -318,6 +319,41 @@ public static class RosterWriter
 
         foreach (var t in changedTeams.Order()) RepairLines(t, rows, ro, slotCols, vacatedBy, captainLeft, depth, GameOf, bioByGame, bio, report, Team, Sign);
 
+        // Lines from ratings for every NHL team (the same players get the same lines in every database), injured
+        // players (kept on the club by the player search) scratched, data\lines_overrides.json respected.
+        // Ratings come from the main database (teamsDir) first, so every database ranks the same players the same way;
+        // a player only this database has uses its own ratings.
+        var ratings = new Dictionary<string, Dictionary<string, int>>();
+        foreach (var dir in new[] { teamsDir, dumpDir }.OfType<string>())
+        foreach (var table in new[] { "exhibitionskaterai", "exhibitiongoalieai" })
+            if (File.Exists(T3Csv.PathOf(dir, table)))
+            {
+                var ai = T3Csv.Load(dir, table);
+                var cols = ai.Header.Where(h => h.StartsWith("c_") || h.StartsWith("skill_")).ToList();
+                foreach (var r in ai.Rows.Take(ai.ValidCount))
+                    ratings.TryAdd(ai.Get(r, "game_id"), cols.ToDictionary(c => c, c => ai.Int(r, c)));
+            }
+        var none = new Dictionary<string, int>();
+        var injured = want.Where(w => w.Value.P.FromSearch).Select(w => w.Key).ToHashSet();
+        var abbrevOf = teamMap.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
+        foreach (var t in nhl.Order())
+        {
+            if (only is not null && !changedTeams.Contains(t)) continue;
+            var squad = rows.Where(r => ro.Int(r, "team") == t).Select(r =>
+            {
+                var g = GameOf(r);
+                var b = bioByGame.GetValueOrDefault(g);
+                var rt = ratings.GetValueOrDefault(g) ?? none;
+                return new LineBuilder.Player(r, b is null ? "" : $"{bio.Get(b, "firstname")} {bio.Get(b, "lastname")}",
+                    b is null ? -1 : bio.Int(b, "position"), b is null ? -1 : bio.Int(b, "positionprimary"), b is null ? 0 : bio.Int(b, "handedness"),
+                    rt.GetValueOrDefault("skill_overall"), rt, injured.Contains(g));
+            }).ToList();
+            if (squad.Count == 0) continue;
+            var abbrev = abbrevOf.GetValueOrDefault(t, Team(t));
+            report.Warnings.AddRange(LineBuilder.Build(abbrev, squad, ro, slotCols, lineOverrides?.Teams.GetValueOrDefault(abbrev)));
+            report.Counts["LinesBuilt"] = report.Counts.GetValueOrDefault("LinesBuilt") + 1;
+        }
+
         // Numbers the API did not give (signings, players it lists without one) must not clash on an NHL team.
         foreach (var t in changedTeams.Where(nhl.Contains))
         {
@@ -346,6 +382,26 @@ public static class RosterWriter
         if (keys.Distinct().Count() != keys.Count) throw new InvalidOperationException("Two roster rows ended up with the same key; nothing written.");
         bio.Save(outDir); ro.Save(outDir); fa.Save(outDir);
         report.Tables.AddRange([Bio, Roster, FreeAgents]);
+
+        // nhl_game also carries customonlinerostertable, a row-for-row mirror of the exhibition roster in stock. It gets
+        // the same rows, only when it really was a mirror (anything else is reported, not overwritten).
+        const string Online = "customonlinerostertable";
+        if (File.Exists(T3Csv.PathOf(dumpDir, Online)))
+        {
+            var online = T3Csv.Load(dumpDir, Online);
+            var mirror = online.Header.SequenceEqual(ro.Header)
+                && online.Rows.Take(online.ValidCount).Select(r => string.Join(",", r)).SequenceEqual(stockRoster);
+            if (!mirror) report.Warnings.Add($"{Online} is not a copy of the exhibition roster here; left as it is");
+            else
+            {
+                int slots = online.Rows.Count;
+                online.ReplaceUsed(ro.Rows.Take(ro.ValidCount).Select(r => (string[])r.Clone()).ToList());
+                if (online.Rows.Count != slots) throw new InvalidOperationException($"{Online} changed its slot count; nothing written.");
+                online.Save(outDir);
+                report.Tables.Add(Online);
+                report.Counts["OnlineRosterMirrored"] = 1;
+            }
+        }
         return report;
     }
 
