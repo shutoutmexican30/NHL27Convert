@@ -64,7 +64,7 @@ public static class RosterWriter
 
     public static WriteReport Write(string dbName, string dumpDir, string outDir,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
-        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null)
+        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null)
     {
         var report = new WriteReport { Db = dbName };
         var bio = T3Csv.Load(dumpDir, Bio);
@@ -334,6 +334,12 @@ public static class RosterWriter
                     ratings.TryAdd(ai.Get(r, "game_id"), cols.ToDictionary(c => c, c => ai.Int(r, c)));
             }
         var none = new Dictionary<string, int>();
+        // New ratings (NHL 27, else the main database's) go into this database first and drive the lines.
+        if (newRatings is not null)
+        {
+            report.Counts["RatingsRowsChanged"] = newRatings.ApplyTo(dumpDir, outDir, report);
+            foreach (var (id, e) in newRatings.ByGameId) ratings[id] = e.Values;
+        }
         var injured = want.Where(w => w.Value.P.FromSearch).Select(w => w.Key).ToHashSet();
         var abbrevOf = teamMap.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
         foreach (var t in nhl.Order())
