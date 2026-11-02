@@ -13,6 +13,7 @@ public sealed class T3Csv
     public string[] Header { get; }
     public List<string[]> Rows { get; }
     readonly Dictionary<string, int> _cols;
+    int? _valid;
 
     T3Csv(string name, string[] header, List<string[]> rows)
     {
@@ -33,7 +34,17 @@ public sealed class T3Csv
         var body = rows.Skip(1).Where(r => !(r.Length == 1 && r[0].Length == 0)).ToList();
         foreach (var r in body)
             if (r.Length != header.Length) throw new InvalidDataException($"{table}.csv: a row has {r.Length} cells, the header {header.Length}.");
-        return new T3Csv(table, header, body);
+        var t = new T3Csv(table, header, body);
+        // The database header's in-use count (db-dump's tables.json next to the CSVs) is the truth: an unused slot is a
+        // record whose packed bits are all zero, which reads back as each field's lowest value (-1 for many fields).
+        var tables = Path.Combine(dir, "tables.json");
+        if (File.Exists(tables))
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(tables));
+            foreach (var e in doc.RootElement.EnumerateArray())
+                if (e.GetProperty("table").GetString() == table && e.TryGetProperty("valid", out var v)) t._valid = v.GetInt32();
+        }
+        return t;
     }
 
     public void Save(string dir)
@@ -43,6 +54,15 @@ public sealed class T3Csv
         foreach (var r in Rows) sb.Append(string.Join(",", r.Select(Quote))).Append("\r\n");
         Directory.CreateDirectory(dir);
         File.WriteAllText(PathOf(dir, Name), sb.ToString(), new UTF8Encoding(true));
+        // Saving back into a dump folder keeps its tables.json in-use count in step with the rows.
+        var tables = Path.Combine(dir, "tables.json");
+        if (_valid is { } valid && File.Exists(tables))
+        {
+            var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(tables))!.AsArray();
+            foreach (var e in root)
+                if ((string?)e!["table"] == Name) e["valid"] = valid;
+            File.WriteAllText(tables, root.ToJsonString());
+        }
     }
 
     public bool Has(string col) => _cols.ContainsKey(col);
@@ -55,16 +75,23 @@ public sealed class T3Csv
     /// <summary>A record slot nobody uses: every number 0 and every string empty (what the database writer treats as clean).</summary>
     public static bool IsBlank(string[] row) => row.All(c => c.Length == 0 || c == "0");
 
-    /// <summary>In-use records sit together at the front; this is how many there are.</summary>
+    /// <summary>
+    /// In-use records sit together at the front; this is how many there are: the dump's own count when the CSV came
+    /// from db-dump (tables.json beside it), else the leading rows that are not all zeros.
+    /// </summary>
     public int ValidCount
     {
         get
         {
+            if (_valid is { } v) return Math.Min(v, Rows.Count);
             int n = 0;
             while (n < Rows.Count && !IsBlank(Rows[n])) n++;
             return n;
         }
     }
+
+    /// <summary>What an unused slot of this table looks like (the first one after the in-use records).</summary>
+    public string[] Filler => ValidCount < Rows.Count ? (string[])Rows[ValidCount].Clone() : BlankRow();
 
     public string[] BlankRow() => Header.Select(_ => "0").ToArray();
 
@@ -76,11 +103,12 @@ public sealed class T3Csv
     {
         int slots = Rows.Count;
         if (used.Count > slots) throw new InvalidOperationException($"{Name}: {used.Count} records do not fit in {slots} slots.");
-        if (used.Any(IsBlank)) throw new InvalidOperationException($"{Name}: an in-use record would be blank and get dropped.");
-        var blank = Rows.Skip(ValidCount).FirstOrDefault(IsBlank) ?? BlankRow();
+        var filler = Filler;
+        if (used.Any(r => IsBlank(r) || r.SequenceEqual(filler))) throw new InvalidOperationException($"{Name}: an in-use record would look unused and get dropped.");
         Rows.Clear();
         Rows.AddRange(used);
-        while (Rows.Count < slots) Rows.Add((string[])blank.Clone());
+        while (Rows.Count < slots) Rows.Add((string[])filler.Clone());
+        _valid = used.Count;
     }
 
     static string Quote(string s) => s.IndexOfAny([',', '"', '\n', '\r']) < 0 ? s : "\"" + s.Replace("\"", "\"\"") + "\"";

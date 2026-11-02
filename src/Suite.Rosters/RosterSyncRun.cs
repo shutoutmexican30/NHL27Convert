@@ -26,13 +26,22 @@ public static class RosterSyncRun
 {
     public static async Task<SyncRunResult> RunAsync(SuiteSettings settings, IReadOnlyList<DbTarget> dbs, Dictionary<string, int> teamMap,
         IReadOnlySet<string>? onlyTeams = null, Action<string>? progress = null, CancellationToken ct = default,
-        IReadOnlyList<SavedRoster>? saves = null)
+        IReadOnlyList<SavedRoster>? saves = null, IReadOnlyList<ApiPlayer>? additionalProspects = null, bool preparePortraits = false)
     {
         var day = DateOnly.FromDateTime(DateTime.Today);
+        var additionsFile = Path.Combine(SuitePaths.Roaming, "data", "roster_additions.json");
+        if (additionalProspects is null && File.Exists(additionsFile))
+            additionalProspects = System.Text.Json.JsonSerializer.Deserialize<List<ApiPlayer>>(File.ReadAllText(additionsFile));
         var nhlApi = new NhlApi();
         var notes = new List<string>();
         var api = await nhlApi.AllRostersAsync(day, progress, ct);
         var prospects = await nhlApi.AllProspectsAsync(api.Keys, day, progress, ct);
+        foreach (var p in additionalProspects ?? [])
+        {
+            if (!teamMap.ContainsKey(p.TeamAbbrev)) throw new InvalidOperationException($"Unknown club for additional prospect {p.First} {p.Last}: {p.TeamAbbrev}");
+            if (!prospects.TryGetValue(p.TeamAbbrev, out var list)) prospects[p.TeamAbbrev] = list = [];
+            if (!list.Any(x => x.Id == p.Id)) list.Add(p);
+        }
 
         // Saved rosters (the sixth location) go through the same sync as the game's databases, from their own content.
         var saveOf = new Dictionary<string, (SavedRoster Save, byte[] Trailer)>();
@@ -58,6 +67,57 @@ public static class RosterSyncRun
             tables[db.Name] = await job.ReadAsync(db, ct);
         }
 
+        // NHL players NHL 24 does not have are created in every database first (empty record slots, NHL 27 data, donor
+        // assets), so the rest of the sync treats them like everyone else.
+        var extraTables = new Dictionary<string, List<string>>();
+        {
+            var mainDb = RosterCsv.Load(dbs[0].Name, RosterDbJob.BeforeDump(dbs[0].Name));
+            var byLast = mainDb.Players.ToLookup(x => RosterSync.Norm(x.Last));
+            var byFull = mainDb.Players.ToLookup(x => RosterSync.Norm(x.First + x.Last));
+            var requested = api.Where(kv => teamMap.ContainsKey(kv.Key)).SelectMany(kv => kv.Value)
+                .Concat(additionalProspects ?? []).Where(p => onlyTeams is null || onlyTeams.Contains(p.TeamAbbrev)).DistinctBy(p => p.Id).ToList();
+            var missing = requested.Where(p => RosterSync.Match(p, byLast, byFull) is null).ToList();
+            var nhl27 = Directory.Exists(Ratings.Nhl27Dir) ? Ratings.Nhl27Dir : null;
+            var plan = NewPlayers.Plan(dbs.Select(d => RosterDbJob.BeforeDump(d.Name)).ToList(), missing, nhl27, notes);
+            File.WriteAllText(Path.Combine(RosterDbJob.WorkDir, "new_players.json"),
+                System.Text.Json.JsonSerializer.Serialize(plan, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            foreach (var db in dbs)
+                extraTables[db.Name] = NewPlayers.AddTo(RosterDbJob.BeforeDump(db.Name), RosterDbJob.BeforeDump(dbs[0].Name), dbs[0].MetaXml, plan, nhl27, notes);
+            foreach (var db in dbs.Skip(1))
+                extraTables[db.Name] = extraTables[db.Name].Union(NewPlayers.AlignPlannedWithMain(RosterDbJob.BeforeDump(db.Name), RosterDbJob.BeforeDump(dbs[0].Name), plan)).ToList();
+            // Every API player the main database now has goes into the older databases too.
+            mainDb = RosterCsv.Load(dbs[0].Name, RosterDbJob.BeforeDump(dbs[0].Name));
+            byLast = mainDb.Players.ToLookup(x => RosterSync.Norm(x.Last));
+            byFull = mainDb.Players.ToLookup(x => RosterSync.Norm(x.First + x.Last));
+            var needed = requested
+                .Select(p => RosterSync.Match(p, byLast, byFull)?.GameId).OfType<string>().ToHashSet();
+            foreach (var db in dbs.Skip(1))
+                extraTables[db.Name] = extraTables[db.Name].Union(NewPlayers.CopyFromMain(RosterDbJob.BeforeDump(db.Name), RosterDbJob.BeforeDump(dbs[0].Name), needed, notes)).ToList();
+            // Establish each explicitly requested prospect's organization. The normal roster pass then assigns him
+            // to that club's AHL affiliate, using its existing capacity/number/line checks.
+            foreach (var db in dbs)
+            {
+                var dump = RosterDbJob.BeforeDump(db.Name);
+                var bio = T3Csv.Load(dump, "exhibitionplayerbiotable");
+                var players = RosterCsv.Load(db.Name, dump).Players;
+                var last = players.ToLookup(x => RosterSync.Norm(x.Last));
+                var full = players.ToLookup(x => RosterSync.Norm(x.First + x.Last));
+                bool changed = false;
+                foreach (var p in additionalProspects ?? [])
+                    if ((onlyTeams is null || onlyTeams.Contains(p.TeamAbbrev)) && RosterSync.Match(p, last, full) is { } m && bio.Int(bio.Rows[m.Row], "team") < 0)
+                    {
+                        bio.Set(bio.Rows[m.Row], "team", teamMap[p.TeamAbbrev]);
+                        bio.Set(bio.Rows[m.Row], "proteam", teamMap[p.TeamAbbrev]);
+                        changed = true;
+                    }
+                if (changed)
+                {
+                    bio.Save(dump);
+                    if (!extraTables[db.Name].Contains("exhibitionplayerbiotable")) extraTables[db.Name].Add("exhibitionplayerbiotable");
+                }
+            }
+        }
+
         // roster/<team>/current leaves out players on long-term injured reserve and players assigned to the AHL. Before
         // anyone is released, ask the player search for his club and his player page for where he is playing: AHL games
         // last → his club's AHL team; otherwise (injured) he stays on the club's NHL roster.
@@ -77,6 +137,27 @@ public static class RosterSyncRun
             }
         }
 
+        if (preparePortraits)
+        {
+            var index = Path.Combine(SuitePaths.Local, "index", "nhl24", "assets.json.gz");
+            using var gz = new System.IO.Compression.GZipStream(File.OpenRead(index), System.IO.Compression.CompressionMode.Decompress);
+            using var doc = System.Text.Json.JsonDocument.Parse(gz);
+            var slots = doc.RootElement.GetProperty("Entries").EnumerateArray().Select(e => e.GetProperty("Path").GetString()!)
+                .Where(p => p.StartsWith(Portraits.SlotFolder)).Select(p => p[Portraits.SlotFolder.Length..]).ToHashSet();
+            var portraitApi = api.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
+            foreach (var p in additionalProspects ?? [])
+            {
+                if (!portraitApi.TryGetValue(p.TeamAbbrev, out var list)) portraitApi[p.TeamAbbrev] = list = [];
+                if (!list.Any(x => x.Id == p.Id)) list.Add(p);
+            }
+            var warnings = new List<string>();
+            var plan = Portraits.Plan(dbs.Select(d => RosterDbJob.BeforeDump(d.Name)).ToList(), portraitApi, teamMap, slots, warnings);
+            if (warnings.Count > 0) throw new InvalidOperationException(string.Join("; ", warnings));
+            var built = await Portraits.PrepareAsync(plan, progress, ct);
+            var failed = built.Where(p => p.Png is null).ToList();
+            if (failed.Count > 0) throw new InvalidOperationException("Portrait preparation failed: " + string.Join(", ", failed.Select(p => p.Name)));
+        }
+
         var overrides = LineOverrides.Load(LineOverridesPath);
         // Portrait slots planned by Portraits (portraits\plan.json): only players moved to a new slot change in the databases.
         var planFile = Path.Combine(Portraits.Dir, "plan.json");
@@ -84,24 +165,27 @@ public static class RosterSyncRun
         if (File.Exists(planFile))
         {
             var planned = System.Text.Json.JsonSerializer.Deserialize<List<PortraitAssignment>>(File.ReadAllText(planFile)) ?? [];
-            portraitArt = planned.Where(p => p.NewSlot && p.Png is not null).ToDictionary(p => p.GameId, p => p.ArtId);
-            notes.Add($"Portraits: {portraitArt.Count} players get a new portrait slot");
+            // Every planned player: a sync starts from stock, so slots given in earlier runs are set again too.
+            portraitArt = planned.Where(p => p.Png is not null).ToDictionary(p => p.GameId, p => p.ArtId);
+            notes.Add($"Portraits: {portraitArt.Count} players get their portrait slot ({planned.Count(p => p.NewSlot)} new in this plan)");
         }
         var ratings = Ratings.Build(Directory.Exists(Ratings.Nhl27Dir) ? Ratings.Nhl27Dir : null, RosterDbJob.BeforeDump(dbs[0].Name), dbs[0].MetaXml, notes);
         var outcomes = new List<DbOutcome>();
         var placements = new List<(string Db, Dictionary<long, string> P)>();
         var checkApi = onlyTeams is null ? api : api.Where(kv => onlyTeams.Contains(kv.Key)).ToDictionary();
+        var mainBio = T3Csv.Load(RosterDbJob.BeforeDump(dbs[0].Name), "exhibitionplayerbiotable");
+        var mainPlayerIds = mainBio.Rows.Take(mainBio.ValidCount).Select(r => mainBio.Get(r, "game_id")).ToHashSet();
         foreach (var db in dbs)
         {
             var outDb = Path.Combine(RosterDbJob.WorkDir, db.Name, db.Name + ".db");
             var teamsDump = db == dbs[0] ? null : RosterDbJob.BeforeDump(dbs[0].Name);
-            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings, portraitArt);
+            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings, portraitArt, extraTables.GetValueOrDefault(db.Name));
             File.WriteAllLines(Path.Combine(RosterDbJob.WorkDir, db.Name, "changes.tsv"),
                 report.Changes.Concat(report.Warnings.Select(w => "Warning\t" + w)));
             var problems = new List<string>();
             if (guard.Ok)
             {
-                var (p, placement) = RosterDbJob.Verify(after, checkApi, teamMap);
+                var (p, placement) = RosterDbJob.Verify(after, checkApi, teamMap, mainPlayerIds);
                 problems = p;
                 placements.Add((db.Name, placement));
             }

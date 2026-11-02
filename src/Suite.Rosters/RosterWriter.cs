@@ -67,6 +67,13 @@ public static class RosterWriter
         IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null, IReadOnlyDictionary<string, int>? portraitArt = null)
     {
         var report = new WriteReport { Db = dbName };
+        // The main database's player ids settle ambiguous matches in the older snapshots.
+        IReadOnlySet<string>? mainIds = null;
+        if (teamsDir is not null && File.Exists(T3Csv.PathOf(teamsDir, Bio)))
+        {
+            var mb = T3Csv.Load(teamsDir, Bio);
+            mainIds = mb.Rows.Take(mb.ValidCount).Select(r => mb.Get(r, "game_id")).ToHashSet();
+        }
         var bio = T3Csv.Load(dumpDir, Bio);
         var ro = T3Csv.Load(dumpDir, Roster);
         var fa = T3Csv.Load(dumpDir, FreeAgents);
@@ -133,7 +140,7 @@ public static class RosterWriter
             if (!teamMap.TryGetValue(abbrev, out var team)) { report.Warnings.Add($"API team {abbrev} has no NHL 24 team in nhlapi_teams.tsv"); continue; }
             foreach (var p in list)
             {
-                var m = RosterSync.Match(p, byLast, byFull);
+                var m = RosterSync.Match(p, byLast, byFull, mainIds);
                 if (m is null) { report.Add("NotInDb", $"{p.First} {p.Last}\t{abbrev}"); continue; }
                 if (!epIndex.ContainsKey(m.GameId)) { report.Add("NotInDb", $"{p.First} {p.Last}\t{abbrev}\tno exhibitionplayers row"); continue; }
                 if (!want.TryAdd(m.GameId, (team, p))) report.Warnings.Add($"{p.First} {p.Last} matched a player already placed ({Name(m.GameId)})");
@@ -167,7 +174,8 @@ public static class RosterWriter
         var changedTeams = new HashSet<int>();
         var vacatedBy = new Dictionary<(int Team, string Slot), string>(); // line slot → player who left it
         var captainLeft = new Dictionary<int, List<(string Game, string Value)>>();
-        var faRows = fa.Rows.Take(fa.ValidCount).ToList();
+        // An all-zero free-agent record (player index 0) cannot be stored; the database writer would drop it anyway.
+        var faRows = fa.Rows.Take(fa.ValidCount).Where(r => !T3Csv.IsBlank(r)).ToList();
         var faSet = faRows.Select(r => fa.Get(r, "playerindex")).ToHashSet();
         var styleByPos = rows.GroupBy(r => bioByGame.TryGetValue(GameOf(r), out var b) ? bio.Int(b, "position") : -1)
             .ToDictionary(g => g.Key, g => g.GroupBy(r => ro.Get(r, "playerstyle")).OrderByDescending(x => x.Count()).First().Key);

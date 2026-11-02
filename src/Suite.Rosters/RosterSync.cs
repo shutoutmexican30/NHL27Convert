@@ -44,7 +44,8 @@ public static class RosterSync
 
     public static string Norm(string s)
     {
-        var d = s.Normalize(NormalizationForm.FormD);
+        // Scandinavian ø has no FormD decomposition. The NHL API spells Røndbjerg as Rondbjerg.
+        var d = s.Replace('ø', 'o').Replace('Ø', 'O').Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder();
         foreach (var c in d)
             if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark && char.IsLetter(c))
@@ -56,13 +57,16 @@ public static class RosterSync
     /// Matches an API player to a database row: birth date + last name, then birth date + first name, then full name
     /// (only when unique). Returns null when nothing is certain.
     /// </summary>
-    public static DbPlayer? Match(ApiPlayer p, ILookup<string, DbPlayer> byLast, ILookup<string, DbPlayer> byFull)
+    public static DbPlayer? Match(ApiPlayer p, ILookup<string, DbPlayer> byLast, ILookup<string, DbPlayer> byFull,
+        IReadOnlySet<string>? preferIds = null)
     {
         var last = byLast[Norm(p.Last)].ToList();
         if (p.Birth is { } b)
         {
             var hit = last.Where(x => x.Birth == b).ToList();
             if (hit.Count == 1) return hit[0];
+            // An older snapshot can hold the same person twice ("Tomy" and "Thomas" Novak): take the main database's.
+            if (hit.Count > 1 && preferIds is not null && hit.Where(x => preferIds.Contains(x.GameId)).ToList() is [var preferred]) return preferred;
             var full = byFull[Norm(p.First + p.Last)].Where(x => x.Birth == b).ToList();
             if (full.Count == 1) return full[0];
         }

@@ -30,16 +30,53 @@ if (!await GameInstanceSingleton.InitializeSingletonAsync(Path.Combine(view, "pa
 }
 
 var report = new List<object>();
+if (args[2] == "--texture-resource")
+{
+    var probes = new List<object>();
+    foreach (var name in args.Skip(3))
+    {
+        var res = AssetManager.Instance.GetResEntry(name) ?? throw new InvalidDataException("Missing texture resource: " + name);
+        var raw = AssetManager.Instance.GetRes(res).ToArray();
+        var stem = name.Split('/')[^1];
+        File.WriteAllBytes(Path.Combine(outDir, stem + ".res"), raw);
+        var chunks = new List<object>(); var seen = new HashSet<Guid>();
+        for (int at = 0; at + 16 <= raw.Length; at += 4)
+        {
+            var id = new Guid(raw.AsSpan(at, 16));
+            if (!AssetManager.Instance.Chunks.ContainsKey(id) || !seen.Add(id)) continue;
+            var data = AssetManager.Instance.GetChunk(AssetManager.Instance.GetChunkEntry(id)).ToArray();
+            File.WriteAllBytes(Path.Combine(outDir, stem + "." + id + ".chunk"), data);
+            chunks.Add(new { id, offsetInHeader = at, bytes = data.Length });
+            Console.WriteLine($"TEXTURE CHUNK {name} {id} {data.Length} bytes");
+        }
+        probes.Add(new { name, resourceBytes = raw.Length, chunks });
+    }
+    File.WriteAllText(Path.Combine(outDir, "texture-resources.json"), JsonSerializer.Serialize(probes, new JsonSerializerOptions { WriteIndented = true }));
+    return 0;
+}
+if (args[2] == "--inventory")
+{
+    var needles = args.Skip(3).ToArray();
+    var entries = AssetManager.Instance.EBX.Values.Where(e => needles.Any(n => e.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+        .Select(e => new { e.Name, e.Type }).ToList();
+    File.WriteAllText(Path.Combine(outDir, "asset-inventory.json"), JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
+    Console.WriteLine($"INVENTORY {entries.Count} matching EBX assets");
+    return 0;
+}
 foreach (var name in args.Skip(2))
 {
     try
     {
         var ebx = AssetManager.Instance.GetEbxEntry(name) ?? throw new InvalidOperationException("no such EBX asset");
         var meshSet = new MeshSetToFbxExport().LoadMeshSet(ebx);
+        var res = AssetManager.Instance.GetResEntry(name);
+        if (res is not null)
+            File.WriteAllBytes(Path.Combine(outDir, name.Split('/')[^1] + ".meshset"), AssetManager.Instance.GetRes(res).ToArray());
         var lod = meshSet.Lods[0];
         byte[] data = lod.ChunkId != Guid.Empty
             ? AssetManager.Instance.GetChunk(AssetManager.Instance.GetChunkEntry(lod.ChunkId)).ToArray()
             : lod.InlineData ?? throw new InvalidOperationException("LOD 0 has neither a chunk nor inline data");
+        File.WriteAllBytes(Path.Combine(outDir, name.Split('/')[^1] + ".lod0.bin"), data);
         int indexSize = lod.IndexUnitSize / 8;
 
         var prims = new List<Prim>();
@@ -82,12 +119,12 @@ foreach (var name in args.Skip(2))
             var min = pos.Aggregate(new Vector3(float.MaxValue), Vector3.Min);
             var max = pos.Aggregate(new Vector3(float.MinValue), Vector3.Max);
             prims.Add(new Prim(s.Name, pos, hasUv ? uv : null, idx));
-            sections.Add(new { s.Name, s.VertexCount, s.PrimitiveCount, uv = hasUv, min = new[] { min.X, min.Y, min.Z }, max = new[] { max.X, max.Y, max.Z }, layout });
+            sections.Add(new { s.Name, s.VertexCount, s.PrimitiveCount, uv = hasUv, min = new[] { min.X, min.Y, min.Z }, max = new[] { max.X, max.Y, max.Z }, layout, metadata = Facts(s) });
         }
         var file = Path.Combine(outDir, name.Split('/')[^1] + ".glb");
         Glb.Write(file, name.Split('/')[^1], prims);
         Console.WriteLine($"OK {name} sections={prims.Count} verts={prims.Sum(p => p.Pos.Length)} -> {file}");
-        report.Add(new { name, file, type = ebx.Type, lodType = lod.Type.ToString(), lods = meshSet.Lods.Count, indexSize, sections });
+        report.Add(new { name, file, type = ebx.Type, lodType = lod.Type.ToString(), lods = meshSet.Lods.Count, indexSize, meshMetadata = Facts(meshSet), lodMetadata = Facts(lod), sections });
     }
     catch (Exception ex)
     {
@@ -99,6 +136,26 @@ File.WriteAllText(Path.Combine(outDir, "export-report.json"), JsonSerializer.Ser
 return 0;
 
 static bool hasUvSet(GeometryDeclarationDesc.Element _) => false;
+
+static Dictionary<string, object> Facts(object value)
+{
+    var result = new Dictionary<string, object>();
+    foreach (var property in value.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+    {
+        if (property.GetIndexParameters().Length > 0 || !property.CanRead) continue;
+        try
+        {
+            var v = property.GetValue(value);
+            if (v is null) continue;
+            var t = v.GetType();
+            if (t.IsPrimitive || t.IsEnum || v is string || v is Guid) result[property.Name] = v.ToString();
+            else if (property.Name.Contains("Bone") && v is System.Collections.IEnumerable sequence)
+                result[property.Name] = sequence.Cast<object>().Take(512).Select(x => x?.ToString()).ToArray();
+        }
+        catch (Exception ex) { result[property.Name] = "unavailable: " + ex.GetBaseException().Message; }
+    }
+    return result;
+}
 
 static float Half(byte[] d, long p) => (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(d, (int)p));
 
@@ -117,7 +174,7 @@ static Vector2 ReadVec2(byte[] d, long p, VertexElementFormat f) => f switch
     _ => throw new NotSupportedException($"uv format {f}"),
 };
 
-record Prim(string Material, Vector3[] Pos, Vector2[]? Uv, uint[] Idx);
+record Prim(string Material, Vector3[] Pos, Vector2[] Uv, uint[] Idx);
 
 static class Glb
 {

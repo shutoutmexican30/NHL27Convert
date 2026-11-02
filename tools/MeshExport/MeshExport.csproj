@@ -24,5 +24,6 @@
     <Reference Include="FMT.PluginInterfaces"><HintPath>$(FmtHost)\FMT.PluginInterfaces.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="FMT.FileTools"><HintPath>$(FmtHost)\FMT.FileTools.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="FMT.Hash"><HintPath>$(FmtHost)\FMT.Hash.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="NonBlocking"><HintPath>$(FmtHost)\NonBlocking.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 </Project>

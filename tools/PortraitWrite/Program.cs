@@ -1,4 +1,4 @@
-// PortraitWrite <dir-with-synced-dbs> <fresh-worker-dir> [--restore-check]
+// PortraitWrite <dir-with-synced-dbs> [<fresh-worker-dir>] [--target game-dir] [--restore-check]
 // Writes every portrait in portraits\plan.json into the CIMS game copy (settings.ApplyTargetDir) in one batch with the
 // suite's own bundle-chunk writer: BC3 + PS4 tiling in parallel, one append per CAS, one TOC pass. Then reads every
 // portrait back, checks the roster databases are untouched, samples a few through a cache-free Worker copy, and with
@@ -10,7 +10,11 @@ using Suite.Core.Frostbite;
 
 void Say(string s) => Console.WriteLine($"{DateTime.Now:HH:mm:ss} {s}");
 var settings = SuiteSettings.Load();
-var target = Path.GetFullPath(settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
+var targetArg = Array.IndexOf(args, "--target");
+var target = Path.GetFullPath(targetArg >= 0 ? args[targetArg + 1] : settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
+foreach (var original in new[] { settings.Nhl24GameDir, settings.Nhl24BaseDir, settings.Nhl24UpdateDir, settings.Nhl24ReadView })
+    if (!string.IsNullOrWhiteSpace(original) && string.Equals(Path.GetFullPath(original).TrimEnd(Path.DirectorySeparatorChar), target, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Refusing portrait writes to the original game or its read view.");
 var problems = ApplyTarget.Problems(target);
 if (problems.Count > 0) { Say("REFUSED: " + string.Join("; ", problems)); return 1; }
 var clock = Stopwatch.StartNew();
@@ -61,7 +65,7 @@ if (args.Length > 1 && Directory.Exists(args[1]))
     var outDir = Path.Combine(SuitePaths.Local, "portraits", "readback-worker");
     if (Directory.Exists(outDir)) Directory.Delete(outDir, true);
     Directory.CreateDirectory(outDir);
-    foreach (var p in plan.Where((p, i) => p.Name is "Brad Marchand" or "Macklin Celebrini" || i == plan.Count / 2).Take(3))
+    foreach (var p in plan.Where((p, i) => p.Name is "Danila Yurov" or "Macklin Celebrini" || i == plan.Count / 2).Take(3))
     {
         await ProcessRunner.RunAsync(Path.Combine(args[1], "NHL24Kit.Worker.exe"), ["texture", target, p.Slot, outDir], args[1]);
         var dds = Path.Combine(outDir, p.Slot[(p.Slot.LastIndexOf('/') + 1)..] + ".dds");

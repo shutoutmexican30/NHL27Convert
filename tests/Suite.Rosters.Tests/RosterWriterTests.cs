@@ -138,6 +138,23 @@ public class RosterWriterTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => t.ReplaceUsed([["1", "1"], ["2", "2"], ["3", "3"]]));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Verification_rejects_missing_players_or_index_links(bool removeIndex)
+    {
+        Build();
+        var player = removeIndex ? Api("a", 0) : new ApiPlayer(99999, "Missing", "Rookie", 97, "C", null, null, "AAA");
+        if (removeIndex)
+        {
+            var ep = T3Csv.Load(Dump, "exhibitionplayers");
+            ep.ReplaceUsed(ep.Rows.Take(ep.ValidCount).Where(r => ep.Get(r, "playerid") != "100").ToList());
+            ep.Save(Dump);
+        }
+        var (problems, _) = RosterDbJob.Verify(Dump, new Dictionary<string, List<ApiPlayer>> { ["AAA"] = [player] }, TeamMap);
+        Assert.Contains(problems, p => p.Contains("missing player or exhibitionplayers link"));
+    }
+
     [Fact]
     public void Guard_allows_only_the_crc_shift_in_use_records_explain()
     {

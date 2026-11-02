@@ -10,11 +10,28 @@ using Suite.Core;
 using Suite.Core.Frostbite;
 
 void Say(string s) => Console.WriteLine($"{DateTime.Now:HH:mm:ss} {s}");
-if (args.Length < 3) { Console.WriteLine("usage: LegacyWrite read <game> <dir> <name>... | apply <game> <mod.json> [--restore-check]"); return 2; }
+if (args.Length < 3) { Console.WriteLine("usage: LegacyWrite read|export <game> <dir> <name>... | apply <game> <mod.json> [--restore-check]"); return 2; }
 var settings = SuiteSettings.Load();
 var game = Path.GetFullPath(args[1]).TrimEnd(Path.DirectorySeparatorChar);
 Oodle.Ensure(settings);
 Say("oodle: " + Oodle.LoadedFrom);
+
+if (args[0] == "chunk")
+{
+    var id = Guid.Parse(args[2]);
+    var reference = new[] { "Patch", "Data" }.Select(s => Path.Combine(game, s)).Where(Directory.Exists)
+        .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
+        .Select(TocFile.Load).Select(t => t.Find(id)).FirstOrDefault(r => r is not null)
+        ?? throw new InvalidDataException("No top-level TOC entry for " + id);
+    var cas = Path.Combine(game, reference.Patch ? "Patch" : "Data", "Gen4b", "superbundlelayout", $"nhl_installpackage_{reference.Catalog:D2}", $"cas_{reference.Cas:D2}.cas");
+    using var stream = File.OpenRead(cas); stream.Position = reference.Offset;
+    var stored = new byte[reference.Size]; stream.ReadExactly(stored);
+    var raw = ChunkBlocks.Parse(stored).Decode();
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[3]))!);
+    File.WriteAllBytes(args[3], raw);
+    Say($"chunk {id}: {stored.Length} stored -> {raw.Length} raw bytes from {cas}");
+    return 0;
+}
 
 if (args[0] == "read")
 {
@@ -29,6 +46,22 @@ if (args[0] == "read")
         ok &= same;
     }
     return ok ? 0 : 1;
+}
+
+if (args[0] == "export")
+{
+    var lf = new LegacyFiles(game, settings);
+    foreach (var name in args.Skip(3))
+    {
+        var path = Path.GetFullPath(Path.Combine(args[2], name.Replace('/', Path.DirectorySeparatorChar)));
+        var root = Path.GetFullPath(args[2]).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Export path escapes its directory.");
+        var bytes = lf.Read(name);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, bytes);
+        Say($"exported {name}: {bytes.Length} bytes");
+    }
+    return 0;
 }
 
 if (args[0] != "apply") return 2;

@@ -86,13 +86,22 @@ public sealed class RosterDbJob(SuiteSettings settings)
     public async Task<(WriteReport Report, GuardResult Guard, string AfterDump)> WriteAsync(DbTarget db, JsonElement beforeTables, string outDb,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
         IReadOnlySet<string>? onlyTeams = null, string? teamsDump = null, Action<string>? progress = null, CancellationToken ct = default,
-        LineOverrides? lineOverrides = null, Ratings? ratings = null, IReadOnlyDictionary<string, int>? portraitArt = null)
+        LineOverrides? lineOverrides = null, Ratings? ratings = null, IReadOnlyDictionary<string, int>? portraitArt = null,
+        IReadOnlyCollection<string>? extraTables = null)
     {
         var work = SuitePaths.Ensure(Path.Combine(WorkDir, db.Name));
         string before = BeforeDump(db.Name), edit = Path.Combine(work, "edit"), after = Path.Combine(work, "after");
         progress?.Invoke($"{db.Name}: applying the NHL API rosters");
         if (Directory.Exists(edit)) Directory.Delete(edit, true);
         var report = RosterWriter.Write(db.Name, before, edit, api, prospects, teamMap, onlyTeams, teamsDump, lineOverrides, ratings, portraitArt);
+        // Tables the new-player step changed in the "before" dump but the writer did not rewrite go to the import as they are.
+        foreach (var t in extraTables ?? [])
+            if (!File.Exists(T3Csv.PathOf(edit, t)) && File.Exists(T3Csv.PathOf(before, t)))
+            {
+                Directory.CreateDirectory(edit);
+                File.Copy(T3Csv.PathOf(before, t), T3Csv.PathOf(edit, t));
+                report.Tables.Add(t);
+            }
         progress?.Invoke($"{db.Name}: writing");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outDb))!);
         await Worker.RunAsync(settings, ["db-import", db.DbPath, db.MetaXml, edit, outDb], ct);
@@ -110,7 +119,7 @@ public sealed class RosterDbJob(SuiteSettings settings)
     /// Returns the problems (empty when all is well) and the placement per API id, for the cross-database check.
     /// </summary>
     public static (List<string> Problems, Dictionary<long, string> Placement) Verify(string dumpDir,
-        Dictionary<string, List<ApiPlayer>> api, Dictionary<string, int> teamMap)
+        Dictionary<string, List<ApiPlayer>> api, Dictionary<string, int> teamMap, IReadOnlySet<string>? preferIds = null)
     {
         var problems = new List<string>();
         var placement = new Dictionary<long, string>();
@@ -132,8 +141,8 @@ public sealed class RosterDbJob(SuiteSettings settings)
             if (!teamMap.TryGetValue(abbrev, out var team)) continue;
             foreach (var p in list)
             {
-                var m = RosterSync.Match(p, byLast, byFull);
-                if (m is null) continue;
+                var m = RosterSync.Match(p, byLast, byFull, preferIds);
+                if (m is null) { problems.Add($"{p.First} {p.Last}: missing player or exhibitionplayers link"); continue; }
                 var mine = nhlRows[m.GameId].ToList();
                 // A number from the player search (injured players) may give way to a current-roster number.
                 placement[p.Id] = p.Number is null || p.FromSearch ? $"{m.Team}/-/{m.Position}" : $"{m.Team}/{m.Jersey}/{m.Position}";
