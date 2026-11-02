@@ -37,6 +37,15 @@ Last updated: 2026-11-02.
   view has `package.mft`, `Data`, `Patch`; FMT simply requires the process to be an administrator. The suite's own reader
   does not need FMT - only this header/GUID mapping does. Candidate pair already chosen:
   `content/character/skater/goalie/pads/brians/gnetik/textures/goalie_pads_brians_gnetik_4_color` and `_normal`.
+- **The RES header is not in any TOC (2026-11-02).** Searched all three Patch TOCs for the first 8 bytes of the known Boston
+  colour `.res` (`f5 d4 00 00 df 2c 01 00` - sizes/timestamps, unique to that resource): **zero hits** in
+  `contentsb.toc` (4,030,673), `contentlaunchsb.toc` (3,105,681) and `globals.toc` (65,804). Combined with the bundle scan
+  finding nothing, the resource payload lives in a CAS and the name -> resource mapping is **not** a TOC table we can see:
+  in Frostbite that mapping goes EBX (the texture asset, which references its resource id) -> RES. So the FMT-free path
+  needs an **EBX reader**, not more TOC archaeology.
+- **This is the keystone finding of the session:** one missing capability - parsing EBX - unblocks three separate blockers:
+  the texture `.res` header (gear, face textures, fabric colour), the LT tuning values, and the head `id -> asset` mapping
+  for licensed faces. Everything else in those three threads is built and verified.
 - **The bundle scan was looking in the wrong table (2026-11-02).** Jersey textures are not UI textures: the Boston jersey
   chunk is found through `TocFile`'s *chunk* table (fields 4/5/6, patch=False, cas 05), so its RES is not in a bundle
   manifest at all - which is why `TextureResource` resolved nothing rather than mis-parsing something. The TOC header holds
