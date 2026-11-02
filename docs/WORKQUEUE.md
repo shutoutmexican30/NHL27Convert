@@ -3,6 +3,40 @@
 Single list so nothing is dropped between sessions. Status is what is *proven*, not what is planned.
 Last updated: 2026-11-02.
 
+## State at a glance
+
+**Done and verified** - detail in the sections below:
+
+- **Texture chunk pipeline**: BC1 and BC5 codecs (our decode matches FMT's own decode on 100 % of pixels, max diff 1),
+  `Ps4Texture` (132-byte header, mip table, micro-tile padding), `TocChunkWriter` (append 256 KB stored blocks, repoint),
+  and a real write to the test copy: read-back identical, restore 0 differences, re-apply verified.
+- **Own writer on a real game file**: a 13.7 MB legacy database exported, written back, read back identical,
+  restore 0 differences with CAS tails identical, re-applied. No elevation needed.
+- **Matcher backlog**: slot labels ("This slot is"), Adidas->Fanatics always, phantom array layers clamped to the array's
+  real slice count, partial stock dumps rejected, mod-list source validation. 43 suite + 16 roster tests.
+- **Goalie gear census**: 1,572 NHL 24 models / 1,749 NHL 27 / 1,453 shared / 296 NHL 27-only, and the DB id space is
+  closed (24 brands, 14 equipment values in both games).
+- **Faces analysed**: section table (head 6,014 triangles, eyes 320, lashes 84 - identical in both games), per-section UV
+  overlap (head and lashes map by UV; scanned eyes have identical UV counts but zero overlap, so they need a rigid
+  transfer), destination slot audit (475 single-use heads; generics back up to 300 players; 60000 backs 2,948 custom
+  rows), texture map sets.
+- **LT/L2**: name census (43 NHL 27-only, 28 shared, 26 NHL 24-only) and the negative proof that the values are not stored
+  beside the names.
+- **Logo inventory**: every NHL 27 branding colour sheet decoded and classified - 8,980 of 19,116 rows carry a role, with
+  per-team crest detection (1,898 crests) validated against the known Detroit slot pattern.
+- **Repo**: committed in coherent chunks, tree clean.
+
+**Blocked - needs something this environment does not have:**
+
+| Blocker | What it stops | What unblocks it |
+|---|---|---|
+| FMT refuses without Administrator (the read view *is* writable; proven) | gear swap, face texture swap, fabric colour swap | one elevated `MeshExport --texture-resource` run |
+| No EBX reader | texture `.res` lookup without FMT, LT tunable values, licensed head `id -> asset` map | an EBX reader (the keystone - see the texture section) |
+| Worker fails `Texture.get_PixelFormat()` on some folders (0 files written) | NHL 24 side of the logo inventory; Carolina-style blank caches | the suite's own PS4 texture reader, or a Worker fix |
+
+**Open but actionable without those**: nothing material - the remaining items are tests and polish, not threads.
+
+
 ## 1. Texture chunk pipeline (shared by fabric, gear, faces)
 
 | Item | Status | Next action |
