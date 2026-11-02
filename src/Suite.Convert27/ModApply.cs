@@ -25,11 +25,13 @@ public static class ModApply
             .ToList();
     }
 
-    public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count);
+    public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count + (m.Legacy?.Count ?? 0));
 
     public static string WritePlan(IEnumerable<ModFile> mods)
     {
-        var plan = new { Replacements = mods.SelectMany(m => m.Replacements).ToList() };
+        // A legacy file listed by two mods: the later mod wins, like a texture slot.
+        var legacy = mods.SelectMany(m => m.Legacy ?? []).GroupBy(l => l.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.Last()).ToList();
+        var plan = new { Replacements = mods.SelectMany(m => m.Replacements).ToList(), Legacy = legacy };
         var path = Path.Combine(SuitePaths.Local, "apply-plan.json");
         File.WriteAllText(path, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
         return path;

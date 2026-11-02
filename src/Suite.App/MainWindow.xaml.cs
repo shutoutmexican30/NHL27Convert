@@ -44,6 +44,7 @@ public partial class MainWindow : Window
                 "convert27" => new Convert27View(_settings),
                 "studio" => new Suite.Convert27.Studio.UniformStudioView(_settings),
                 "textures" => new TexturesPage(_settings),
+                "teams" => new RostersPage(_settings),
                 "settings" => new SettingsPage(_settings),
                 _ => PlannedPage.For(tag),
             };
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
             "convert27" => "Convert 27 — texture matcher and live uniform viewer",
             "studio" => "Uniform Studio — original vs new textures",
             "textures" => "Textures & logos — browse and replace any texture",
+            "teams" => "Teams & roster — sync every roster database with the NHL",
             "settings" => "Settings & about",
             _ => PlannedPage.TitleOf(tag),
         };

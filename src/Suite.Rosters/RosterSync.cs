@@ -42,7 +42,7 @@ public static class RosterSync
         return map;
     }
 
-    static string Norm(string s)
+    public static string Norm(string s)
     {
         var d = s.Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder();

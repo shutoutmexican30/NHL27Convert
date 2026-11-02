@@ -1,0 +1,176 @@
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using Suite.Core;
+using Suite.Rosters;
+
+namespace Suite.App.Pages;
+
+/// <summary>
+/// Teams &amp; roster: one button syncs every roster database in NHL 24 with today's NHL API rosters. The databases are
+/// read from the game, changed on copies, checked (layout guard, read-back, cross-database agreement) and shown per
+/// database; "Add to mod list" makes a mod that Apply writes to the CIMS game copy. Nothing touches a game before that.
+/// </summary>
+public sealed class RostersPage : ScrollViewer
+{
+    readonly SuiteSettings _settings;
+    readonly TextBlock _status = new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8)), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+    readonly TextBox _teams = new() { Width = 160, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(4, 3, 4, 3), FontFamily = new FontFamily("Consolas"), ToolTip = "Optional, e.g. BOS or BOS,TOR: only players joining or leaving these clubs are synced (a trial run)." };
+    readonly Button _sync, _add, _saves;
+    readonly StackPanel _results = new() { Margin = new Thickness(0, 10, 0, 0) };
+    SyncRunResult? _last;
+    CancellationTokenSource? _cts;
+
+    public RostersPage(SuiteSettings settings)
+    {
+        _settings = settings;
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        var root = new StackPanel { Margin = new Thickness(32, 26, 32, 26), MaxWidth = 1100, HorizontalAlignment = HorizontalAlignment.Left };
+        Content = root;
+
+        root.Children.Add(Heading("Sync rosters with the NHL"));
+        root.Children.Add(Text(
+            "Puts every player on today's NHL rosters on his team, with his number and position, in every roster database in " +
+            "NHL 24: nhl_game (play now, franchise, seasons), initial_experience, entry_draft, expansion_draft and threes_campaign. " +
+            "Players no longer on an NHL roster go to their club's AHL team when the club still lists them as a prospect, " +
+            "otherwise to free agency; injured players stay with their club. Lines and letters are repaired on every team that changed. " +
+            "Each database keeps NHL 24's own layout (same size, same tables, same slots) — the check below refuses anything else. " +
+            "A roster you saved in game in the CIMS copy (the sixth location) is synced too and written back with Write saved roster " +
+            "(backed up first; the original NHL24PC and its saves are never touched)."));
+
+        var row = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+        _sync = Button("Sync rosters", () => _ = SyncAsync());
+        _add = Button("Add to mod list", AddToMods);
+        _add.IsEnabled = false;
+        _saves = Button("Write saved roster", WriteSaves);
+        _saves.IsEnabled = false;
+        row.Children.Add(_sync);
+        row.Children.Add(new TextBlock { Text = "Only clubs:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) });
+        row.Children.Add(_teams);
+        row.Children.Add(_add);
+        row.Children.Add(_saves);
+        row.Children.Add(Button("Open work folder", () => Process.Start("explorer.exe", RosterDbJob.WorkDir)));
+        root.Children.Add(row);
+        root.Children.Add(_status);
+        root.Children.Add(_results);
+        root.Children.Add(Text("Team map (NHL API abbreviation → NHL 24 team): data\\nhlapi_teams.tsv, hand-editable. " +
+            "Portraits from the NHL API and the saved-roster copy are the next steps of this button."));
+    }
+
+    static string TeamsFile => Path.Combine(AppContext.BaseDirectory, "data", "nhlapi_teams.tsv");
+
+    async Task SyncAsync()
+    {
+        if (_cts is not null) { _cts.Cancel(); return; }
+        _cts = new CancellationTokenSource();
+        _sync.Content = "Cancel";
+        _add.IsEnabled = false;
+        _saves.IsEnabled = false;
+        _results.Children.Clear();
+        _last = null;
+        try
+        {
+            if (!Worker.Available(_settings)) throw new InvalidOperationException("The NHL24Kit worker is not installed (check Settings for the runtime path).");
+            if (!File.Exists(TeamsFile)) throw new FileNotFoundException("Team map not found: " + TeamsFile);
+            var only = _teams.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            void Progress(string s) => Dispatcher.BeginInvoke(() => _status.Text = s);
+            var result = await Task.Run(async () =>
+            {
+                var dbs = await RosterSyncRun.ExportStockAsync(_settings, Progress, _cts.Token);
+                return await RosterSyncRun.RunAsync(_settings, dbs, RosterSync.LoadTeamMap(TeamsFile), only.Count > 0 ? only : null, Progress, _cts.Token, FindSaves());
+            });
+            _last = result;
+            Show(result);
+            _add.IsEnabled = result.Ok;
+            _saves.IsEnabled = result.Ok && result.Dbs.Any(d => d.Save is not null);
+            _status.Text = result.Ok
+                ? $"All {result.Dbs.Count} databases synced and checked (NHL API {result.Day:yyyy-MM-dd}). Review below, then Add to mod list."
+                : "The sync did not pass every check; nothing can be added. See the problems below.";
+        }
+        catch (OperationCanceledException) { _status.Text = "Cancelled."; }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("roster sync: " + ex);
+            _status.Text = "Sync failed: " + ex.Message;
+        }
+        finally
+        {
+            _cts.Dispose();
+            _cts = null;
+            _sync.Content = "Sync rosters";
+        }
+    }
+
+    void Show(SyncRunResult r)
+    {
+        foreach (var note in r.Notes.Take(40)) _results.Children.Add(Text("• " + note));
+        foreach (var d in r.Dbs)
+        {
+            var counts = string.Join(", ", d.Report.Counts.OrderBy(k => k.Key).Select(k => $"{k.Key} {k.Value}"));
+            var header = $"{(d.Ok ? "✓" : "✗")} {d.Db.Name} — {counts}; layout: {d.Guard}; read back: {(d.Problems.Count == 0 ? "OK" : d.Problems.Count + " problem(s)")}";
+            var lines = d.Problems.Select(p => "problem\t" + p)
+                .Concat(d.Report.Warnings.Select(w => "warning\t" + w))
+                .Concat(d.Report.Changes.OrderBy(c => c, StringComparer.Ordinal))
+                .ToList();
+            _results.Children.Add(new Expander
+            {
+                Header = header, Foreground = Brushes.White, Margin = new Thickness(0, 6, 0, 0),
+                Content = new TextBox
+                {
+                    Text = string.Join("\n", lines), IsReadOnly = true, FontFamily = new FontFamily("Consolas"), MaxHeight = 360,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                },
+            });
+        }
+        _results.Children.Add(Text(r.Disagreements.Count == 0
+            ? "Cross-database check: every NHL player has the same team, number and position in every database that has him."
+            : $"Cross-database check: {r.Disagreements.Count} player(s) disagree:\n" + string.Join("\n", r.Disagreements.Take(30))));
+    }
+
+    /// <summary>Roster saves in the CIMS game copy only (ApplyTargetDir's user folder), never the original game's.</summary>
+    List<SavedRoster> FindSaves() =>
+        string.IsNullOrEmpty(_settings.ApplyTargetDir) ? [] : SavedRoster.SavedataRoots(_settings.ApplyTargetDir).SelectMany(SavedRoster.Find).ToList();
+
+    void WriteSaves()
+    {
+        if (_last is null) return;
+        try
+        {
+            var done = RosterSyncRun.WriteSaves(_last);
+            _status.Text = $"Wrote {done.Count} saved roster(s): {string.Join(", ", done)}. Backups: {Path.Combine(SuitePaths.Local, "save-backups")}.";
+            _saves.IsEnabled = false;
+        }
+        catch (Exception ex) { _status.Text = "Saved roster not written: " + ex.Message; }
+    }
+
+    void AddToMods()
+    {
+        if (_last is null) return;
+        try
+        {
+            var mod = RosterSyncRun.ToModFile(_last);
+            var path = mod.Save();
+            _status.Text = $"Added \"{mod.Name}\" ({mod.Legacy!.Count} databases) to the mod list: {path}. Apply writes it to the CIMS game copy." +
+                (_last.Dbs.Any(d => d.Save is not null) ? " Write saved roster updates your saved roster." : " No saved roster in the CIMS copy yet.");
+            _add.IsEnabled = false;
+        }
+        catch (Exception ex) { _status.Text = "Not added: " + ex.Message; }
+    }
+
+    static TextBlock Heading(string text) => new() { Text = text, FontSize = 20, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, Margin = new Thickness(0, 14, 0, 0) };
+
+    static TextBlock Text(string text) => new()
+    {
+        Text = text, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), LineHeight = 20, Margin = new Thickness(0, 6, 0, 0),
+    };
+
+    static Button Button(string text, Action click)
+    {
+        var b = new Button { Content = text, Style = (Style)Application.Current.Resources["Action"], Margin = new Thickness(8, 0, 0, 0) };
+        b.Click += (_, _) => click();
+        return b;
+    }
+}

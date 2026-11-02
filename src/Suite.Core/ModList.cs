@@ -10,6 +10,12 @@ namespace Suite.Core;
 public sealed record TextureReplacement(string Slot, string Source, Dictionary<int, string>? Layers = null, string? Alpha = null);
 
 /// <summary>
+/// One whole legacy file replaced (a roster database, for example "gamemodes/database/t3db/nhl_game.db").
+/// Same shape as the NHL24Kit plan's Legacy entries (Name, Source).
+/// </summary>
+public sealed record LegacyReplacement(string Name, string Source);
+
+/// <summary>
 /// A named, hand-editable mod: a JSON file in %APPDATA%\CenterIceModdingSuite\mods.
 /// The mod list is what Apply writes; the kept list (game state after an apply) is separate and lives with the writer.
 /// </summary>
@@ -21,6 +27,8 @@ public sealed class ModFile
     public string Comment { get; set; } = "";
     public DateTime Saved { get; set; }
     public List<TextureReplacement> Replacements { get; set; } = [];
+    /// <summary>Whole legacy files (roster databases from the roster sync). Null in texture mods.</summary>
+    public List<LegacyReplacement>? Legacy { get; set; }
 
     static readonly JsonSerializerOptions Json = new()
     {
@@ -47,6 +55,6 @@ public sealed class ModFile
         return path;
     }
 
-    /// <summary>The Worker's plan.json shape ({"Replacements":[...]}).</summary>
-    public string ToWorkerPlan() => JsonSerializer.Serialize(new { Replacements }, Json);
+    /// <summary>The Worker's plan.json shape ({"Replacements":[...], "Legacy":[...]}).</summary>
+    public string ToWorkerPlan() => JsonSerializer.Serialize(new { Replacements, Legacy }, Json);
 }
