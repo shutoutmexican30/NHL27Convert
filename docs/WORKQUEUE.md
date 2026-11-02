@@ -130,8 +130,14 @@ Last updated: 2026-11-02.
       folder (Carolina/Calgary have no branding art cached at all, which is why every layer there reads as blank).
 - [ ] Apply/Restore against a real game folder (the suite's own writer path, not the Worker guard).
 - [ ] `data\nhl24-patches.xml`: the V3.2 repack's eboot patches as runtime patches — **unverified** on a clean 1.60.
-- [ ] Logo inventory (`tools\LogoInventory`): re-run after opening more teams so the `role_guess` column fills in
-      (only 414 of 19,116 sheets are decoded today).
+- **Logo inventory roles filled for the ten teams in play (2026-11-02).** The NHL 27 index carries every decode location
+  (Width/Height/Format + Package/Cas/Tree/Offset/Size), so `tools\nhl27_bridge.py decode --jobs` can be driven straight
+  from it without opening folders in the UI. Decoded **1,242 branding colour/normal sheets** for detroit, boston, florida,
+  chicago, anaheim, buffalo, carolina, calgary, seattle and utah, then re-ran the inventory:
+  **414 -> 1,035 sheets with a guessed role**; shield 130 -> 367, sponsor/other 184 -> 428, epw_tag 27 -> 68,
+  blank 35 -> 67, brand:adidas 16 -> 55, brand:fanatics 22 -> 41 (plus 9 adidas_stripes that had never matched before).
+- [ ] Extend the same batch to the remaining 26 teams when useful: the job list is generated from the index, so it is a
+      single bridge run - the only cost is decode time.
 
 ## 6. Machine / environment (user actions)
 
