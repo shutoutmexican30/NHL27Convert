@@ -1,7 +1,232 @@
 # Center Ice Modding Suite (CIMS) — HANDOFF
 
-Last updated: 2026-10-29. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
+Last updated: 2026-11-02. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
+
+## Codex continuation 2026-11-02: PLAYERS INSTALLED (15:55 local)
+
+- User explicitly requested completing the player additions, including ratings, faces/equipment, portraits and lines.
+  **Installed to `C:\Users\devin\Desktop\NHL24PC-CIMS\game`**, with the suite's own writers; original Downloads game untouched.
+- Recovered the exact 48-player list from `<Desktop>\CIMS_new_players_review.html`. **47 new records**, plus correctly
+  matching the existing **Jonas Røndbjerg (15576)** to the API's "Rondbjerg" (ø does not decompose under FormD).
+  Do not create a second Rondbjerg. All 48 review names are accounted for.
+- Three players from that list are currently AHL: **Cooper Black (FLA), Rieger Lorenz (MIN), Alex Bump (PHI)**. They were
+  created and placed with their clubs' AHL affiliates. Requests persist in `%APPDATA%\CenterIceModdingSuite\data\roster_additions.json`,
+  which `RosterSyncRun` now loads when no explicit additional-prospect list is supplied.
+- **39/47 new players use NHL 27 data/ratings; 8 use NHL API identity and donor ratings.** Compatible generic NHL 24
+  donor heads/hair/equipment are used, not NHL 27 head meshes. Older mode databases which already contained a planned
+  player's ID now receive the main database's authoritative bio/ratings/equipment (`NewPlayers.AlignPlannedWithMain`),
+  retaining their own player-index links. This fixed 55 appearance/data audit differences.
+- Recovered NHL 27 CSVs from the earlier `RosterConversion\nhl27-csv` folder into `%LOCALAPPDATA%\CenterIceModdingSuite\nhl27db`;
+  converted its tables.json `name` keys to the current dump format's `table` keys. Five stock source DBs came from
+  `RosterConversion\more-dumps\legacy`. Working dumps/builds are restored under `%LOCALAPPDATA%\CenterIceModdingSuite\dbwork`.
+- **810 portraits prepared and applied** (798 current NHL players + 9 retained injured players + the 3 AHL additions).
+  All 810 read back byte-identical; all five databases stayed identical after portrait application. A cache-free Worker
+  independently read Yurov, Hellebuyck and Celebrini portraits (512x340, BC3 mean differences 2.5/2.4/2.4 versus PNG).
+- Five database layouts/headers/sizes passed guards. Strict read-back verification: **798/798 current NHL players in
+  each database, zero problems**. Cross-database placements agree. Separate audit: every new player's bio/birth date,
+  compatible donor assets, ratings, equipment, portrait and club link passes; 32 NHL teams have 20 distinct dressed
+  players/full even-strength lines and two goalies in each DB; main online mirror matches. Eight fallback ratings remain
+  explicitly marked in the review CSV. Existing retired Paul Stastny/index-0 free-agency warnings in older DBs remain.
+- Verification now refuses missing API players/indices; it uses main IDs to disambiguate the older Tomy/Thomas Novak
+  duplicate when the API says "Tommy Novak". New regression tests cover this, ø matching, rejected bios, appearance
+  alignment and missing links. **53 tests pass (16 roster + 37 suite); solution build clean.**
+- Verified build: `%LOCALAPPDATA%\CenterIceModdingSuite\rostersync\2026-11-02-complete-players\`.
+  Mod: `%APPDATA%\CenterIceModdingSuite\mods\Complete players 2026-11-02.json` (five database replacements).
+  Portrait plan/images: `%LOCALAPPDATA%\CenterIceModdingSuite\portraits\`. CLI supports `SyncWrite --prepare-portraits`
+  to prepare portrait assignments in the same run; `--include-prospects <ApiPlayer-json>` and `--verify-only` are also available.
+- Test copy `D:\CIMS-test\NHL24-merged` was refreshed from live first. DB and portrait **apply → restore → reapply passed**;
+  restore reported zero TOC/CAS-length differences, database test also checked original CAS tail hashes.
+  Test backups: `20261102-154852` (DB), `20261102-155112` (portraits).
+- **Live backups:** `%LOCALAPPDATA%\CenterIceModdingSuite\backups\20261102-155156` is before this entire installation;
+  `20261102-155514` is before the new portrait batch, after the new databases. Live DBs and 810 portraits read back
+  identical. `ApplyTargetDir` restored to the CIMS game; prior settings saved as `settings.json.before-complete-players`.
+  The Worker Apply/Restore guard must remain: its older state still must not roll back our own writes.
+- Receipts/scripts/logs: `C:\Users\devin\Documents\Codex\2026-11-02\x20-ar\work\`.
+  User review CSV: same chat folder's `outputs\players-added.csv` (48 rows, new/existing action, NHL/AHL level and rating source).
+- Game launched directly from the CIMS root at 15:55 (process running). **Visual Minnesota/Yurov gameplay check remains
+  unverified**: Windows Computer Use denied control with "Computer Use was not approved to use nhl24_new". No attempt
+  was made to bypass that restriction. Do not claim a gameplay test passed. Existing BeAGM/Profile saves were not edited.
+
+## Codex continuation 2026-11-02: initial missing-player validation (superseded by installation above)
+
+- Resumed from the supplied screenshot and this handoff. Existing uncommitted changes were preserved.
+- Initial solution build passed with 0 warnings/errors; existing suites passed (37 Suite.Tests + 9 Suite.Rosters.Tests).
+- Fixed `NewPlayers.AddTo`: a rejected bio/name previously still produced player-index, ratings and equipment records.
+  Linked rows now use only the players whose bios were accepted; a completely rejected batch leaves files unchanged.
+- Added two regression tests covering rejection, mixed valid/rejected batches, fixed slot counts, donor head preservation,
+  and repeat-run idempotence. Suite.Rosters.Tests now passes 11/11 (48 tests across the two suites).
+- Current on-disk state differs from the earlier apply notes: `%LOCALAPPDATA%\CenterIceModdingSuite` has no `dbwork`,
+  `nhl27db`, or `rostersync` directories, and the roaming settings file has an empty `ApplyTargetDir`. Do not infer that
+  the live game is stock from missing workspace files; its applied contents have not been independently audited yet.
+- No game files, settings, saves, or mod plans were changed. The 48-player addition and Minnesota/Yurov in-game test
+  remain pending. Next: recover/rebuild the database inputs and verify the target's current contents, then validate the
+  missing-player build on a test copy before applying to the playable copy.
+
+## Session 2026-11-02 (latest): first real texture-chunk write, and the goalie-gear question
+
+**The chunk writer now exists and has written a game copy.** `src\Suite.Core\Frostbite\TocChunkWriter.cs` appends the new
+stored blocks to the CAS named by the entry's location record and repoints every TOC entry that pointed at the copy being
+replaced; `tools\TextureChunk apply <game> <res> <chunk> [--expect <liveChunk>] [--restore-check]` drives it, refuses the
+original game/read view and a running game, backs up through `ApplyTarget.Backup`, reads back and can do a full
+apply -> restore -> apply check.
+
+Blocks: the game stores large textures as **256 KB raw blocks** (Boston home normal = 21 x 262,144 + 1 x 92,160 = 22
+blocks, 3,720,126 stored). `ChunkBlocks.EncodeBlocks` splits that way; a single block cannot exceed the 20-bit stored-size
+field. The low nibble of the block flag byte is not a flag - it is bits 16-19 of the stored size.
+
+Test copy `D:\CIMS-test\NHL24-merged`, Boston NHL 24 home normal -> NHL 27 thirteen art:
+`appended 2,021,360 bytes to cas_05.cas @ 1,074,648,234; 1 TOC entry repointed`, read back identical (5,597,184 raw),
+`changes vs backup: 2` (CAS length + contentsb.toc), restore gave **0 differences**, re-apply verified. The playable copy
+(`Desktop\NHL24PC-CIMS\game`) has **not** been touched.
+
+### Goalie equipment: what the data actually is
+
+`stockgoalieequipment` / `exhibitiongoalieequipment` are **colour-zone tables** - `game_id` plus fifteen zone colours
+(`padszone4color`, `blockerzone1color`, `trapperzone11color`, `stickzone4color`, ...), not item ids.
+`stockteamequipmenttable` adds `team`, `brand`, `jerseyartid`, `equipment`, `era`, `variant`, `index`. So a goalie set is
+**model (brand/equipment slot) + fifteen zone colours**, and the artwork comes from the model's texture folder
+(`skater/goalie/pads|blocker|trapper|helmet/<brand>/<model>/...` with `_color`, `_normal`, `_coeff`, `_recolor1..3`,
+`_idmap`, `_bentnormal`, `_ferender`).
+
+Consequence, stated plainly: NHL 27 **artwork and colour schemes can be brought over** by replacing the texture chunks of
+models NHL 24 already ships, and those are assignable through the existing DB rows (the roster writer is proven). A model
+NHL 24 does not ship **cannot be added** - there is no mesh, no material EBX, and the `brand`/`equipment` id space is
+fixed; copying its textures would create files nothing references. The same rule already governs jerseys ("NHL 24 cannot
+get new texture folders").
+
+Next step for this: a read-only census (like `tools\FacePlan`) that lists goalie models per brand from both asset indexes
+plus the `brand`/`equipment` columns of both `stockteamequipmenttable` dumps, and marks each model as *has NHL 24
+counterpart*, *NHL 27 only*, or *unused in both*. That is the map needed before any texture swap or DB write.
+## Session 2026-11-02 (later): texture chunk writer + BC5 codec, built and verified
+
+Continuing the Codex handoff. The blocking dependency it named - an own writer for top-level TOC texture chunks with a
+PS4-tiled BC5 encoder - now exists and is proven offline. **Nothing has been written to either game copy.**
+
+**`src\Suite.Core\Frostbite\Ps4Texture.cs`** (new): `TextureRes` parses the 132-byte resource header and
+`TextureChunk` splits/rebuilds the payload. Facts confirmed against Boston NHL 24 home, correcting two assumptions in
+the previous handoff: the **mip count is the byte at offset 30** (not 31), and small mips are **padded to whole 8x8-block
+micro-tiles**, which is why every mip below 32x32 still occupies 1024 bytes (BC5) / 512 (BC1). Sizes therefore follow
+`ceil(ceil(w/4)/8)*8 * ceil(ceil(h/4)/8)*8 * blockBytes`. `BlockBytes` is inferred from mip 0, which is what distinguishes
+BC1 (8) from BC3/BC5 (16) - **the jersey colour map is BC1, the normal is BC5**.
+
+**`src\Suite.Core\Frostbite\Bc5.cs`** (new): BC5 = two BC4 channels, 8-value ramp, PS4 tiling via the existing
+`Bc3.TiledIndex` (a BC5 block is 16 bytes like BC3); blue reconstructed as sqrt(1 - x^2 - y^2).
+
+**`tools\TextureChunk`** (new, not in the .sln): `verify <res> <chunk> [refPng]`, `png <res> <chunk> <out>`,
+`build <res> <template> <png> <out>`. Reads and writes files only.
+
+Verification against the live Boston home chunks (`work\fabric24-resources`):
+
+| Check | Normal (BC5) | Colour (BC1) |
+|---|---|---|
+| Header parse: 2048x2048, 12 mips, GUID, 5,597,184 / 2,798,592 payload | ok | ok |
+| Rebuild from parsed mips byte-identical to the live file | **true** | **true** |
+| decode -> encode -> decode error (R,G, 255 scale) | mean 0.31, max 14 | n/a (codec not implemented) |
+| New mip chain keeps the exact byte length | **true** | n/a |
+| Decoded mip 0 vs FMT's own decode of the same chunk | mean 0.35, **max 1**, 100 % of pixels within 8 | - |
+
+That last row is the important one: our tiling and channel order reproduce FMT's decoder, so the format reading is
+right, not merely self-consistent.
+
+**First real artifact**: `outputs\fanatics-fabric\boston-home-normal-from-thirteen.chunk` - Boston NHL 24 home's
+*normal* slot rebuilt from the NHL 27 thirteen normal, 5,597,184 bytes (identical length), header untouched, full
+12-mip chain regenerated, encode error mean 0.06. Measured high-frequency detail (mean |Laplacian| of red) drops from
+**65.04 to 19.14 (3.4x smoother)**, and in the worst dimple cell from 99.07 to 27.48 - the Adidas dimples are genuinely
+gone, not just blurred. Preview: `outputs\fanatics-fabric\shoulder-detail-live-vs-27.png`.
+
+**Still not applied, and why**: writing it needs the CAS/TOC step - append the chunk to the CAS named by the entry's
+*location record* (Boston home normal is `Patch\Gen4b\contentsb.toc` pointing at
+`Data\Gen4b\superbundlelayout\nhl_installpackage_05\cas_05.cas`, offset 339,795,401), repoint the entry, and update
+every duplicate TOC/RES copy. Do it on `D:\CIMS-test\NHL24-merged` first, with a byte read-back and a full restore
+check, before the playable copy (`Desktop\NHL24PC-CIMS\game`). The Worker Apply path stays unused - its stale state can
+roll back the installed players.
+## Session 2026-11-02: emulator build, patches, logo inventory
+
+- Our NHL 24 runs on **NHL24PC V3.2** (repack by LEVASTAK): `nhl24_new.exe` reports **FileVersion 0.8.3.0**, so it sits
+  on HajDEO's shadPS4 fork at v0.8.3, with 39 modified files in `source_changes\` and a PowerShell launcher
+  (`tools\launcher.ps1`, `tools\setup.ps1`) behind `Play NHL 24.bat` / `Install.bat`.
+- Game data: **CUSA37933** (US), base `param.sfo` APP_VER **01.00**, update **01.60**. The update's `eboot.bin` is
+  **patched on disk**: 21 bytes in 7 runs against the `eboot.bin.orig` it keeps beside it - four code patches
+  (`je to jmp` at 0x065324F0, `movzx`/`mov` on the 0x16E field forced to zero at 0x05C30524 and 0x04DD0FC7, `jne` to nop
+  at 0x05AC37E5), one flag byte (0x01E9819B) and two language/loc data edits at 0x09059F50. Markers:
+  `user\eboot_offsets.json`, `user\loc_offset.json`, `user\freezefix_188338041.ok`.
+- Upstream **v0.9.1** (published 2026-11-02) ships **no game data** - emulator plus `launcher.exe`, you install your own
+  PKG (US or EU; 1.60 verified on US). It fixes cutscene black boxes/lines (#17) and the 8 GB out-of-VRAM crashes after
+  several matches, and folds in the torpedatorpeda Be a Pro/NVIDIA fixes. It never touches `eboot.bin`: its fixes are
+  runtime memory patches from `game_patches\nhl24.xml` in `user\patches\`.
+- **Decision**: stay on V3.2 for modding. The suite's read view, index fingerprint and apply target all point at it, and
+  the Russia/Belarus national-teams mod depends on its patched eboot. A clean v0.9.1 install in a separate folder would
+  be the better *stock baseline* if one is ever needed - re-point `Nhl24GameDir` / `Nhl24UpdateDir` / `ApplyTargetDir`
+  and expect one full index rebuild (fingerprint is package.mft + layout.toc). Never mix the two: read one, play another.
+- **`data\nhl24-patches.xml`** carries the repack's code patches as runtime memory patches, so a clean 1.60 extract can
+  be used without touching its eboot. Addresses follow the patch-repository convention `0x400000 + file offset`, one
+  `<Line Type="byte">` per byte. The two loc data edits and the unknown flag byte are present but disabled. **Not yet
+  verified on a clean install** - run one session per entry and confirm the symptom it targets actually goes away.
+- **`tools\LogoInventory`** (`dotnet run --project tools\LogoInventory [out.tsv]`, not in the .sln) writes
+  `%APPDATA%\CenterIceModdingSuite\data\logo_inventory.tsv`: every branding/helmet `_color` sheet in both games with
+  game/league/team/brand/set/garment/kind/layer, a role guessed from the 32x32 alpha silhouette
+  (blank / shield / brand:adidas / brand:fanatics / epw_tag / sponsor-other), the decoded PNG and the asset path.
+  Last run: **19,116 sheets** (NHL 24 7,883 / NHL 27 11,233; layer 14,184, array 2,898, helmet 2,034). Roles are filled
+  only where a decoded PNG exists (414 of them so far - the app decodes a folder when you open it), so open more teams
+  in Convert 27 and re-run to fill the rest; the paths and names are complete either way.
+## Session 2026-11-01 (latest)
+
+- **Viewer numbers rebuilt** (`src\Suite.Convert27\viewer\index.html`). The digit cells were measured on the
+  2048-square NHL 27 font atlas, but every NHL 24 atlas is 1024 square, so the result side cropped outside the
+  image (silently drawing nothing when the font slot was still stock) and each glyph was stretched into a fixed
+  430x560 box in a square canvas that the 0.38 x 0.46 m plane then stretched again. Cells are now scaled to the
+  atlas that actually arrives, every glyph keeps its own width, the pair is butted together at ~28 cm, and the
+  canvas is built at the panel's real aspect (one `PANEL` constant shared with `placeJerseyNumber`).
+- **Adidas -> Fanatics, logo and normal, always.** When the paired NHL 27 set has no brand layer, the Fanatics
+  colour and its normal map are taken from the nearest NHL 27 set that has one (`FanaticsFromAnyNhl27Set` +
+  `SlotRoles.KnownLogo`): the mark is the same image league-wide, so a converted kit never keeps Adidas. Applied
+  in the matcher repair pass and in the mod-list export (which otherwise refuses).
+- **Every slot is named for the selected team**: a new "This slot is" column (`SlotMatch.What`) driven by the
+  slot map - Team crest, NHL shield, Adidas -> Fanatics (brand), End Plastic Waste . back-hem tag,
+  "<sponsor> . sponsor", Shoulder logo, and for other rows Jersey base colour (fabric regions), Numbers font,
+  Helmet sponsor, material coeff (kept stock) and so on. Rows the slot map labels blank say "Blank in NHL 24".
+- **Mod list validation**: `ModApply.SourceProblems` lists every replacement whose source file is missing (and
+  array entries with no layers); `ApplyAsync` prints them instead of failing mid-write. Covered by
+  `tests\Suite.Tests\ModValidationTests.cs`.
+- **Legacy uniform conversion removed** (details below). The PS3 RW4 reader, UV remap, kit catalogue,
+  normal/alpha inspection, both CLI tools, the Boston draft map, the workbench window and its two settings are
+  gone; a copy is outside the repo in `<Desktop>\CIMS-backup-legacy-uniforms-20261101\`.
+- Build after all of it: 0 warnings, 0 errors; 33 tests pass (the count dropped from 55 because the 22 legacy
+  UV/kit tests were removed with the feature).
+- **Still open**: the phantom branding-array layers (row count comes from the numbered `_N_color` textures while
+  the destination array has fewer slices - Detroit jersey 4 of 6, Detroit pant 2 of 3, Florida jersey 6 of 7), so
+  "Stock branding images are missing" can still refuse an export for those sets until the row count is taken from
+  the array's real slice count. Apply/Restore still has never been run against the real game.
+## Codex continuation — October 31, 2026 (local time)
+
+### November 1: legacy uniform conversion removed (user decision)
+
+The PS3 "legacy uniform" source, its atlas-remap workbench and its tooling were removed from
+the suite. NHL 27 is the only uniform source. The code that was removed (RW4 reader, UV remap,
+kit catalogue, normal/alpha inspection, `tools/LegacyExtract`, `tools/LegacyRemap`, the Boston
+draft map and the workbench window) is kept outside the repo in
+`<Desktop>\CIMS-backup-legacy-uniforms-20261101\`. Nothing in the matcher, slot map, viewer,
+mod list or Apply depended on it. `LegacyUniformDir` / `LastLegacyUvMap` were dropped from
+settings (stale keys in an existing settings.json are ignored).
+
+- User clarified: **Adidas branding normal map/mask must become Fanatics**, not just
+  the coloured artwork. Matcher now pairs recognised Adidas layers with Fanatics
+  colour/alpha and corresponding normals from the same source layer. Export also
+  builds clean coeff from Fanatics alpha. Missing assets prevent export. Separate
+  branding arrays are covered; embedded full-sheet manufacturer art still needs
+  proper remapping and inspection.
+- User clarified: **first pants logo is usually the team logo, not the NHL shield**.
+  Pants role detection finds the club mark after known league logos; crest links
+  cannot choose shields. Removed the old same-layer-number fallback. Missing club
+  art/normal retains stock. The End Plastic Waste lock remains.
+- Fixed an existing Windows-invalid composite cache filename (`asset|asset`), using
+  a hash. Composite fabric alpha now comes from NHL 24, not the NHL 27 base image.
+- Tests: all new UV/alpha/cache/branding tests pass; one pre-existing test
+  `Folders_with_links_into_another_tree_are_refused` cannot create its fixture
+  junction in this execution environment (`mklink /J`: Access denied). It fails
+  before exercising the guard. No game files were applied/changed in this session.
+- Next: the roster sync and remaining broad roadmap are unchanged.
 
 ## Catch-up 2026-10-31 (read-only review, no code changed)
 
@@ -49,7 +274,7 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
      refused by design.
    - **Decided 2026-10-31: one merged game folder (option 2, a separate copy).** `nhl24_new.exe` takes no path arguments: it
      runs `<root>\game` and mounts `<root>\game-UPDATE` over it. So a second root was built:
-     `C:\Users\devin\Downloads\NHL24PC_V3.2\NHL24PC-CIMS` = NHL24PC's emulator, tools and `user\` (saves, settings, shader
+     `C:\Users\devin\Desktop\NHL24PC-CIMS` = NHL24PC's emulator, tools and `user\` (saves, settings, shader
      cache) + `game\` = base `game\` with the whole `game-UPDATE\` laid over it (1.60 eboot.bin, sce_sys, Patch), no
      `game-UPDATE`. The original `NHL24PC\game` and `game-UPDATE` are untouched (clean fallback). CIMS settings:
      `ApplyTargetDir = ...\NHL24PC-CIMS\game` (backup `settings.json.before-cims-merged`); `Nhl24GameDir` still points at the
@@ -74,7 +299,7 @@ crashed the game when loading a match). Ideas for CIMS: Play page, mod packs, ex
 Jersey Studio, rink/centre-ice tools, NHL API sync (spec E). Its Core (own Frostbite reader/writer without FMT) is what CIMS
 step 5 needs, but for PS5/NHL 27; NHL 24 is PS4 (different tiling, Kraken).
 
-## Legacy jerseys and slot mapping (investigated 2026-11-01, read only)
+## Uniform slot mapping (investigated 2026-11-01, read only)
 
 - NHL 27 has no textures named `*legacy*` for uniforms (only arena props: dashers, concrete, stairs...). Its `rbk` and
   `nineties` sets have the same 11 slots as NHL 24's. Every NHL 27 set also ships a **plain `jersey_*_color`** (crest and
@@ -133,6 +358,15 @@ transforms. Editing placements would mean writing EBX, which the writer does not
   still ships last, each used once). Shown in the matcher's variant line; nothing is applied from it yet. User copies of
   format 1 are backed up as `variant_map.json.before-format2` and replaced.
 
+### Pants rule: no NHL shield on pants (user, 2026-11-02)
+
+Every NHL 24 pants set already has the NHL shield on the back, so the shield never goes onto pants. `SlotRoles.EnforcePantsCrestLock`
+drops any pants link from or to a shield layer (shield slots stay stock); `Convert27ViewModel.KeepShieldOffPants` runs last in
+auto-match and resets any pants layer (array, normal, single `_N_color`) whose source or stock image is the shield
+(`SlotRoles.LooksLikeShield`, silhouette within 40 of the shield ref, looser than the 24 used for labels); `MatchProject.ToModFile`
+skips shield sources on pants at export. Test: `BrandingRulesTests.Pants_never_take_the_NHL_shield_and_shield_slots_stay_stock`.
+Not committed: these files also hold the other agent's uncommitted work.
+
 ## Roster databases: every location (enumerated 2026-11-01, read only)
 
 In-game legacy files (same in the original and the merged copy): `gamemodes/database/t3db/nhl_game.db` (+ nhl_game-meta.xml),
@@ -176,36 +410,130 @@ lacking them, within table max counts (layout guard applies).
 - `tools\SyncPlan`: plans all 5 dumps against today's API. 2026-11-01: 32 teams, 803 players; nhl_game moves 503, numbers 296,
   positions 72, releases 240, not in db 48, already right 225 (the other dbs: 494–509 moves, 257–341 releases, 75–79 not in
   db); 721 API players matched in every db, 38 in some, 44 in none. Report in `%LOCALAPPDATA%\CenterIceModdingSuite\sync-plan.txt`.
-- To do before any write: send players in a club's system (API `prospects/<abbrev>`) to its AHL affiliate instead of free
-  agency; new players (NotInDb) from NHL 27 rows or templates (spec E step 5); portraits (download, crop, PortraitAssign);
-  the suite's T3DB writer + layout guard; saved-roster container (package-save.py); diff UI and the one button.
+- (Superseded by the writer below.)
 
-## Legacy uniforms (PS3 NHL, 26-27 set with Fanatics, 2026-11-01)
+### Roster sync writer (built 2026-11-02, commit 6e320d4; offline on copies, nothing applied to a game)
 
-- Source (user's mod, read only): `C:\Users\devin\Downloads\26-27 Conversion.zip\26-27Extras\Main Release\BLUS31540\USRDIR\rendering\jersey`
-  (that ".zip" is a folder). Copied to `C:\Users\devin\Downloads\legacy-uniforms\26-27\` (160 files: 77 `texlib_1_<team>_<uni>`,
-  82 `name_1_<team>_<uni>_cm`, `Object_10_RWGOBJECTTYPE_RASTER`; ~1.1 GB).
-- Format confirmed: RW4 PS3 (`89 'RW4ps3' 00`); descriptors `00 00 0d e1` (format u32 BE +4: 0x83f1 DXT1, 0x83f3 DXT5,
-  0x6007 name maps; w/h u16 BE +0x14/+0x16; mips +0x18); pixel data from 0x600, linear DXT, full mip chains back to back.
-  Every texlib is 14,681,536 bytes: font_cm/nm DXT5 1024, font_sm DXT1 1024, jersey_cm/sm DXT1 2048, jersey_0_nm DXT5 2048.
-  `name_*_cm` = 256×256 format 0x6007 (name/number placement maps), not decoded yet.
-- Reader: `src\Suite.Core\Legacy\Rw4Reader.cs`; tool `tools\LegacyExtract` decodes all 462 rasters (24 s, parallel) to
-  `...\legacy-uniforms\26-27\png\` and writes `_contact_jersey_cm.png` (labels team_uni).
-- Coverage: all 32 teams, 2–3 kits each (77). vs the earlier 63-set upload: +1_3, 14_2, 14_3, 15_0, 15_1, 16_3, 16_4, 17_0,
-  17_1, 18_2, 18_3, 19_0, 19_1, 19_2; nothing missing. Team order (from the art): 0 ANA, 1 WPG, 2 BOS, 3 BUF, 4 CGY, 5 CAR,
-  6 CHI, 7 COL, 8 CBJ, 9 DAL, 10 DET, 11 EDM, 12 FLA, 13 LAK, 14 MIN, 15 MTL, 16 NSH, 17 NJD, 18 NYI, 19 NYR, 20 OTT, 21 PHI,
-  22 UTA (Mammoth art), 23 PIT, 24 STL, 25 SJS, 26 TBL, 27 TOR, 28 VAN, 29 WSH, **30 SEA, 31 VGK** (NHL 24 is 30 VGK, 31 SEA).
-- Fanatics mark confirmed in the collar spot (e.g. Utah 22_3, Boston 2_0). The jersey_cm is a full colour map with crest,
-  stripes and branding baked in (legacy template layout, different from NHL 24's UVs): converting needs a UV remap legacy →
-  NHL 24, using NHL 27's matching kits as the guide. Next: work out that remap, then add "Legacy uniforms" as a source in Convert 27.
-- Legacy has no branding slots (logos baked into jersey_cm). When a legacy kit fills an NHL 24 set that has branding arrays,
-  those layers default to fully transparent ("baked in: clear the layer", per layer, switchable) so nothing is doubled; the
-  End Plastic Waste back tag stays stock (locked).
-- User 2026-11-01: follow the NHL24Kit texture rules for which maps to keep. So: legacy `jersey_sm` / `font_sm` (shine/spec)
-  are NOT written into NHL 24 `_base_coeff` (rule 10: keep base coeff stock; foreign coeffs turned gameplay jerseys black);
-  `_base_color` keeps NHL 24's fabric-region alpha (rule 11, Alpha auto); normals (`jersey_0_nm`, `font_nm`) may be used for
-  NHL 24 `_normal` / `_base_normal` after the same UV remap; number font colour from `font_cm` follows rule 15
-  (transparent over black); every mip regenerated (rule 2).
+How the tables link (verified on all five dbs): `exhibitionrostertable.playerindex` → `exhibitionplayers.index`;
+`exhibitionplayers.playerid` = bio `game_id`. **2,125 players have several player indices**: always match roster rows by
+the set of a player's indices. Bio `team` = current team (NHL or AHL), `proteam` = NHL organisation; `positionprimary`
+0 C, 1 LW, 2 RW, 3 LD, 4 RD, 5 G; `handedness` 0 L / 1 R. Roster: one row per player per team, keys unique and sorted,
+team*40 + 0..39; `rosterstatus` 1 exactly for the 20 dressed (l1-4 c/lw/rw, l1-3 ld/rd, g1, g2); `captain` 1 C, 2 A
+(stock teams: a C and two A's, or three A's). Free agents: `exhibitionfreeagents.playerindex`, sorted. The three small
+roster dbs (entry_draft, expansion_draft, threes_campaign) have no exhibitionteams; they use nhl_game's (AHL affiliates).
+
+T3DB facts that drive the guard (FifaLibrary via the Worker): in-use records sit at the front; on save a record counts as
+in use when it is not all-zero (so a free-agent row with player index 0 cannot exist; Paul Stastny uses index 0 and is
+skipped with a warning). The file header + table directory are `24 + 8*tables + 4` bytes (980 for nhl_game, 340 for
+initial_experience, 116 for the small ones). The table area never moves; only each table's records CRC follows its last
+in-use record, so `recordsCrcAt` shifts by (in-use change x record size). An unchanged dump+import equals db-resave.
+
+Code (`src\Suite.Rosters`):
+- `T3Csv`: Worker CSV table, cells kept as strings, `ReplaceUsed` refuses to grow a table.
+- `RosterWriter.Write`: pass 1 removes everyone from club rosters he no longer belongs on, pass 2 adds rows in each
+  team's free slots, updates bio (team, proteam, jersey, position/primary) and the free-agent list. Released NHL players
+  go to the club's AHL affiliate when listed as its prospect, otherwise free agency. Teams that changed get lines
+  repaired: vacated line slots filled by natural position, arrivals first, then depth from their old team; special
+  units (PP/PK/EV/3v3/shootout/extra) inherit from the player who took the leaver's line slot, never twice in a unit;
+  a leaving C is replaced by the top A, letter count kept; a slot nobody can fill signs a young free agent (not one the
+  sync just released); numbers the API did not give are de-duplicated per NHL team.
+- `RosterDbJob`: dump, write, db-import into `dbwork\<db>\<db>.db`, re-dump, guard, `Verify` (every API player on his
+  team exactly once with his number; no line slot held twice).
+- `RosterSyncRun.RunAsync`: API rosters + prospects; `roster/<team>/current` omits LTIR and AHL-assigned players, so every
+  would-be release is looked up in the player search (search.d3.nhle.com, gives club) and his player page (latest
+  season row's league): AHL → affiliate, NHL/none → kept on the club (injured), elsewhere → released. Then all dbs,
+  then the cross-db check. `ExportStockAsync` copies the five stock dbs + meta out of the game via the read view
+  (Worker export-legacy) so a sync always starts from stock. `ToModFile` → mod with `Legacy` replacements
+  (`gamemodes/database/t3db/nhl_game.db`, `gamemodes/roster/<db>.db`), files copied to `rostersync\<date>\`.
+- `SavedRoster`: roster saves (`user\home\<id>\savedata\CUSA37933\<name>\` DATA/INDEX/NAME). INDEX = 80-byte entries
+  (name[32], 8 bytes, size/start/end u64); record = u32 (size-16), 12 bytes, 0x01, LZ4 frame (64 KB independent blocks,
+  content checksum), u32 decoded length. The decoded blob is the T3DB **plus an 18-byte trailer** (`d92eb758 00000000
+  <db size u32> 00000000 0100` in both saves seen; first 4 bytes unknown, not a plain CRC32 of the db) kept as is.
+  Saved rosters hold the exhibition tables only. `WriteSaves` writes CIMS-copy saves only, backup in
+  `%LOCALAPPDATA%\CenterIceModdingSuite\save-backups`, refuses while the game runs. Round trip tested on a copy of
+  `RosterConversion\backup\before-restore\RosterCustom2`. NHL24PC-CIMS has no roster save yet (only Profile0).
+- `ModFile.Legacy` / `ModApply.WritePlan`: the Worker plan takes `Legacy: [{Name, Source}]` (NHL24Kit `LegacyWriter`).
+- App: Teams & roster page (`Pages\RostersPage.cs`): Sync rosters (optional "Only clubs" trial, e.g. BOS), per-db
+  expandable change lists, Add to mod list, Write saved roster.
+- `tools\SyncWrite <teams.tsv> <meta.xml> name=db...`: same run from the command line; `tests\Suite.Rosters.Tests`
+  (6 tests, writer on a synthetic db, guard, CSV, save container; `CIMS_SAVE_SAMPLE` for a real save).
+
+Result 2026-11-01 API on the 1.60 stock dbs: nhl_game moves 306, call-ups 198, to AHL 51, releases 182, numbers 294,
+positions 70, signed 9, not in db 48; the other four similar (75-79 not in db). All five: layout guard passes, read-back
+OK, 0 cross-db disagreements, team audit clean (no lost line slot, 2 goalies dressed, letters kept, 20 dressed, no
+duplicate numbers). Outputs in `%LOCALAPPDATA%\CenterIceModdingSuite\dbwork\<db>\` (`changes.tsv` per db).
+
+**Apply blocked (2026-11-02, user-approved full-league apply):** `tools\RosterApply` ran the sync (all checks passed, same
+counts as above, 0 saved rosters in the CIMS copy), saved the mod (`%APPDATA%\CenterIceModdingSuite\mods\Roster sync
+2026-11-02.json`) and took the suite backup, but the Worker apply stops before writing: "No TOC refers to legacy chunk
+99f5f5fb-1994-7bb1-6c5e-69020d850bad" (nhl_game.db). The legacy dbs are TOC chunks (`chunk-blocks`: isToc true; nhl_game.db
+in Patch cas_01 @98371920, 2,085,904 stored; initial_experience.db in Data cas_01 @946136836), listed in the TOC's own chunk
+table, which the Worker's DirectWriter opens header-only, so `FindReferences` never sees them (no "ignored entry" lines
+either). TOC files are obfuscated (start 00 d1 ce 01), so a raw GUID search finds nothing. Game copy verified unchanged
+(only the suite's FMT marker). Fix options: the suite's own TOC-chunk writer (append to CAS + repoint the TOC chunk entry),
+tested on D:\CIMS-test first; or FMT's GUI legacy import by hand.
+
+**Solved 2026-11-02 with the suite's own legacy writer (commit 658157e) - APPLIED to NHL24PC-CIMS.**
+Format notes (NHL 24 PS4 build):
+- TOC: 0x22C-byte signed header (magic 00 D1 CE 01), then BE u32 fields; field 4 = chunk id table offset, 5 = count,
+  6 = location table offset (relative to 0x22C). Id record 20 bytes: Guid.ToByteArray() reversed + u32 (low 24 bits =
+  u32 index into the location table). Location 12 bytes: [0][patch][catalog][cas], BE offset, BE stored size. No SHA1 for
+  TOC chunks anywhere. nhl_game.db + the index chunk are in Patch\Gen4b\globals.toc; the four roster dbs in Data\Gen4b\globals.toc.
+  CAS: {Patch|Data}\Gen4b\superbundlelayout\nhl_installpackage_{cat:00}\cas_{cas:00}.cas.
+- Blocks: BE u32 raw size, byte type (0x11 Oodle, 0x00 stored), byte flags (0x70 | bits 16-19 of the stored size),
+  BE u16 low bits of the stored size. Raw blocks are 256 KB.
+- Legacy index chunk (bb30a247-fe2c-e555-a3bf-938bde520b43, found by scanning small chunks for the file name): 56-byte
+  records = u64 LE name offset, stored start, stored end (0/0 = whole chunk), raw offset, raw size, then the chunk id
+  (Guid.ToByteArray()). nhl_game.db shares chunk 99f5f5fb with cannedmessage.csv, nhl_gm_simulation.data,
+  nhl_game-meta.xml and playercolors.csv; each roster db has its own chunk.
+- Writer: same-size replace only; re-encodes changed blocks (Oodle Kraken, level Optimal2) and keeps the others as stored,
+  appends the chunk to its own CAS, repoints that chunk id's TOC entries, updates the stored ranges of every file in the
+  chunk in the index, then appends/repoints the index chunk. Restore = ApplyTarget.RestoreFromBackup (truncate CAS + copy TOCs).
+- The NHL24Kit Worker keeps one shared asset cache (`runtimes\...\_GameCaches\nhl24ps4.cache`) for every game folder, so its
+  reads show stale (stock) data after our writes. Independent checks used a cache-free copy of the runtime at
+  `%LOCALAPPDATA%\CenterIceModdingSuite\worker-fresh`. NHL24Kit/FMT opened on the CIMS copy may show stock data until
+  their cache is rebuilt.
+Results: D:\CIMS-test\NHL24-merged and NHL24PC-CIMS\game both: apply → own read-back identical (5 dbs), restore → 0
+differences (CAS lengths, TOC hashes, last MB of every CAS unchanged) and stock dbs back, re-apply → identical; cache-free
+Worker read-back identical on both. Changed files: Data/Patch globals.toc and Data/Patch cas_01.cas (appended
+3,347,017 + 1,854,231 bytes). Backups: `%LOCALAPPDATA%\CenterIceModdingSuite\backups\20261102-014435` (CIMS, stock) and
+`...\20261102-013827` (D:\CIMS-test, stock; that copy is left with the rosters applied). App: Teams & roster → Apply to CIMS copy.
+
+**Moved 2026-11-02:** the CIMS game copy is now `C:\Users\devin\Desktop\NHL24PC-CIMS` (same-drive rename; the original
+NHL24PC stays in Downloads). Updated: settings.json ApplyTargetDir, both CIMS backup snapshots' Game field, and the stock
+baseline pointer (`backups\baseline-<sha1 of lowercased target>.txt`, now baseline-AB280E5FA180.txt → 20261102-012421).
+The launcher and emulator configs use relative paths. NHL24Kit's `gamelinks\game` junction still points at the old path;
+the Worker re-links it when it next opens a game. Boot with `NHL24PC-CIMS\Play NHL 24.bat`.
+
+**Lines + online mirror (2026-11-02, commit f0ce7e2; built, NOT yet applied: the game was running).** Audit of the first
+apply: lines valid but repaired from old depth (7 injured dressed, 9 backups rated above the starter, ~1,900 slots differing
+between dbs) and nhl_game's `customonlinerostertable` (a row-for-row copy of exhibitionrostertable in stock) not updated.
+No other roster/line data exists: the 4 small dbs only have exhibitionrostertable; league*/custom* are empty or custom teams;
+loc dbs are names. Lines live in the roster rows (no separate table). `LineBuilder` now rebuilds every NHL team by ratings
+(skill_overall + c_* attributes, from the main db for every db), injured scratched, overrides in
+`%APPDATA%\CenterIceModdingSuite\data\lines_overrides.json`. Result nhl_game: 0 injured dressed, 0 better healthy scratches,
+0 backup above starter, 3 teams with a line out of OVR order (natural-C rule), mirror matches; other dbs differ only on 13-14
+teams where they lack a player. BOS has 11 F in the db (Hagens, Khusnutdinov missing) so Aspirot (D) plays l4rw.
+Review sheet: `<Desktop>\CIMS_lines_review.html` (scratchpad script lines_review.py). Ready to apply: mod
+"Roster sync 2026-11-02" now points at `%LOCALAPPDATA%\CenterIceModdingSuite
+ostersync6-11-02-lines\` (apply with
+`tools\LegacyWrite apply <CIMS>\game <mod.json> --restore-check` or the page button once the game is closed).
+
+**Applied to NHL24PC-CIMS 2026-11-02 (game closed, user approved):** rosters + NHL 27 ratings (commit eb14502) + ratings-based
+lines + online mirror + portrait slots (5 dbs, `rostersync6-11-02-portraits`), then 752 portraits with the suite's own
+bundle writer (commit after eb14502; `Bc3`, `BundleChunks`, `tools\PortraitWrite`): encode + write in seconds, 752/752 read
+back identical, dbs identical, cache-free Worker sees the new pictures, restore test 0 differences. The Worker path
+(tools\PortraitApply) took ~30 s per picture and was stopped before it touched a TOC; the copy was restored to the
+pre-portrait backup first. Portrait facts: `p<artid>` bundles in Data\Gen4b\contentlaunchsb.toc (CAS package 02), one bundle
+per portrait (3 EBX, 1 RES, 1 chunk; EBX order varies), chunk = BC3 512x340 single mip, PS4 1D-thin tiled to 128x88 blocks
+(180,224 bytes), one Oodle block; manifest SHA1 per data entry = SHA1 of its stored bytes. Backups: pre-portrait
+`backups61102-144006`, pre-ratings `20261102-135133`, stock baseline pointer `baseline-AB280E5FA180.txt`.
+**Caution:** the NHL24Kit Worker now reports the CIMS copy as modded (state from the stopped run = the pre-portrait game).
+A Worker apply/restore (ModApply's Apply/Restore page) would first roll the portraits back. Use the suite writers.
+
+Still to do: apply the lines build (done above); check in game (Boston, Detroit/Larkin, Utah, lines); portraits from NHL 27 (+ API fallback); portraits in the same button;
+new players (NotInDb, e.g. James Hagens) from NHL 27 rows or templates; better line order (ratings instead of old depth);
+confirm the saved-roster trailer by saving a roster in game.
 
 ## Center ice importer (TheFaceoff.net) — queued
 
