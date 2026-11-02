@@ -75,7 +75,20 @@ Last updated: 2026-11-02.
   right tool for scanned faces - no UV correspondence needed, and no deformation to reproduce.
 - [ ] Implement the eye transfer: rigid position mapping per eye for scanned faces, UV mapping when the source is the same
       head; keep the template's `mat_eyelashes` whenever the source has none.
-- [ ] Face texture conversion (needs the BC5 path we now have + BC1).
+- **Face textures characterised (2026-11-02).** Map sets, from both indexes: NHL 24 has 5,320 head texture assets
+  (color 2,367, normal 1,399, coeff 1,174, specmask 190, mask 66, alpha 27, bentnormal 15, animglow 11, cavity 1);
+  NHL 27 has 7,200 (color 2,979, normal 1,905, coeff 1,176, **specmask 743**, mask 127, **bentnormal 84**, animglow 75).
+  A generic NHL 24 head (`head_male_60008`) has only **color + normal**; a scanned NHL 27 face (Demidov) has
+  **color + normal + specmask**. So a destination slot must be chosen with the source's map set in mind, or the spec mask
+  has nowhere to land.
+- **The good news**: because the head UVs are identical across heads (3,146 of 3,146), a face texture transfers
+  **verbatim** - no UV repaint, only format and mip conversion through the BC1/BC5 codecs. That is the whole texture job.
+- Two blockers for the first real face swap, both already known elsewhere in this file: the destination's `.res` header
+  (FMT / elevation, same as gear) and, for licensed heads, an **id -> asset name mapping that the exported DB dumps do not
+  contain** - there is no appearance/head table among them, and licensed assets are named after the player
+  (`head_connor_mcdavid`), so a numeric `headid` search finds nothing (0 candidates from the 475 single-use ids).
+- [ ] Resolve the head appearance mapping (EBX `HeadAppearance`-style assets, or the Worker's listing), then repeat the
+      candidate search and convert one face onto a single-use head on the **test copy**.
 - **Destination slot audit done (2026-11-02, from the NHL 24 roster dumps).** Heads are referenced by `headid` in
   `exhibitionplayerbiotable` (13,300 rows, **703 distinct heads**) and `customplayerbiotable` (4,948 rows, a single head:
   60000), and by `coachheadid` in `exhibitionteams` (577 rows, 21 coach heads).
