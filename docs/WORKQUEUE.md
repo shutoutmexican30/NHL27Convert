@@ -37,6 +37,14 @@ Last updated: 2026-11-02.
   view has `package.mft`, `Data`, `Patch`; FMT simply requires the process to be an administrator. The suite's own reader
   does not need FMT - only this header/GUID mapping does. Candidate pair already chosen:
   `content/character/skater/goalie/pads/brians/gnetik/textures/goalie_pads_brians_gnetik_4_color` and `_normal`.
+- **The bundle scan was looking in the wrong table (2026-11-02).** Jersey textures are not UI textures: the Boston jersey
+  chunk is found through `TocFile`'s *chunk* table (fields 4/5/6, patch=False, cas 05), so its RES is not in a bundle
+  manifest at all - which is why `TextureResource` resolved nothing rather than mis-parsing something. The TOC header holds
+  more tables than the two we use: for `Patch\Gen4b\contentsb.toc` (4,030,673 bytes) the LE/BE u32 fields after the 0x22C
+  header are 60, 42952, 10723, 214520, 266920, 13100, 528920, 528920, 686120, 528920, 39300, 7, 181424, 76, 1411816. Known:
+  **bundles = fields 1/2/3**, **chunks = fields 4/5/6**. The remaining pairs (7/8, 9/10, 11/12, 13/14 - note 6, 7 and 9 share
+  the same offset and 39,300 looks like a count) are the candidates for the RES name/type tables.
+  Next step: identify which pair describes resources by checking record shape, then point `TextureResource` at it.
 - **Attempted the FMT-free route and did not finish it (2026-11-02).** `src\Suite.Core\Frostbite\TextureResource.cs` is a
   scaffold that scans TOCs, reads each bundle manifest and looks for the texture's RES entry, and `TextureChunk res
   <game> <name> <out.res>` drives it. It currently resolves **nothing** (`no bundle declares ...`), so the manifest/RES
