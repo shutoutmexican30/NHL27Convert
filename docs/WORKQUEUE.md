@@ -32,10 +32,36 @@ Last updated: 2026-11-02.
 |---|---|---|
 | FMT refuses without Administrator (the read view *is* writable; proven) | gear swap, face texture swap, fabric colour swap | one elevated `MeshExport --texture-resource` run |
 | No EBX reader | texture `.res` lookup without FMT, LT tunable values, licensed head `id -> asset` map | an EBX reader (the keystone - see the texture section) |
-| Worker fails `Texture.get_PixelFormat()` on some folders (0 files written) | NHL 24 side of the logo inventory; Carolina-style blank caches | the suite's own PS4 texture reader, or a Worker fix |
+| Worker cannot parse textures at all | **the production texture-mod apply path**, the NHL 24 side of the logo inventory, Carolina-style blank caches | a Worker whose FrostySdk matches FMT 2026.3, or the suite's own writer for texture mods |
 
 **Open but actionable without those**: nothing material - the remaining items are tests and polish, not threads.
 
+
+## 0. The Worker cannot apply textures at all (2026-11-02, reproduced)
+
+`NHL24Kit.Worker.exe apply <game> <plan.json>` on the test copy with an **identity** texture replacement (the slot's own
+colour, decoded with our own tools) fails before writing anything:
+
+```
+restored Data\Gen4b\superbundlelayout\nhl_installpackage_05\cas_05.cas
+ERROR Value cannot be null. (Parameter 'enumType')
+   at System.Enum.Parse(Type enumType, String value, Boolean ignoreCase)
+   at FrostySdk.Resources.Texture.get_PixelFormat()
+   at NHL24Kit.Program.Apply(...)
+```
+
+Same exception as `refs`. The cause is the Worker's bundled `FrostySdk.dll`: all ten runtimes under
+`%LOCALAPPDATA%\NHL24Kit\runtimes` carry **FileVersion 1.0.0.0** (15,458,816 bytes) while the FMT install the suite's tools
+are built against is **2026.3.0.0** (12,710,912 bytes at `D:\Tools\FMT-26.10\harness-run`). The Worker's variant has no
+usable `Texture.PixelFormat` nested type, so every texture it touches throws. Roster databases, portraits and bundle chunks
+keep working because none of them parse a `Texture` - which is why the failure looked folder-specific at first.
+
+**Consequence**: any texture mod handed to the Worker fails today, independently of the mod's content. That is why the
+fabric work went through our own writer, and it means the in-app Apply path for uniforms does not work.
+
+**The three routes, honestly**: FMT-based tools parse textures correctly but require administrator; the Worker needs no
+elevation but has a mismatched FrostySdk; our writer needs neither but cannot yet read a slot's `.res` header (EBX). So the
+only route that works today is FMT under elevation - the command recorded in section 2.
 
 ## 1. Texture chunk pipeline (shared by fabric, gear, faces)
 
