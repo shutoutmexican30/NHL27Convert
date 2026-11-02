@@ -50,6 +50,24 @@ public sealed class ChunkBlocks
         return raw;
     }
 
+    /// <summary>
+    /// A whole stored chunk: <paramref name="raw"/> split into 256 KB blocks, which is how the game stores its large
+    /// textures (Boston home normal: 21 x 262,144 + 1 x 92,160 = 22 blocks). One block cannot exceed the 20-bit stored
+    /// size field, so a single block would be refused.
+    /// </summary>
+    public static byte[] EncodeBlocks(byte[] raw, int blockRawSize = 262144)
+    {
+        if (blockRawSize is < 4096 or > 0xFFFFF) throw new ArgumentOutOfRangeException(nameof(blockRawSize));
+        using var ms = new MemoryStream();
+        for (int at = 0; at < raw.Length; at += blockRawSize)
+        {
+            int n = Math.Min(blockRawSize, raw.Length - at);
+            var block = EncodeBlock(raw.AsSpan(at, n));
+            ms.Write(block, 0, block.Length);
+        }
+        return ms.ToArray();
+    }
+
     /// <summary>A new Oodle block for <paramref name="raw"/> (stored as is when that would not be smaller).</summary>
     public static byte[] EncodeBlock(ReadOnlySpan<byte> raw)
     {
