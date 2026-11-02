@@ -153,7 +153,16 @@ Last updated: 2026-11-02.
       `tests\Suite.Tests\ArraySliceTests.cs` covers the count, the clamp and the empty-row case.
 - [ ] Still worth doing: validate the cached `NHL24Kit\refs` dump against the index instead of accepting any non-empty
       folder (Carolina/Calgary have no branding art cached at all, which is why every layer there reads as blank).
-- [ ] Apply/Restore against a real game folder (the suite's own writer path, not the Worker guard).
+- **Apply/Restore verified against a real game folder with the suite's own writer (2026-11-02).** On the test copy
+  (`D:\CIMS-test\NHL24-merged`), a real 13,726,652-byte legacy database (`gamemodes/database/t3db/nhl_game.db`) was
+  exported, written back unchanged (`LegacyWrite apply ... --restore-check`), read back and cycled:
+  chunk rebuilt with **0 of 57 blocks re-encoded** (the identity write reproduces the stored form), appended 1,799,668 bytes
+  + the 80,339-byte legacy index to `cas_01`, 2 TOC entries repointed, **read back identical**, `changes vs backup: 2`
+  (CAS length and `globals.toc`), then **restore: 0 differences, CAS tails identical**, read back identical (restored),
+  re-apply identical, `DONE`. Oodle came from `D:\Tools\FMT-26.10\...`; no elevation needed.
+  Remaining gap: texture *mods* still reach the game through the Worker, so the suite's own writer covers legacy files
+  and bundle/UI chunks but not top-level texture chunks yet - that is the `TocChunkWriter` path, which is verified
+  separately on a jersey normal chunk.
 - [ ] `data\nhl24-patches.xml`: the V3.2 repack's eboot patches as runtime patches — **unverified** on a clean 1.60.
 - **Logo inventory roles filled for the ten teams in play (2026-11-02).** The NHL 27 index carries every decode location
   (Width/Height/Format + Package/Cas/Tree/Offset/Size), so `tools\nhl27_bridge.py decode --jobs` can be driven straight
