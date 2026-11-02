@@ -148,7 +148,14 @@ Last updated: 2026-11-02.
   set reads crest, shield, **brand:fanatics**, ... - exactly what the role work established by hand.
 - This crest reference is also the matching signal the face work needs for licensed heads, since those are named after the
   player rather than an id.
-- [ ] NHL 24 side of the inventory is still 111 of 7,883; filling it means dumping those folders through the Worker first.
+- **NHL 24 side blocked by the Worker itself (2026-11-02).** Re-dumping `nhl/carolina/adidas/home` through the stopgap Worker
+  to prove the new coverage check fails: `NHL24Kit.Worker.exe refs` dies inside `FrostySdk.Resources.Texture.get_PixelFormat()`
+  with `Value cannot be null (Parameter 'enumType')` and writes **0 files**. So `DumpDirAsync` now correctly refuses the
+  partial cache and re-dumps, the re-dump fails, and the folder still has no stock art - the remaining gap is the Worker's
+  PS4 texture-format handling for those assets, not our coverage check. The same failure was seen for Detroit in an earlier
+  attempt, so it is not one folder.
+- [ ] NHL 24 inventory side stays at 111 of 7,883 until that Worker format gap is solved (or the suite's own PS4 texture
+      reader lands and replaces the dump entirely).
 
 ## 6. Machine / environment (user actions)
 
