@@ -63,6 +63,25 @@ Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\
   remain pending. Next: recover/rebuild the database inputs and verify the target's current contents, then validate the
   missing-player build on a test copy before applying to the playable copy.
 
+## Session 2026-11-02 (goal close-out): what was finished, what is walled
+
+Twenty automatic rounds worked every open thread in `docs\WORKQUEUE.md`, which now opens with a state-at-a-glance summary
+and carries the evidence for each claim. Short version:
+
+- **Finished and verified**: BC1/BC5 codecs and the PS4 texture chunk pipeline (our decode matches FMT's own decode on
+  100 % of pixels, max difference 1); `TocChunkWriter` written against a real game copy (read-back identical, restore 0
+  differences, re-apply verified); the suite's own writer proven on a 13.7 MB legacy database (restore 0 differences, CAS
+  tails identical); the matcher backlog (slot labels, Adidas->Fanatics always, phantom array layers, partial stock dump
+  rejection, mod-list validation); the goalie gear census; the face section/UV/slot/texture analysis; the LT name census
+  and its negative proof; the logo inventory with per-team crest detection.
+- **Walled, each with a named cause**: the gear, face-texture and fabric-colour swaps need one elevated
+  `MeshExport --texture-resource` run (FMT insists on Administrator although the read view is writable - proven by probe);
+  the LT tunable values, the licensed head `id -> asset` map and an FMT-free texture `.res` lookup all need an **EBX
+  reader** - the single missing capability that unblocks three threads at once; and the NHL 24 side of the logo inventory
+  is stuck behind the Worker's `Texture.get_PixelFormat()` failure, which writes zero files for those folders.
+
+Nothing was written to the playable game (`Desktop\NHL24PC-CIMS\game`) in this session. Every write went to
+`D:\CIMS-test\NHL24-merged` first, with a backup, a read-back and a restore check.
 ## Session 2026-11-02 (latest): first real texture-chunk write, and the goalie-gear question
 
 **The chunk writer now exists and has written a game copy.** `src\Suite.Core\Frostbite\TocChunkWriter.cs` appends the new
