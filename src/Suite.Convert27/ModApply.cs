@@ -25,13 +25,13 @@ public static class ModApply
             .ToList();
     }
 
-    public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count + (m.Legacy?.Count ?? 0));
+    public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count);
 
     public static string WritePlan(IEnumerable<ModFile> mods)
     {
-        // A legacy file listed by two mods: the later mod wins, like a texture slot.
-        var legacy = mods.SelectMany(m => m.Legacy ?? []).GroupBy(l => l.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.Last()).ToList();
-        var plan = new { Replacements = mods.SelectMany(m => m.Replacements).ToList(), Legacy = legacy };
+        // Legacy files (roster databases) are not sent to the Worker: its writer cannot reach TOC chunks. They are written
+        // by the suite's own Suite.Core.Frostbite.LegacyApply from the Teams & roster page.
+        var plan = new { Replacements = mods.SelectMany(m => m.Replacements).ToList() };
         var path = Path.Combine(SuitePaths.Local, "apply-plan.json");
         File.WriteAllText(path, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
         return path;

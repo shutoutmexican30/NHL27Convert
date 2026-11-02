@@ -18,7 +18,7 @@ public sealed class RostersPage : ScrollViewer
     readonly SuiteSettings _settings;
     readonly TextBlock _status = new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8)), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
     readonly TextBox _teams = new() { Width = 160, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(4, 3, 4, 3), FontFamily = new FontFamily("Consolas"), ToolTip = "Optional, e.g. BOS or BOS,TOR: only players joining or leaving these clubs are synced (a trial run)." };
-    readonly Button _sync, _add, _saves;
+    readonly Button _sync, _add, _saves, _apply;
     readonly StackPanel _results = new() { Margin = new Thickness(0, 10, 0, 0) };
     SyncRunResult? _last;
     CancellationTokenSource? _cts;
@@ -44,12 +44,15 @@ public sealed class RostersPage : ScrollViewer
         _sync = Button("Sync rosters", () => _ = SyncAsync());
         _add = Button("Add to mod list", AddToMods);
         _add.IsEnabled = false;
+        _apply = Button("Apply to CIMS copy", ApplyRosters);
+        _apply.IsEnabled = false;
         _saves = Button("Write saved roster", WriteSaves);
         _saves.IsEnabled = false;
         row.Children.Add(_sync);
         row.Children.Add(new TextBlock { Text = "Only clubs:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) });
         row.Children.Add(_teams);
         row.Children.Add(_add);
+        row.Children.Add(_apply);
         row.Children.Add(_saves);
         row.Children.Add(Button("Open work folder", () => Process.Start("explorer.exe", RosterDbJob.WorkDir)));
         root.Children.Add(row);
@@ -68,6 +71,7 @@ public sealed class RostersPage : ScrollViewer
         _sync.Content = "Cancel";
         _add.IsEnabled = false;
         _saves.IsEnabled = false;
+        _apply.IsEnabled = false;
         _results.Children.Clear();
         _last = null;
         try
@@ -146,6 +150,23 @@ public sealed class RostersPage : ScrollViewer
         catch (Exception ex) { _status.Text = "Saved roster not written: " + ex.Message; }
     }
 
+    ModFile? _mod;
+
+    /// <summary>Writes the synced databases into the CIMS game copy with the suite's own writer (backup + read-back).</summary>
+    void ApplyRosters()
+    {
+        if (_mod?.Legacy is not { Count: > 0 } legacy) return;
+        _apply.IsEnabled = false;
+        _status.Text = "Applying to " + _settings.ApplyTargetDir + "...";
+        Task.Run(() => Suite.Core.Frostbite.LegacyApply.Apply(_settings, legacy, s => Dispatcher.BeginInvoke(() => _status.Text = s)))
+            .ContinueWith(t => Dispatcher.BeginInvoke(() =>
+            {
+                var (ok, message, _) = t.IsFaulted ? (false, t.Exception!.GetBaseException().Message, null) : t.Result;
+                _status.Text = (ok ? "Applied. " : "Not applied. ") + message;
+                _apply.IsEnabled = !ok;
+            }));
+    }
+
     void AddToMods()
     {
         if (_last is null) return;
@@ -153,9 +174,11 @@ public sealed class RostersPage : ScrollViewer
         {
             var mod = RosterSyncRun.ToModFile(_last);
             var path = mod.Save();
-            _status.Text = $"Added \"{mod.Name}\" ({mod.Legacy!.Count} databases) to the mod list: {path}. Apply writes it to the CIMS game copy." +
+            _status.Text = $"Added \"{mod.Name}\" ({mod.Legacy!.Count} databases) to the mod list: {path}. Apply to CIMS copy writes it into the game (backup first)." +
                 (_last.Dbs.Any(d => d.Save is not null) ? " Write saved roster updates your saved roster." : " No saved roster in the CIMS copy yet.");
             _add.IsEnabled = false;
+            _apply.IsEnabled = true;
+            _mod = mod;
         }
         catch (Exception ex) { _status.Text = "Not added: " + ex.Message; }
     }

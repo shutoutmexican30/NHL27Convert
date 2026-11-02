@@ -3,7 +3,7 @@
 //  1. refuses while NHL 24 runs or when the target fails the apply guard,
 //  2. exports the five stock roster databases from the original game (read view) and syncs them with today's NHL API
 //     (plus roster saves found in the CIMS copy's user folder); stops without writing if any check fails,
-//  3. saves the mod to the mod list, backs the target up and applies it (legacy replacements only),
+//  3. saves the mod to the mod list, backs the target up and writes the databases with the suite's own legacy writer,
 //  4. reads the five databases back out of the CIMS game and compares them byte for byte with what was written,
 //  5. restore check: restores, verifies the game is identical to the stock backup and holds the stock databases,
 //     then applies again and re-checks,
@@ -48,25 +48,23 @@ if (!result.Ok) { Say("STOPPED: a check failed; nothing was written to the game.
 // 3. Mod list + apply.
 var mod = RosterSyncRun.ToModFile(result);
 Say("mod saved: " + mod.Save());
-var plan = ModApply.WritePlan([mod]);
-async Task<bool> Apply()
+string? backup = null;
+bool Apply()
 {
     if (ApplyTarget.RunningGame() is { } r) { Say($"REFUSED: {r} is running."); return false; }
-    Say("applying (backup first)...");
-    var (ok, msg) = await ModApply.ApplyPlanAsync(settings, plan, l => { if (l.StartsWith("ERROR")) Say("  " + l); });
-    Say($"apply ok={ok}: {msg[..Math.Min(300, msg.Length)]}");
+    Say("applying with the suite's legacy writer (backup first)...");
+    var (ok, msg, b) = Suite.Core.Frostbite.LegacyApply.Apply(settings, mod.Legacy!, Say);
+    backup ??= b;
+    Say($"apply ok={ok}: {msg}");
     return ok;
 }
-async Task<bool> GameHolds(IReadOnlyDictionary<string, string> expected, string label)
+bool GameHolds(IReadOnlyDictionary<string, string> expected, string label)
 {
-    var dir = Path.Combine(RosterDbJob.WorkDir, "readback-" + label);
-    if (Directory.Exists(dir)) Directory.Delete(dir, true);
-    await Worker.RunAsync(settings, ["export-legacy", target, dir, .. expected.Keys]);
+    var lf = new Suite.Core.Frostbite.LegacyFiles(target, settings);
     bool all = true;
     foreach (var (name, source) in expected)
     {
-        var got = Path.Combine(dir, name.Replace('/', Path.DirectorySeparatorChar));
-        bool same = File.Exists(got) && File.ReadAllBytes(got).AsSpan().SequenceEqual(File.ReadAllBytes(source));
+        bool same = lf.Read(name).AsSpan().SequenceEqual(File.ReadAllBytes(source));
         Say($"  {name}: {(same ? "identical" : "DIFFERENT")} ({label})");
         all &= same;
     }
@@ -74,15 +72,16 @@ async Task<bool> GameHolds(IReadOnlyDictionary<string, string> expected, string 
 }
 var synced = mod.Legacy!.ToDictionary(l => l.Name, l => l.Source);
 var stock = result.Dbs.Where(d => d.Save is null).ToDictionary(d => RosterSyncRun.LegacyName(d.Db.Name), d => d.Db.DbPath);
-if (!await Apply()) return 1;
-if (!await GameHolds(synced, "applied")) { Say("FAILED: the game does not hold the synced databases."); return 1; }
+if (!Apply()) return 1;
+if (!GameHolds(synced, "applied")) { Say("FAILED: the game does not hold the synced databases."); return 1; }
 
 // 5. Restore check, then apply again.
 Say("restore check...");
-var (rok, rmsg) = await ModApply.RestoreAsync(settings);
-Say($"restore ok={rok}: {rmsg[..Math.Min(300, rmsg.Length)]}");
-if (!rok || !await GameHolds(stock, "restored")) { Say("FAILED: restore did not bring the stock databases back. Game left restored (stock)."); return 1; }
-if (!await Apply() || !await GameHolds(synced, "reapplied")) { Say("FAILED on re-apply."); return 1; }
+ApplyTarget.RestoreFromBackup(target, backup!);
+var left = ApplyTarget.Compare(target, backup!);
+Say($"restore: {left.Count} differences from the backup");
+if (left.Count > 0 || !GameHolds(stock, "restored")) { Say("FAILED: restore did not bring the stock databases back. Game left restored."); return 1; }
+if (!Apply() || !GameHolds(synced, "reapplied")) { Say("FAILED on re-apply."); return 1; }
 
 // 6. Saved rosters.
 if (result.Dbs.Any(d => d.Save is not null))
