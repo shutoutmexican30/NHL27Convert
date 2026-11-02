@@ -60,8 +60,21 @@ Last updated: 2026-11-02.
   Two findings that shape it: `mat_eyelashes` is **absent from 5 of the 6 sampled NHL 27 heads** (only Demidov has one), so
   the converter must keep the template's lashes when the source has none - which is exactly what the staged prototype does;
   and NHL 27 eyes carry **max one influence** (rigid on the eye bone) versus up to four for lashes.
-- [ ] Run the quantized-UV overlap test per section (`mat_eyes`, `mat_eyelashes`) instead of head-only, to confirm the
-      correspondence the way `mat_head` was confirmed (3,146 of 3,146 UVs shared).
+- **Per-section UV overlap measured (2026-11-02, `tools\FacePlan\section_uv_overlap.py`).**
+
+  | Template (NHL 24 60008) vs | `mat_head` | `mat_eyes` | `mat_eyelashes` |
+  |---|---|---|---|
+  | NHL 27 **male_60008** (same head) | 3,146 / 3,146 shared | **198 / 198 shared** | absent in 27 - keep the template's |
+  | NHL 27 **Demidov** (scanned face) | 3,146 / 3,146 shared | 198 vs 198 UVs, **0 shared** | 8 / 8 shared |
+
+  So: the head surface and the lashes always transfer by UV; the eyes transfer by UV **only to the same head**, and for a
+  scanned face the eye UV islands are completely different despite the identical 198 UV count. That confirms the old
+  handoff's "eye UVs differ" note and localises it to eyes on scanned faces only.
+- **Why eyes can still be done**: NHL 27 `mat_eyes` carries **max one influence** (rigid on the eye bone) with 320
+  triangles, and NHL 24's eyes are equally rigid. A rigid position transfer (nearest rigid frame per eye) is therefore the
+  right tool for scanned faces - no UV correspondence needed, and no deformation to reproduce.
+- [ ] Implement the eye transfer: rigid position mapping per eye for scanned faces, UV mapping when the source is the same
+      head; keep the template's `mat_eyelashes` whenever the source has none.
 - [ ] Face texture conversion (needs the BC5 path we now have + BC1).
 - [ ] Destination slot audit — do not overwrite shared head 60008 in the playable copy (Demidov's head is shared by 62
       players, Yurov's by 24).
