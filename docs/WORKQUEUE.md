@@ -136,8 +136,14 @@ Last updated: 2026-11-02.
   chicago, anaheim, buffalo, carolina, calgary, seattle and utah, then re-ran the inventory:
   **414 -> 1,035 sheets with a guessed role**; shield 130 -> 367, sponsor/other 184 -> 428, epw_tag 27 -> 68,
   blank 35 -> 67, brand:adidas 16 -> 55, brand:fanatics 22 -> 41 (plus 9 adidas_stripes that had never matched before).
-- [ ] Extend the same batch to the remaining 26 teams when useful: the job list is generated from the index, so it is a
-      single bridge run - the only cost is decode time.
+- **Extended to every NHL 27 branding colour sheet (2026-11-02).** 7,950 further sheets decoded in one bridge run:
+  **8,980 of 19,116 inventory rows now carry a guessed role (47 %, up from 414 / 2 %)** - NHL 27 8,869 of its 11,233,
+  NHL 24 only 111 of 7,883 because its art is dumped per folder through the Worker. Counts: sponsor/other 6,495,
+  shield 1,615, blank 292, epw_tag 214, brand:adidas 170, brand:fanatics 135, brand:adidas_stripes 59.
+- **Limitation to remember**: the silhouette test only recognises *league-wide* marks (shield, adidas, Fanatics, EPW, blank).
+  A team crest and a sponsor both report `sponsor/other`, because nothing in the reference set is a team logo. Splitting
+  those needs a per-team crest reference - the natural next improvement.
+- [ ] NHL 24 side of the inventory is still 111 of 7,883; filling it means dumping those folders through the Worker first.
 
 ## 6. Machine / environment (user actions)
 
