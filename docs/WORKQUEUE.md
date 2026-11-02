@@ -76,8 +76,16 @@ Last updated: 2026-11-02.
 - [ ] Implement the eye transfer: rigid position mapping per eye for scanned faces, UV mapping when the source is the same
       head; keep the template's `mat_eyelashes` whenever the source has none.
 - [ ] Face texture conversion (needs the BC5 path we now have + BC1).
-- [ ] Destination slot audit — do not overwrite shared head 60008 in the playable copy (Demidov's head is shared by 62
-      players, Yurov's by 24).
+- **Destination slot audit done (2026-11-02, from the NHL 24 roster dumps).** Heads are referenced by `headid` in
+  `exhibitionplayerbiotable` (13,300 rows, **703 distinct heads**) and `customplayerbiotable` (4,948 rows, a single head:
+  60000), and by `coachheadid` in `exhibitionteams` (577 rows, 21 coach heads).
+  Sharing, worst first: **60019 = 300 players, 60009 = 289, 60006 = 245, 60017 = 198, 60131 = 179, 60004 = 173,
+  60030 = 170, 60020 = 144**; custom head **60000 backs 2,948 custom-player rows**; coach heads 30010/30014/30000 run 25-81.
+  **475 heads are used by exactly one player** - those are the safe overwrite targets, and the asset name carries the id
+  (`head_male_60019`, `head_coach_...`), so the slot is addressable directly.
+  Rule: never overwrite 60000, the 144-300-player generics, or a coach head in place; pick a single-use head instead.
+- [ ] Pick one of the 475 single-use heads as the first face destination, confirm it is a scanned/licensed head and not a
+      placeholder, then run the game-ready conversion against it on the **test copy**.
 - [ ] Rest-pose / animation / material binding validation (bone map 433 vs 434 entries, identity unproven).
 
 ## 4. NHL 27 LT/L2 skating + vision-control behaviour
