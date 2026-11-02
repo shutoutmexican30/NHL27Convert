@@ -77,8 +77,10 @@ Last updated: 2026-11-02.
 
 ## 7. Repo hygiene
 
-- [ ] The working tree is large and uncommitted (suite + roster + face/tool work). A hard reset would lose it.
-      Commit deliberately, in coherent chunks — not one wholesale commit.
+- **Committed in five coherent chunks** (2026-11-02): matcher/viewer/stamp, legacy-uniform removal, the texture chunk
+      pipeline + census tools, the roster work, and the docs. Working tree is clean; the only local change was setting the
+      repo's own author identity from its existing commits (`Devin Sutton <devinlejeune@gmail.com>`), because git had none.
+- [ ] Keep committing per finished thread from now on; do not leave weeks of work unstaged again.
 - [ ] Keep this file, `docs\HANDOFF.md` and the Codex `outputs\` status files in step with reality.
 
 ## Ground rules that keep being relevant
