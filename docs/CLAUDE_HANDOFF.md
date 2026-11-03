@@ -356,3 +356,31 @@ header CRC itself: one u32 covering bytes the format defines, so a correct imple
 
 Once that matches, the table section CRC is found the same way (probe the bytes between a table's start and its trailing
 CRC), and only then is the in-place editor safe.
+### CRC SOLVED (2026-11-03) - and the table header located
+
+**CRC-32/MPEG-2**: poly `0x04C11DB7`, init `0xFFFFFFFF`, **non-reflected**, **no final xor**. Verified against the real file:
+
+| Coverage | Computed | Stored |
+|---|---|---|
+| header bytes `0..20` | `0CA397FA` | `0CA397FA` |
+| table list `24 .. 24+119*8` | `E1F14E46` | `E1F14E46` |
+| first table header `980..1012` | equals `u32 @1012` | matches |
+
+```python
+def crc(data):
+    c = 0xFFFFFFFF
+    for byte in data:
+        c ^= byte << 24
+        for _ in range(8):
+            c = ((c << 1) ^ (0x04C11DB7 if c & 0x80000000 else 0)) & 0xFFFFFFFF
+    return c
+```
+
+Layout of the first table (`kVlL`, starts at 980 because the list CRC ends at 980):
+`980..1011` = 32-byte table header, `1012` = CRC of those 32 bytes, then field descriptors, then records, then a trailing
+section CRC (find it with the same self-consistency scan: for each u32 position, compare it against `crc(bytes from the
+section start)`).
+
+So the in-place editor is now unblocked at its hardest point: edit bits in records, recompute the table header CRC if a
+header byte changed (it will not, since field descriptors are untouched), recompute the trailing section CRC, and leave the
+header/list CRCs alone (they only cover sizes and names).
