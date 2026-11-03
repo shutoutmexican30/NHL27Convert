@@ -6,6 +6,40 @@
 using Suite.Core;
 using Suite.Core.Frostbite;
 
+if (args.Length == 5 && args[0] == "slotconvert")
+{
+    // slotconvert <game> <slot> <rink image> <out.png> - the conversion the page performs, previewed as a PNG only.
+    var game = Path.GetFullPath(args[1]);
+    int slot = int.Parse(args[2]);
+    var index = BundleIndex.Build(game);
+    var s = CenterIceSlots.Read(game, index, slot);
+    var rink = ImageIO.Load(args[3]);
+    var outImg = CenterIceImage.ToSlot(rink, s.Image);
+    ImageIO.SavePng(outImg, Path.GetFullPath(args[4]));
+    Console.WriteLine($"slot {slot}: stock circle {CenterIceImage.FindCircle(s.Image, true)}, rink circle {CenterIceImage.FindCircle(rink)} -> {args[4]}");
+    return 0;
+}
+
+if (args.Length == 3 && args[0] == "slots")
+{
+    // Every center-ice slot the game has, as a small PNG each: tells you which slot belongs to which arena.
+    var game = Path.GetFullPath(args[1]);
+    Directory.CreateDirectory(args[2]);
+    var index = BundleIndex.Build(game, s => Console.WriteLine(s));
+    for (int slot = 0; slot < 34; slot++)
+    {
+        try
+        {
+            var s = CenterIceSlots.Read(game, index, slot);
+            var thumb = ImageIO.Shrink(s.Image, 160);
+            ImageIO.SavePng(thumb, Path.Combine(args[2], $"slot_{slot:D2}.png"));
+            Console.WriteLine($"slot {slot,2}: {s.Res.Width}x{s.Res.Height} -> slot_{slot:D2}.png");
+        }
+        catch (Exception ex) { Console.WriteLine($"slot {slot,2}: {ex.Message}"); }
+    }
+    return 0;
+}
+
 if (args.Length == 2 && args[0] == "fetch")
 {
     // TheFaceoff.net page or image link -> cached file (user-initiated; personal use; credited).
