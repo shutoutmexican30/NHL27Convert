@@ -9,6 +9,43 @@ Owner: Devin. The build is .NET 8, WPF app + xUnit tests (**43 suite + 16 roster
 
 ---
 
+## 0. STATE AT 2026-11-03 06:40 UTC (newest - read first; supersedes older "next task" sections)
+
+**In the CIMS game (`C:\Users\devin\Desktop\NHL24PC-CIMS\game`), all read back identical:**
+- 24 NHL 27 center ices (`tools\CenterIce\build_all.py`; Utah = NHL 27 slot 30 -> NHL 24 slot 22; slots 30/31 are All-Star
+  logos and stay; Vegas 32, Seattle 33). Detroit slot 10 = TheFaceoff.net Hockeytown (written by the Center ice page).
+- Goalies (`tools\GoalieFix`, all five DBs, in place with `T3Db`): NHL 27 gear colours (team colours when NHL 27 has him
+  elsewhere); traded goalies' NHL gear row (league 0) moved to the current team + team home mask; goalies with no NHL
+  gear row get the team mask on their personal row (game fallback); Utah = team 22's NHL 24 mask; TRUE lettering
+  contrast (pads model 126: letters zone 5 on zone 8, from `goalie_pads_true_hzrdus_px4_recolor2/3`). Review:
+  `%LOCALAPPDATA%\CenterIceModdingSuite\goaliefix\review.txt`. Backups `20261103-000332`, `-001909`, `-002808`.
+- Earlier: rosters, ratings, lines, portraits, 47 new players (see sections below).
+
+**New suite pieces (all committed):**
+- `T3Db` (Suite.Rosters): the suite's own in-place T3DB editor. CRC-32/MPEG-2; table = 32-byte header (+CRC), 16-byte
+  descriptors, records (LSB bit order), section CRC from the descriptors to the u32 before the next table; integers stored
+  as value - `rangelow` (meta XML); in-use count = high u16 of header word 4. Load+save is byte-identical on all five DBs.
+  Not yet wired into `RosterDbJob` (db-import still uses the Worker there).
+- `ChunkReplace` / `TextureSlots` / `Ps4Codec` (Suite.Core.Frostbite): replace a texture everywhere the game reads it
+  (TOC chunk tables + bundle slices + manifest SHA1). BC1/3/5/7 by format byte @12 (0x3C/3D BC3, 0x3F BC5, 0x43 BC7, 8-byte
+  blocks BC1). Arrays: slice count u16 @26, chunk is **mip-major** (mip 0 of every slice, then mip 1 ...).
+- App: `ModApply` Apply/Restore use the suite writer (no Worker, no WorkerGuard; Restore = undo last texture apply from
+  its backup). Textures page: Export current (PNG, every layer), Layer box for logo arrays, Apply / Undo / Mod list.
+  Center ice page: TheFaceoff.net fetch, From file, From NHL 27, preview, apply. Teams page: Goalie gear preview/write.
+- `WriteGate`: CLI tools write only with `--apply` + `--target` (a missing read-only mode once wrote CIMS by accident).
+
+**Center ice rules (user):** keep the blue circle; key out only the ice white; the red-line strip (x 494-529 of 1024) is
+a clean transparent cutout (`CenterIceImage.CutRedLine`, applied on every write); never hand-make art.
+
+**Permission check:** a CIMS write needs the user's own words in this thread; relayed approvals get refused.
+
+**Open, in the user's order:** ice ad hotspots per arena (`ice_hotspot_0_<n>` 512x512, `ice_hotspot_1_<n>` 512x256;
+which slot each arena uses is not in the DBs); Utah DB colours/names + loc splice and Mammoth t22 art (incl. team 22's
+goalie mask art, still Coyotes); arena board ads (locate only); wire `T3Db` into `RosterDbJob`; parked: Boston fabric,
+NHL 27 faces (Demidov first). Jerseys: the **user does them himself** in the app - do not apply jerseys.
+
+---
+
 ## 1. What the project does
 
 Convert NHL 27 (PS5) uniforms, goalie gear and player faces onto the NHL 24 (PS4) game, which is played through a
