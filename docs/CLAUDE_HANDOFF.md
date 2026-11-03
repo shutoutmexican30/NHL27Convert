@@ -277,3 +277,41 @@ mask; every goalie of that team gets it. Order matters:
 2. Set `maskid` (and `masktype`) to his team's mode mask from step 1.
 3. Set the 52 colour-zone columns from the **team's** row, not from the player's NHL 27 row: for a moved player the 27 row
    carries his old colours (Gibson's `trapperzone1color` is identical in both games because it is still Anaheim's).
+---
+
+## 12. THE ONE JOB: a suite-side replacement for the Worker's `db-import` (user said yes)
+
+Everything else for goalie colours and team masks already exists and is wired:
+
+```
+RosterSyncRun.cs:173   GoalieGear.Build(nhl27Dir, RosterDbJob.BeforeDump(dbs[0].Name), notes)
+RosterSyncRun.cs:183   job.WriteAsync(..., goalieGear)   -> RosterWriter writes edited CSVs
+RosterDbJob.cs:107     Worker.RunAsync(["db-import", db.DbPath, db.MetaXml, edit, outDb])   <-- the only gap
+```
+
+`src/Suite.Rosters/GoalieGear.cs` already does exactly what the user asked: copies every colour-zone field and
+`sticktapecolor` from the NHL 27 table by `game_id` for the player table, and by `(team, league)` for the team table
+(that is where the **team mask** comes from), and adopts a model id only when NHL 24 already uses it.
+
+**Implement `T3Db` in `Suite.Rosters` and make `RosterDbJob.ImportAsync` call it instead of the Worker.**
+
+Cheapest viable design - **in-place field edit, never a re-serialise** (colour/team/model fields are integers at fixed bit
+depths, so the file size never changes and no string/Huffman work is needed):
+
+1. Parse the `.db` header: `"DB\0\x08"`, u32 0, u32 file size, u32 0, u32 table count, u32 header CRC, then
+   `tableCount × [4-byte short name][u32 offset]`, then u32 table-list CRC. (Format in `docs/reference/DATABASE_EDITING.md` §2.)
+2. Parse each table header: record size, bit count, compressed string length, record counts (`NMaxRecords`, in-use), field
+   count, a CRC, then field descriptors `(type, bit offset, short name, bit depth)`.
+3. Parse the meta XML for real name -> 4-char short name per table and per field.
+4. To set a field: for each in-use record, write `value + fieldMin` into its bits at `bitOffset`, little-endian bit order,
+   exactly `bitDepth` bits. **Reload, then re-save the same bytes** - no structural change.
+5. Recompute the three CRCs that cover changed bytes (table section CRC, table-list CRC, header CRC). Verify the CRC
+   algorithm first: `nhl_game.db` loaded and written unchanged must reproduce the file **byte for byte**; if the CRCs do not
+   match, do not proceed.
+6. Acceptance test before any game write: edit one goalie's `team` in a **copy**, apply, launch, read it back from the game,
+   confirm the value changed and the game still loads. Then run `RosterSyncRun` for real.
+
+Fallback if the in-place edit proves unsafe: full serialise from the parsed tables (same bit packing on write, strings
+re-emitted unchanged), which the format supports but needs the Huffman tree round-tripped.
+
+Do not grow tables (`NMaxRecords`), do not change keys, and keep `RosterDbJob.Guard` (layout identical) passing.
