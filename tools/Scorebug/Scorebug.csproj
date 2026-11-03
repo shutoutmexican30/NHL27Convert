@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Suite.Scorebug\Suite.Scorebug.csproj" />
     <None Include="..\..\data\scorebug\*.gfx" Link="data\scorebug\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\*.tsv;..\..\data\teams_overrides.json" Link="data\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

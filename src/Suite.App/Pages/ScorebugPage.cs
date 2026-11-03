@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Suite.Core;
+using Suite.Core.Frostbite;
 using Suite.Scorebug;
 
 namespace Suite.App.Pages;
@@ -36,7 +37,12 @@ public sealed class ScorebugPage : Grid
     readonly Border _webBox;
     readonly CheckBox _animate = Check("Animate"), _full = Check("Whole screen"), _dark = Check("Dark background");
     readonly List<CheckBox> _states = [];
-    readonly TextBox _away = Box("NYI", 50), _awayColour = Box("00539B", 70), _home = Box("DET", 50), _homeColour = Box("CE1126", 70);
+    readonly ComboBox _awayTeam = TeamPick(), _homeTeam = TeamPick();
+    readonly RadioButton _editAway = new() { GroupName = "sbteam", IsChecked = true, Foreground = Body, Margin = new Thickness(0, 3, 14, 3), VerticalAlignment = VerticalAlignment.Center };
+    readonly RadioButton _editHome = new() { GroupName = "sbteam", Foreground = Body, Margin = new Thickness(0, 3, 14, 3), VerticalAlignment = VerticalAlignment.Center };
+    readonly CheckBox _own = Check("Own colours for this team");
+    readonly TextBox _ownPri = Box("", 70), _ownSec = Box("", 70);
+    readonly Border _ownPriSwatch = Swatch(), _ownSecSwatch = Swatch();
     readonly TextBox _awayScore = Box("2", 34), _homeScore = Box("3", 34), _period = Box("2ND", 44), _clock = Box("12:34", 56);
     readonly TextBox _teamColours = new() { MinWidth = 520, Margin = new Thickness(0, 0, 8, 0) };
     readonly WrapPanel _groups = new();
@@ -103,25 +109,45 @@ public sealed class ScorebugPage : Grid
         }
         preview.Children.Add(stateRow);
         var sample = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
-        sample.Children.Add(Label("Away", 44)); sample.Children.Add(_away); sample.Children.Add(_awayColour); sample.Children.Add(_awayScore);
-        sample.Children.Add(Label("Home", 50)); sample.Children.Add(_home); sample.Children.Add(_homeColour); sample.Children.Add(_homeScore);
+        sample.Children.Add(Label("Away", 44)); sample.Children.Add(_awayTeam); sample.Children.Add(_awayScore);
+        sample.Children.Add(Label("Home", 50)); sample.Children.Add(_homeTeam); sample.Children.Add(_homeScore);
         sample.Children.Add(Label("Period", 56)); sample.Children.Add(_period); sample.Children.Add(_clock);
-        foreach (var b in new[] { _away, _awayColour, _home, _homeColour, _awayScore, _homeScore, _period, _clock })
+        foreach (var b in new[] { _awayScore, _homeScore, _period, _clock })
             b.TextChanged += (_, _) => Restart();
+        var (away, home) = LoadTeams();
+        _awayTeam.SelectedItem = away;
+        _homeTeam.SelectedItem = home;
+        _awayTeam.SelectionChanged += (_, _) => TeamsChanged();
+        _homeTeam.SelectionChanged += (_, _) => TeamsChanged();
         preview.Children.Add(sample);
         SetRow(preview, 1);
         Children.Add(preview);
 
         var body = new StackPanel { Margin = new Thickness(32, 4, 32, 26) };
         body.Children.Add(_groups);
-        var teamRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
-        teamRow.Children.Add(Label("Team colours", 96));
+        // The team picked above (away or home) whose own colours are edited; they go into the settings block's teamColors.
+        var ownRow = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+        ownRow.Children.Add(Label("Colours for", 96));
+        ownRow.Children.Add(_editAway);
+        ownRow.Children.Add(_editHome);
+        ownRow.Children.Add(_own);
+        ownRow.Children.Add(Label("Primary", 56)); ownRow.Children.Add(_ownPriSwatch); ownRow.Children.Add(_ownPri);
+        ownRow.Children.Add(Label("Secondary", 70)); ownRow.Children.Add(_ownSecSwatch); ownRow.Children.Add(_ownSec);
+        _editAway.Checked += (_, _) => LoadOwn();
+        _editHome.Checked += (_, _) => LoadOwn();
+        _own.Click += (_, _) => OwnChanged();
+        _ownPri.TextChanged += (_, _) => OwnChanged();
+        _ownSec.TextChanged += (_, _) => OwnChanged();
+        body.Children.Add(ownRow);
+        var teamRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        teamRow.Children.Add(Label("All teams", 96));
         teamRow.Children.Add(_teamColours);
-        _teamColours.TextChanged += (_, _) => { if (!_loading) { ReadTeamColours(); Restart(); } };
+        _teamColours.TextChanged += (_, _) => { if (!_loading) { ReadTeamColours(); LoadOwn(); Restart(); } };
         body.Children.Add(teamRow);
         body.Children.Add(new TextBlock
         {
-            Text = "Your own colours for any team: ABBR:primary:secondary, several separated by |  (for example UTA:6CACE4:010101|SEA:001628:99D9D9).",
+            Text = "Every team's own colours: ABBR:primary:secondary, several separated by |  (for example UTA:6CACE4:010101|SEA:001628:99D9D9). " +
+                   "Teams without an entry use their colours from the game.",
             Foreground = Dim, FontSize = 12, Margin = new Thickness(96, 4, 0, 0), TextWrapping = TextWrapping.Wrap,
         });
         var scroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -200,6 +226,7 @@ public sealed class ScorebugPage : Grid
         }
         _teamColours.Text = string.Join("|", _sb.TeamColours.Select(t => $"{t.Abbr}:{t.Primary}:{t.Secondary}"));
         _loading = false;
+        LoadOwn();
     }
 
     FrameworkElement Editor(ScorebugSetting s)
@@ -274,6 +301,109 @@ public sealed class ScorebugPage : Grid
         return row;
     }
 
+    // ---- Teams ----
+
+    static ComboBox TeamPick()
+    {
+        var c = new ComboBox { Width = 220, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        foreach (var t in ScorebugTeams.All) c.Items.Add(t);
+        return c;
+    }
+
+    static Border Swatch() => new() { Width = 22, Height = 18, BorderBrush = CardLine, BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 6, 0) };
+
+    static string TeamsFile => Path.Combine(ScorebugSettings.StoreDir, "teams.txt");
+
+    static (ScorebugTeam? Away, ScorebugTeam? Home) LoadTeams()
+    {
+        string[] picked = [];
+        try { if (File.Exists(TeamsFile)) picked = File.ReadAllText(TeamsFile).Split(' ', StringSplitOptions.RemoveEmptyEntries); } catch { }
+        return (ScorebugTeams.ByAbbr(picked.ElementAtOrDefault(0)) ?? ScorebugTeams.ByAbbr("UTA") ?? ScorebugTeams.All.FirstOrDefault(),
+                ScorebugTeams.ByAbbr(picked.ElementAtOrDefault(1)) ?? ScorebugTeams.ByAbbr("SEA") ?? ScorebugTeams.All.LastOrDefault());
+    }
+
+    ScorebugTeam? Away => _awayTeam.SelectedItem as ScorebugTeam;
+    ScorebugTeam? Home => _homeTeam.SelectedItem as ScorebugTeam;
+    ScorebugTeam? Edited => _editHome.IsChecked == true ? Home : Away;
+
+    void TeamsChanged()
+    {
+        try { File.WriteAllText(TeamsFile, $"{Away?.Abbr} {Home?.Abbr}"); } catch { }
+        LoadOwn();
+        Navigate();
+    }
+
+    /// <summary>The colours the scorebug draws a team in: its own entry in the settings, else the game's.</summary>
+    (string Primary, string Secondary) ColoursOf(ScorebugTeam t) =>
+        _sb.TeamColours.FirstOrDefault(c => c.Abbr == t.Abbr) is { Abbr.Length: > 0 } own ? (own.Primary, own.Secondary) : (t.Primary, t.Secondary);
+
+    /// <summary>Shows the edited team's colours (its own entry, or the game's greyed in) in the colour row.</summary>
+    void LoadOwn()
+    {
+        _editAway.Content = "Away " + Away?.Abbr;
+        _editHome.Content = "Home " + Home?.Abbr;
+        if (Edited is not { } t) return;
+        bool was = _loading;
+        _loading = true;
+        bool own = _sb.TeamColours.Any(c => c.Abbr == t.Abbr);
+        var (pri, sec) = ColoursOf(t);
+        _own.IsChecked = own;
+        _ownPri.Text = pri; _ownSec.Text = sec;
+        _ownPri.IsEnabled = _ownSec.IsEnabled = own;
+        Paint(_ownPriSwatch, pri); Paint(_ownSecSwatch, sec);
+        _loading = was;
+    }
+
+    static void Paint(Border b, string colour) =>
+        b.Background = ScorebugSettings.TryColour(colour, out var c) ? new SolidColorBrush(Color.FromRgb((byte)(c >> 16), (byte)(c >> 8), (byte)c)) : Brushes.Transparent;
+
+    void OwnChanged()
+    {
+        if (_loading || Edited is not { } t) return;
+        _sb.TeamColours.RemoveAll(c => c.Abbr == t.Abbr);
+        bool own = _own.IsChecked == true;
+        _ownPri.IsEnabled = _ownSec.IsEnabled = own;
+        if (own)
+        {
+            if (!ScorebugSettings.TryColour(_ownPri.Text, out var p) || !ScorebugSettings.TryColour(_ownSec.Text, out var s)) return;
+            _sb.TeamColours.Add((t.Abbr, p.ToString("X6"), s.ToString("X6")));
+        }
+        else { _loading = true; _ownPri.Text = t.Primary; _ownSec.Text = t.Secondary; _loading = false; }
+        Paint(_ownPriSwatch, _ownPri.Text); Paint(_ownSecSwatch, _ownSec.Text);
+        _loading = true;
+        _teamColours.Text = string.Join("|", _sb.TeamColours.Select(c => $"{c.Abbr}:{c.Primary}:{c.Secondary}"));
+        _loading = false;
+        Restart();
+    }
+
+    /// <summary>The preview's own web folder: data\scorebug\preview copied next to the logos decoded from the game.</summary>
+    static string WebDir => SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "scorebug-web"));
+
+    static void PrepareWebFolder()
+    {
+        foreach (var src in Directory.EnumerateFiles(ScorebugStyle.PreviewDir, "*", SearchOption.AllDirectories))
+        {
+            var dst = Path.Combine(WebDir, Path.GetRelativePath(ScorebugStyle.PreviewDir, src));
+            if (File.Exists(dst) && new FileInfo(dst).Length == new FileInfo(src).Length && File.GetLastWriteTimeUtc(dst) >= File.GetLastWriteTimeUtc(src)) continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            File.Copy(src, dst, true);
+        }
+    }
+
+    async Task EnsureLogosAsync()
+    {
+        var game = _settings.ApplyTargetDir;
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game)) return;
+        var dir = Path.Combine(WebDir, "logos");
+        try
+        {
+            var settings = _settings;
+            int n = await Task.Run(() => { Oodle.Ensure(settings); return ScorebugTeams.ExportLogos(game, dir); });
+            if (n > 0) Navigate();
+        }
+        catch (Exception ex) { SuiteLog.Write("scorebug logos: " + ex.Message); }
+    }
+
     static double Num(string v) => double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
 
     void ReadTeamColours()
@@ -292,12 +422,14 @@ public sealed class ScorebugPage : Grid
         try
         {
             if (!File.Exists(Path.Combine(ScorebugStyle.PreviewDir, "preview.html"))) throw new FileNotFoundException("data\\scorebug\\preview is missing next to the app.");
+            await Task.Run(PrepareWebFolder);
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(SuitePaths.Local, "webview2"));
             await _web.EnsureCoreWebView2Async(env);
-            _web.CoreWebView2.SetVirtualHostNameToFolderMapping("scorebug.cims", ScorebugStyle.PreviewDir, CoreWebView2HostResourceAccessKind.Allow);
+            _web.CoreWebView2.SetVirtualHostNameToFolderMapping("scorebug.cims", WebDir, CoreWebView2HostResourceAccessKind.Allow);
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             _webReady = true;
             Navigate();
+            await EnsureLogosAsync();
         }
         catch (Exception ex)
         {
@@ -312,13 +444,15 @@ public sealed class ScorebugPage : Grid
         if (h > 20 && Math.Abs(_web.Height - h) > 1) _web.Height = h;
     }
 
-    static string Colour(string text, string fallback) => ScorebugSettings.TryColour(text, out var c) ? "0x" + c.ToString("X6") : fallback;
-
-    static string Darker(string colour)
+    /// <summary>One side's FlashVars: abbreviation, colours (own or the game's) and logo, as the game's init() would give them.</summary>
+    void AddTeam(Dictionary<string, string> q, string side, ScorebugTeam? t)
     {
-        ScorebugSettings.TryColour(colour, out var c);
-        uint D(int shift) => (uint)(((c >> shift) & 0xFF) * 0.55);
-        return "0x" + ((D(16) << 16) | (D(8) << 8) | D(0)).ToString("X6");
+        if (t is null) return;
+        var (pri, sec) = ColoursOf(t);
+        q[side + "Name"] = t.Abbr;
+        q[side + "Color"] = "0x" + pri;
+        q[side + "Secondary"] = "0x" + sec;
+        if (File.Exists(Path.Combine(WebDir, "logos", $"t{t.LogoId}.png"))) q[side + "Logo"] = $"logos/t{t.LogoId}.png";
     }
 
     void Navigate()
@@ -333,17 +467,13 @@ public sealed class ScorebugPage : Grid
             ["state"] = string.Join(",", _states.Where(c => c.IsChecked == true).Select(c => (string)c.Tag)),
             ["instant"] = _animate.IsChecked == true ? "0" : "1",
             ["cfg"] = _sb.ToSettingsString(),
-            ["awayName"] = ScorebugSettings.CleanAbbr(_away.Text),
-            ["homeName"] = ScorebugSettings.CleanAbbr(_home.Text),
-            ["awayColor"] = Colour(_awayColour.Text, "0x00539B"),
-            ["homeColor"] = Colour(_homeColour.Text, "0xCE1126"),
-            ["awaySecondary"] = Darker(_awayColour.Text),
-            ["homeSecondary"] = Darker(_homeColour.Text),
             ["awayScore"] = _awayScore.Text.Trim(),
             ["homeScore"] = _homeScore.Text.Trim(),
             ["period"] = _period.Text.Trim(),
             ["clock"] = _clock.Text.Trim(),
         };
+        AddTeam(q, "away", Away);
+        AddTeam(q, "home", Home);
         if (!full) q["zoom"] = "1.6";
         if (_dark.IsChecked == true) q["bg"] = "dark";
         _web.CoreWebView2.Navigate("https://scorebug.cims/preview.html?" + string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value))));

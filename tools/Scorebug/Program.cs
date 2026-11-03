@@ -68,6 +68,13 @@ if (args.Length >= 1 && args[0] == "check")
     return bad == 0 ? 0 : 1;
 }
 
+if (args.Length >= 3 && args[0] == "logos")
+{
+    foreach (var t in ScorebugTeams.All) Say($"  {t.Id,2} {t.Abbr} {t.Name}  {t.Primary}/{t.Secondary}");
+    Say($"{ScorebugTeams.ExportLogos(args[1], args[2], Say)} logo(s) written to {args[2]}; {Directory.GetFiles(args[2], "t*.png").Length} there now");
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "read")
 {
     var (style, text, bytes) = ScorebugApply.Read(args[1], settings);
