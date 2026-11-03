@@ -56,6 +56,16 @@ are built against is **2026.3.0.0** (12,710,912 bytes at `D:\Tools\FMT-26.10\har
 usable `Texture.PixelFormat` nested type, so every texture it touches throws. Roster databases, portraits and bundle chunks
 keep working because none of them parse a `Texture` - which is why the failure looked folder-specific at first.
 
+**The exact defect**: the Worker's `FMT.Resources.dll` is a **0.0 MB stub** (the FMT 2026.3 install has the real 11.5 MB one), so
+`FrostySdk.Resources.Texture` has no `PixelFormat` type to parse. Every runtime carries the same stub - all ten under
+`runtimes\`, plus `runtime\` and the previous session's `worker-fresh` - always beside a 14.7 MB `FrostySdk.dll`.
+**Grafting the real assembly does not work**: dropping the 11.5 MB `FMT.Resources.dll` in gets past the texture class but
+then fails on `Unable to find Class EBXSharedTypeDescriptorV2` (the assembly set is version-locked), and swapping the whole
+FMT stack fails harder because FMT 2026.3 is built for **.NET 10** (`Could not load System.Runtime, Version=10.0.0.0`) while
+the Worker targets .NET 8. So this cannot be patched by copying files: the harness must **rebuild the Worker against an FMT
+that provides the real `FMT.Resources` for the same version as its 14.7 MB `FrostySdk`**. The experimental runtime copy was
+deleted again; `settings.WorkerRuntimeDir` was never changed.
+
 **Consequence**: any texture mod handed to the Worker fails today, independently of the mod's content. That is why the
 fabric work went through our own writer, and it means the in-app Apply path for uniforms does not work.
 
