@@ -24,11 +24,13 @@ public sealed class BundleIndex
     public sealed record Location(string Toc, int PairAt, string Cas, uint Offset, uint Size);
     public sealed record Res(string Name, uint Type, byte[] Meta, ulong Rid, Location Data, Bundle Bundle, int Sha1At);
     public sealed record Chunk(Guid Id, uint LogicalOffset, uint LogicalSize, Location Data, Bundle Bundle, int Sha1At);
+    public sealed record Ebx(string Name, Location Data, Bundle Bundle, int Sha1At);
     public sealed record Bundle(string Toc, int RecordAt, Location Manifest, string FirstName);
 
     public List<Bundle> Bundles { get; } = [];
     public Dictionary<string, List<Res>> ResByName { get; } = new(StringComparer.Ordinal);
     public Dictionary<Guid, List<Chunk>> ChunksById { get; } = [];
+    public Dictionary<string, List<Ebx>> EbxByName { get; } = new(StringComparer.Ordinal);
     public string Game { get; }
 
     BundleIndex(string game) { Game = game; }
@@ -121,6 +123,12 @@ public sealed class BundleIndex
             if (chunkAt + 24 * chunks > m.Length) continue;
             var bundle = new Bundle(r.Toc, r.RecordAt, r.Entries[0], ebx > 0 ? Name(I(ebxAt)) : "");
             index.Bundles.Add(bundle);
+            for (int k = 0; k < ebx; k++)
+            {
+                var name = Name(I(ebxAt + 8 * k));
+                if (!index.EbxByName.TryGetValue(name, out var l)) index.EbxByName[name] = l = [];
+                l.Add(new Ebx(name, r.Entries[1 + k], bundle, 36 + 20 * k));
+            }
             for (int k = 0; k < res; k++)
             {
                 var name = Name(I(resAt + 8 * k));
