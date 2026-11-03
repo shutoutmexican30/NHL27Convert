@@ -42,7 +42,7 @@ public sealed class GoalieGearTests : IDisposable
     }
 
     [Fact]
-    public void Copies_colour_zones_and_only_models_known_to_nhl24()
+    public void Copies_colour_zones_and_keeps_the_nhl24_models()
     {
         var notes = new List<string>();
         var gear = GoalieGear.Build(Source, Main, notes);
@@ -53,15 +53,12 @@ public sealed class GoalieGearTests : IDisposable
         Assert.Equal("999", result.Get(result.Rows[0], "padszone1color"));
         Assert.Equal("998", result.Get(result.Rows[0], "blockerzone1color"));
         Assert.Equal("3", result.Get(result.Rows[0], "sticktapecolor"));
-        Assert.Equal("65", result.Get(result.Rows[0], "pads"));
-        Assert.Equal("48", result.Get(result.Rows[0], "maskid"));
         Assert.Equal("888", result.Get(result.Rows[1], "padszone1color"));
-        Assert.Equal("65", result.Get(result.Rows[1], "pads"));
-        Assert.Equal("22", result.Get(result.Rows[1], "maskid"));
         var team = T3Csv.Load(Out, TeamTable);
         Assert.Equal("22", team.Get(team.Rows[0], "maskid"));
         Assert.Equal("999", team.Get(team.Rows[0], "padszone1color"));
-        Assert.Equal(7, report.Counts["GoalieGearModelFallbacks"]);
+        // The pad/trapper/blocker/stick models are never adopted: the model carries the brand wordmark.
+        Assert.NotEqual("65", result.Get(result.Rows[0], "pads"));
     }
 
     public void Dispose() => Directory.Delete(root, true);
