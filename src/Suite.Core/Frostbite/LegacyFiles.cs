@@ -10,12 +10,17 @@ namespace Suite.Core.Frostbite;
 /// end of the blocks holding the file inside the chunk (0/0 = the whole chunk), raw offset, raw size, then the chunk id
 /// (Guid.ToByteArray()). Several small files can share one chunk (nhl_game.db shares with four others).
 ///
-/// Replacing a file (same size only, which the roster layout guard guarantees): the chunk is decoded, the file's bytes
-/// are swapped in, only the blocks whose bytes changed are re-encoded (the others are copied as stored), the new chunk
-/// is appended to its own CAS file, every TOC entry that pointed at the old copy is repointed (offset + size), and the
-/// index records of every file in that chunk get their new stored start/end; the index chunk is appended and repointed
-/// the same way. Nothing already in a CAS is overwritten, so truncating the CAS files and copying the TOCs back
-/// (<see cref="ApplyTarget.RestoreFromBackup"/>) restores the game exactly.
+/// Replacing a file of the same size: the chunk is decoded, the file's bytes are swapped in, only the blocks whose bytes
+/// changed are re-encoded (the others are copied as stored), the new chunk is appended to its own CAS file, every TOC
+/// entry that pointed at the old copy is repointed (offset + size), and the index records of every file in that chunk get
+/// their new stored start/end; the index chunk is appended and repointed the same way. Nothing already in a CAS is
+/// overwritten, so truncating the CAS files and copying the TOCs back (<see cref="ApplyTarget.RestoreFromBackup"/>)
+/// restores the game exactly.
+///
+/// A file of another size (a custom scorebug movie): a file that owns its chunk gets the whole chunk; a file in a shared
+/// chunk moves to the chunk's end, on a block boundary, in new blocks of the chunk's own block size (the scorebug chunk:
+/// 256 KB blocks, absolute raw offsets). Every other file keeps its bytes and raw offset. The tail past the last other
+/// file is dropped first, so applying again reuses the space instead of growing the chunk each time.
 /// </summary>
 public sealed class LegacyFiles
 {
@@ -135,8 +140,37 @@ public sealed class LegacyFiles
     }
 
     /// <summary>
-    /// Replaces legacy files (name → new bytes, each the same size as the original). Appends to CAS files and rewrites
-    /// TOCs in place; take <see cref="ApplyTarget.Backup"/> first. Returns one log line per change.
+    /// Re-encodes a chunk whose raw bytes changed and grew or shrank at the end: block i of <paramref name="sizes"/> is
+    /// copied as stored when it is an old block with the same raw size and bytes, else encoded. Map entries exist for the
+    /// old blocks that survive (old stored range → new), and <paramref name="newRanges"/> gives every new block's range.
+    /// </summary>
+    static Rebuilt RebuildResized(ChunkBlocks blocks, byte[] oldRaw, byte[] newRaw, List<int> sizes, out List<(int Start, int End)> newRanges)
+    {
+        var ms = new MemoryStream();
+        var map = new List<(int, int, int, int)>();
+        newRanges = [];
+        int at = 0, changed = 0;
+        for (int i = 0; i < sizes.Count; i++)
+        {
+            int start = (int)ms.Length, size = sizes[i];
+            var old = i < blocks.Blocks.Count ? blocks.Blocks[i] : null;
+            bool same = old is not null && old.RawSize == size && at + size <= oldRaw.Length &&
+                        oldRaw.AsSpan(at, size).SequenceEqual(newRaw.AsSpan(at, size));
+            ms.Write(same ? old!.Stored : ChunkBlocks.EncodeBlock(newRaw.AsSpan(at, size)));
+            if (!same) changed++;
+            if (old is not null) map.Add((old.StoredStart, old.StoredEnd, start, (int)ms.Length));
+            newRanges.Add((start, (int)ms.Length));
+            at += size;
+        }
+        var stored = ms.ToArray();
+        if (!ChunkBlocks.Parse(stored).Decode().AsSpan().SequenceEqual(newRaw)) throw new InvalidOperationException("A rebuilt chunk does not decode to the new bytes.");
+        return new Rebuilt(stored, map, changed);
+    }
+
+    /// <summary>
+    /// Replaces legacy files (name → new bytes). Same-size files are swapped in place; other sizes are placed as the
+    /// class summary says. Appends to CAS files and rewrites TOCs in place; take <see cref="ApplyTarget.Backup"/> first.
+    /// Returns one log line per change.
     /// </summary>
     public List<string> Replace(IReadOnlyDictionary<string, byte[]> files)
     {
@@ -153,13 +187,16 @@ public sealed class LegacyFiles
             var where = Locate(chunk)!;
             var blocks = ChunkBlocks.Parse(ReadStored(where));
             var oldRaw = blocks.Decode();
+            var inChunk = records.Where(r => r.Chunk == chunk).ToList();
+            var resized = group.Where(f => f.Value.Length != records.First(r => r.Name == f.Key).RawSize).ToList();
+            if (resized.Count > 0)
+            {
+                ReplaceResized(chunk, where, blocks, oldRaw, group.ToList(), inChunk, newIndex, appends, log);
+                continue;
+            }
             var newRaw = (byte[])oldRaw.Clone();
             foreach (var (name, bytes) in group)
-            {
-                var rec = records.First(r => r.Name == name);
-                if (bytes.Length != rec.RawSize) throw new InvalidOperationException($"{name}: {bytes.Length} bytes, the game's file is {rec.RawSize}. Same size only.");
-                bytes.CopyTo(newRaw, (int)rec.RawOffset);
-            }
+                bytes.CopyTo(newRaw, (int)records.First(r => r.Name == name).RawOffset);
             var rebuilt = Rebuild(blocks, oldRaw, newRaw);
             // Every file sharing the chunk gets its stored range moved to the new block positions.
             foreach (var rec in records.Where(r => r.Chunk == chunk && !(r.StoredStart == 0 && r.StoredEnd == 0)))
@@ -207,5 +244,84 @@ public sealed class LegacyFiles
         }
         foreach (var toc in dirty) toc.Save();
         return log;
+    }
+
+    /// <summary>One chunk where at least one file changes size (see the class summary). Edits <paramref name="newIndex"/>.</summary>
+    void ReplaceResized(Guid chunk, ChunkRef where, ChunkBlocks blocks, byte[] oldRaw, List<KeyValuePair<string, byte[]>> files,
+        List<Record> inChunk, byte[] newIndex, List<(Guid Id, ChunkRef Old, byte[] Stored)> appends, List<string> log)
+    {
+        static void Set(byte[] index, Record r, long s0, long s1, long ro, long rs)
+        {
+            BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(r.Pos + 8), s0);
+            BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(r.Pos + 16), s1);
+            BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(r.Pos + 24), ro);
+            BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(r.Pos + 32), rs);
+        }
+        int block = blocks.Blocks[0].RawSize;
+
+        // The file owns the whole chunk: the chunk becomes the new file.
+        if (inChunk.Count == 1 && files.Count == 1 && inChunk[0].StoredStart == 0 && inChunk[0].StoredEnd == 0 && inChunk[0].RawOffset == 0)
+        {
+            var bytes = files[0].Value;
+            var stored = ChunkBlocks.EncodeBlocks(bytes, Math.Clamp(block, 4096, 262144));
+            if (!ChunkBlocks.Parse(stored).Decode().AsSpan().SequenceEqual(bytes)) throw new InvalidOperationException("A rebuilt chunk does not decode to the new bytes.");
+            Set(newIndex, inChunk[0], 0, 0, 0, bytes.Length);
+            appends.Add((chunk, where, stored));
+            log.Add($"{files[0].Key}: own chunk {chunk}, {inChunk[0].RawSize} -> {bytes.Length} bytes");
+            return;
+        }
+
+        // Shared chunk: every block but the last must have the same raw size, so a block-aligned raw offset is unambiguous.
+        if (blocks.Blocks.Take(blocks.Blocks.Count - 1).Any(b => b.RawSize != block))
+            throw new InvalidDataException($"Chunk {chunk}: blocks of mixed sizes; a file of another size cannot be placed in it.");
+        if (inChunk.Any(r => r.StoredStart == 0 && r.StoredEnd == 0))
+            throw new InvalidDataException($"Chunk {chunk}: shared, but a file in it claims the whole chunk.");
+        var names = files.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        var kept = inChunk.Where(r => !names.Contains(r.Name)).ToList();
+        long keptEnd = kept.Count == 0 ? 0 : kept.Max(r => r.RawOffset + r.RawSize);
+        int baseAt = (int)((keptEnd + block - 1) / block * block);
+
+        // Same-size files in this chunk are written in place first (they sit before baseAt only if they are kept files'
+        // neighbours; a same-size file is never moved).
+        var ms = new MemoryStream();
+        ms.Write(oldRaw, 0, Math.Min(baseAt, oldRaw.Length));
+        ms.SetLength(baseAt);                                    // zero padding up to the block boundary
+        ms.Position = baseAt;
+        var placed = new List<(Record Rec, long Offset, int Size)>();
+        foreach (var (name, bytes) in files)
+        {
+            var rec = inChunk.First(r => r.Name == name);
+            if (bytes.Length == rec.RawSize && rec.RawOffset + rec.RawSize <= baseAt) { placed.Add((rec, rec.RawOffset, bytes.Length)); continue; }
+            // Two names with the same bytes (the scorebug's two movies) share one copy.
+            var twin = placed.FirstOrDefault(p => p.Offset >= baseAt && files.First(f => f.Key == p.Rec.Name).Value.AsSpan().SequenceEqual(bytes));
+            if (twin.Rec is not null) { placed.Add((rec, twin.Offset, bytes.Length)); continue; }
+            if (ms.Position % block != 0) { ms.SetLength((ms.Position + block - 1) / block * block); ms.Position = ms.Length; }
+            placed.Add((rec, ms.Position, bytes.Length));
+            ms.Write(bytes);
+        }
+        var newRaw = ms.ToArray();
+        foreach (var (rec, offset, _) in placed)
+            files.First(f => f.Key == rec.Name).Value.CopyTo(newRaw, offset);
+
+        var sizes = new List<int>();
+        for (int at = 0; at < newRaw.Length; at += block) sizes.Add(Math.Min(block, newRaw.Length - at));
+        var rebuilt = RebuildResized(blocks, oldRaw, newRaw, sizes, out var ranges);
+
+        foreach (var rec in kept)
+        {
+            var first = rebuilt.Map.FindIndex(m => m.OldStart == rec.StoredStart);
+            var last = rebuilt.Map.FindIndex(m => m.OldEnd == rec.StoredEnd);
+            if (first < 0 || last < first) throw new InvalidDataException($"{rec.Name}: its stored range does not sit on block boundaries.");
+            // A kept file's blocks all lie before baseAt, so their old and new indices are the same.
+            Set(newIndex, rec, ranges[first].Start, ranges[last].End, rec.RawOffset, rec.RawSize);
+        }
+        foreach (var (rec, offset, size) in placed)
+        {
+            int first = (int)(offset / block), last = (int)((offset + size - 1) / block);
+            Set(newIndex, rec, ranges[first].Start, ranges[last].End, offset, size);
+        }
+        appends.Add((chunk, where, rebuilt.Stored));
+        log.Add($"{string.Join(", ", files.Select(f => $"{f.Key} ({f.Value.Length} bytes)"))}: chunk {chunk} raw {oldRaw.Length} -> {newRaw.Length}, " +
+                $"stored {where.Size} -> {rebuilt.Stored.Length}, {rebuilt.Changed} of {sizes.Count} blocks encoded; placed at block boundary {baseAt}");
     }
 }
