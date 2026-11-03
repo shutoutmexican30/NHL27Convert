@@ -1,13 +1,14 @@
 // GoalieFix --target <game copy> --nhl27 <NHL 27 CSV dump dir> [--apply [--restore-check]] | --show <game_id>
 // Without --apply it only plans and writes the review (never the game).
 // For every goalie on an NHL roster (NHL 24 team 0-31), in all five roster databases, in place (T3Db; layout identical):
-//  1. colours: every *color zone from his NHL 27 row when NHL 27 has him on the same team, otherwise his team's most
-//     common NHL 27 goalie colours;
-//  2. brand contrast: a zone that was white/black ink in the NHL 24 design (the brand: TRUE, Bauer, CCM...), apart from
-//     the item's main colour, and that the new colours put on that main colour (RGB distance < 60) becomes white, black
-//     or the team's secondary, whichever stands out most;
-//  3. masks: his NHL gear row (league 0) still names an old team -> it gets his current team and that team's home mask
-//     (the team's most common NHL 27 goalie mask that NHL 24 already uses); goalies already on their row's team keep theirs.
+//  1. colours, gear models and mask all come from NHL 24's own stock team row for his current team + league (the pristine
+//     stock DB in dbwork\stock, not the game being edited).  NHL 27's zone numbers are laid out for NHL 27's models, so its
+//     palette mis-colours NHL 24's blocker and trapper - the brand wordmark lands on the wrong zone and cannot be read.
+//     The team row's pads/blocker/trapper/stick were authored with its palette, so the three travel together.
+//  2. masks: the team row's masktype/maskid, so a traded goalie wears his new team's mask instead of his old team's.
+//  3. brand contrast (fallback only, when no NHL 24 team row exists): a zone that was white/black ink in the NHL 24 design,
+//     apart from the item's main colour, that the new colours put on the main colour becomes white, black or the team's
+//     secondary, whichever stands out most.
 // Writes a review (Detroit swatches before/after, mask changes, contrast fixes/failures). Backup, read-back, and with
 // --restore-check a restore to the backup verified byte for byte, then the write again. Refuses the original game.
 using Suite.Core;
@@ -108,6 +109,13 @@ foreach (var g in stock27.GroupBy(r => int.Parse(r["team"])))
 }
 
 var exMain = main.Tables["exhibitiongoalieequipment"]; var stMain = main.Tables["stockgoalieequipment"];
+// NHL 24's own stock team rows: the palette, the pads/blocker/trapper/stick models and the mask were authored together
+// for NHL 24's gear, so this is the row a goalie's current team wears.  Read from the pristine stock DB (dbwork\stock),
+// never from the game being edited (its rows already carry the earlier NHL 27-palette run).
+var stockDb = T3Db.Load(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(meta)!, "nhl_game.db")), meta);
+var stockTeam = stockDb.Tables["stockgoalieequipment"];
+var ownTeams = new Dictionary<(long Team, long League), int>();
+for (int r = 0; r < stockTeam.InUse; r++) ownTeams.TryAdd((stockDb.GetInt(stockTeam, r, "team"), stockDb.GetInt(stockTeam, r, "league")), r);
 // Teams NHL 27 gives no usable mask (Utah: NHL 24's team 22 is Arizona's slot, so its home mask is team 22's in NHL 24):
 // the most common mask on NHL 24's own NHL gear rows for that team.
 for (int t = 0; t < 32; t++)
@@ -140,13 +148,19 @@ for (int r = 0; r < stMain.InUse; r++) if (main.GetInt(stMain, r, "league") == 0
 foreach (var (gid, team) in teamOf)
 {
     string who = nameOf.GetValueOrDefault(gid, gid.ToString());
-    var colours = by27.TryGetValue(gid.ToString(), out var r27) && int.Parse(r27["team"]) == team
-        ? colourCols.ToDictionary(c => c, c => long.Parse(r27[c]))
-        : teamColours.TryGetValue(team, out var tc) ? new Dictionary<string, long>(tc) : null;
+    // Colours come from NHL 24's own row for his current team: NHL 27's zone numbers are laid out for NHL 27's models,
+    // so its palette mis-colours NHL 24's blocker and trapper (the brand wordmark lands on the wrong zone).
+    int? ownRow = ownTeams.TryGetValue((team, 0L), out var orow) ? orow : null;
+    var colours = ownRow is { } row24
+        ? colourCols.Where(stockTeam.Fields.ContainsKey).ToDictionary(c => c, c => stockDb.GetInt(stockTeam, row24, c))
+        : by27.TryGetValue(gid.ToString(), out var r27) && int.Parse(r27["team"]) == team
+            ? colourCols.ToDictionary(c => c, c => long.Parse(r27[c]))
+            : teamColours.TryGetValue(team, out var tc) ? new Dictionary<string, long>(tc) : null;
     if (colours is null) continue;
-    // Stock design to protect: the goalie's current NHL 24 colours.
+    // Stock design to protect: the goalie's current NHL 24 colours.  Only the NHL 27 fallback needs the contrast fix;
+    // the stock team palette is already authored for its own models.
     (T3Db.Table T, int R)? old = exRow.TryGetValue(gid, out var er) ? (exMain, er) : stRow.TryGetValue(gid, out var sr) ? (stMain, sr) : null;
-    if (old is { } o)
+    if (old is { } o && ownRow is null)
         foreach (var grp in colours.Keys.GroupBy(Group))
         {
             var cols = grp.Where(c => c != "sticktapecolor" && o.T.Fields.ContainsKey(c)).ToList();
@@ -167,7 +181,7 @@ foreach (var (gid, team) in teamOf)
         }
     // Brand lettering read from the pad's recolor masks: on TRUE pads (model 126, HZRDUS) the "TRUE" letters are zone 5,
     // cut out of zone 8. Same colour on both = unreadable (Detroit: red on red), so the letters get the contrast colour.
-    if (exRow.TryGetValue(gid, out var prow) && BrandOn.TryGetValue(main.GetInt(exMain, prow, "pads"), out var brand)
+    if (ownRow is null && exRow.TryGetValue(gid, out var prow) && BrandOn.TryGetValue(main.GetInt(exMain, prow, "pads"), out var brand)
         && Dist(colours[brand.Letters], colours[brand.Under]) < 60)
     {
         var under = colours[brand.Under];
@@ -175,30 +189,55 @@ foreach (var (gid, team) in teamOf)
         contrastFixed.Add($"{abbr.GetValueOrDefault(team)} {who}: {brand.Letters} {colours[brand.Letters]:X6} on {brand.Under} {under:X6} -> {pick:X6}");
         colours[brand.Letters] = pick;
     }
-    (long, long)? mask = null;
-    if (!stRow.TryGetValue(gid, out var row))
+    // The mask is the team's artwork, so it comes from the same NHL 24 team row: a traded goalie stops wearing his old
+    // team's helmet (Gibson still had Anaheim's Duck mask after moving to Detroit).
+    (long Type, long Id)? mask = ownRow is { } maskRow
+        ? (Type: stockDb.GetInt(stockTeam, maskRow, "masktype"), Id: stockDb.GetInt(stockTeam, maskRow, "maskid"))
+        : null;
+    if (mask is null)
     {
-        // No NHL gear row: the game falls back to his personal row (exhibitiongoalieequipment), which still carries his
-        // old (often AHL) mask. Give that row his team's home mask; the stock rows stay as they are.
-        if (exRow.TryGetValue(gid, out var pr) && teamMask.TryGetValue(team, out var hm) &&
-            (main.GetInt(exMain, pr, "masktype"), main.GetInt(exMain, pr, "maskid")) != hm)
+        // No NHL 24 team row: fall back to the team's most common NHL 27 mask that NHL 24 already uses.
+        if (!stRow.TryGetValue(gid, out var row))
         {
-            mask = hm;
-            maskChanges.Add($"{who} (personal row, no NHL gear row): mask {main.GetInt(exMain, pr, "masktype")}/{main.GetInt(exMain, pr, "maskid")} -> {abbr.GetValueOrDefault(team)} {hm.Type}/{hm.Id}");
+            // No NHL gear row: the game falls back to his personal row (exhibitiongoalieequipment), which still carries his
+            // old (often AHL) mask. Give that row his team's home mask; the stock rows stay as they are.
+            if (exRow.TryGetValue(gid, out var pr) && teamMask.TryGetValue(team, out var hm) &&
+                (main.GetInt(exMain, pr, "masktype"), main.GetInt(exMain, pr, "maskid")) != hm)
+            {
+                mask = hm;
+                maskChanges.Add($"{who} (personal row, no NHL gear row): mask {main.GetInt(exMain, pr, "masktype")}/{main.GetInt(exMain, pr, "maskid")} -> {abbr.GetValueOrDefault(team)} {hm.Type}/{hm.Id}");
+            }
+            else noRow.Add($"{abbr.GetValueOrDefault(team)} {who}");
         }
-        else noRow.Add($"{abbr.GetValueOrDefault(team)} {who}");
+        else if (main.GetInt(stMain, row, "team") != team && teamMask.TryGetValue(team, out var tm))
+        {
+            mask = tm;
+            long oldTeam = main.GetInt(stMain, row, "team");
+            maskChanges.Add($"{who}: {(oldTeam is >= 0 and < 32 ? abbr.GetValueOrDefault((int)oldTeam) : oldTeam.ToString())} mask {main.GetInt(stMain, row, "masktype")}/{main.GetInt(stMain, row, "maskid")} -> {abbr.GetValueOrDefault(team)} {tm.Type}/{tm.Id}");
+        }
     }
-    else if (main.GetInt(stMain, row, "team") != team && teamMask.TryGetValue(team, out var tm))
+    else
     {
-        mask = tm;
-        long oldTeam = main.GetInt(stMain, row, "team");
-        maskChanges.Add($"{who}: {(oldTeam is >= 0 and < 32 ? abbr.GetValueOrDefault((int)oldTeam) : oldTeam.ToString())} mask {main.GetInt(stMain, row, "masktype")}/{main.GetInt(stMain, row, "maskid")} -> {abbr.GetValueOrDefault(team)} {tm.Type}/{tm.Id}");
+        // Report the change against the NHL gear row (or the personal row when he has none).
+        (long Type, long Id, long Team) before = stRow.TryGetValue(gid, out var br)
+            ? (main.GetInt(stMain, br, "masktype"), main.GetInt(stMain, br, "maskid"), main.GetInt(stMain, br, "team"))
+            : exRow.TryGetValue(gid, out var er2)
+                ? (main.GetInt(exMain, er2, "masktype"), main.GetInt(exMain, er2, "maskid"), team)
+                : (-1L, -1L, team);
+        if (before.Type != mask.Value.Type || before.Id != mask.Value.Id || before.Team != team)
+            maskChanges.Add($"{who}: {(before.Team is >= 0 and < 32 ? abbr.GetValueOrDefault((int)before.Team) : before.Team.ToString())} mask {before.Type}/{before.Id} -> {abbr.GetValueOrDefault(team)} {mask.Value.Type}/{mask.Value.Id}");
     }
-    // NHL 27's gear models when he is on the same team there: the zone colours are laid out for them (Carter Hart: NHL 24's
-    // row kept model 110, his old Flyers Brian's, whose texture shows red where NHL 27's model 67 takes the zones).
-    var models = by27.TryGetValue(gid.ToString(), out var m27) && int.Parse(m27["team"]) == team
-        ? modelCols.Where(c => long.TryParse(m27[c], out var v) && validModels[c].Contains(v)).ToDictionary(c => c, c => long.Parse(m27[c]))
-        : new Dictionary<string, long>();
+    // Pads, blocker, trapper and stick come from that same NHL 24 team row: the palette and the model are the pair the
+    // game authored together, which is what keeps the brand wordmark legible.  (NHL 27's own row is only the fallback.)
+    var models = new Dictionary<string, long>();
+    if (ownRow is { } modelRow)
+    {
+        foreach (var c in modelCols)
+            if (stockTeam.Fields.ContainsKey(c)) models[c] = stockDb.GetInt(stockTeam, modelRow, c);
+    }
+    else if (by27.TryGetValue(gid.ToString(), out var m27) && int.Parse(m27["team"]) == team)
+        foreach (var c in modelCols)
+            if (long.TryParse(m27[c], out var v) && validModels[c].Contains(v)) models[c] = v;
     plan[gid] = (colours, mask, team, models);
 }
 
@@ -230,7 +269,7 @@ File.WriteAllLines(review, new[] { $"Goalie gear review ({DateTime.Now:yyyy-MM-d
     .Concat(["", $"Mask changes ({maskChanges.Count}):"]).Concat(maskChanges.Select(s => "  " + s))
     .Concat(["", $"Brand contrast fixed ({contrastFixed.Count}):"]).Concat(contrastFixed.Select(s => "  " + s))
     .Concat(["", $"Contrast still failing ({contrastFailed.Count}):"]).Concat(contrastFailed.Select(s => "  " + s))
-    .Concat(["", $"No NHL gear row and no usable personal row (left as is, {noRow.Count}):"]).Concat(noRow.Select(s => "  " + s)));
+    .Concat(["", $"No NHL 24 team row and no usable personal row (left as is, {noRow.Count}):"]).Concat(noRow.Select(s => "  " + s)));
 Say($"{plan.Count} goalies planned, {maskChanges.Count} mask changes, {contrastFixed.Count} contrast fixes, {contrastFailed.Count} failing. Review: {review}");
 // Writing needs --apply: anything else (a typo'd or missing mode included) stops here, read only.
 if (!WriteGate.Allowed(args)) { Say("dry run (pass --apply with --target to write)"); return 0; }
@@ -255,9 +294,8 @@ foreach (var (db, bytes) in raw)
                 if (t.Fields.ContainsKey(col) && t3.GetInt(t, r, col) != v) { t3.SetInt(t, r, col, v); cells++; }
             foreach (var (col, v) in p.Models)
                 if (t.Fields.ContainsKey(col) && t3.GetInt(t, r, col) != v) { t3.SetInt(t, r, col, v); cells++; modelChanges.Add((db, t3.GetInt(t, r, "game_id"), col, v)); }
-            // The zone colours only show when this flag is on; off, the game draws the gear model's own stock colours
-            // (Carter Hart on Vegas in red Flyers-style Brian's).
             if (t.Fields.ContainsKey("showcustomcolors") && t3.GetInt(t, r, "showcustomcolors") != 1) { t3.SetInt(t, r, "showcustomcolors", 1); cells++; customOn.Add((db, p.Team, t3.GetInt(t, r, "game_id"))); }
+            if (t.Fields.ContainsKey("showcustomstick") && t3.GetInt(t, r, "showcustomstick") != 1) { t3.SetInt(t, r, "showcustomstick", 1); cells++; }
             if (p.Mask is { } m)
             {
                 if (stock && t3.GetInt(t, r, "team") != p.Team) { t3.SetInt(t, r, "team", p.Team); cells++; }
@@ -273,8 +311,8 @@ foreach (var (db, bytes) in raw)
     if (cells > 0) output[names[db]] = saved;
 }
 
-foreach (var g in modelChanges.Where(c => c.Db == "nhl_game").GroupBy(c => c.Gid))
-    Say($"  gear models from NHL 27: {abbr.GetValueOrDefault(teamOf.GetValueOrDefault(g.Key))} {nameOf.GetValueOrDefault(g.Key, g.Key.ToString())} ({string.Join(", ", g.Select(c => $"{c.Col} {c.Value}").Distinct())})");
+var modelGoalies = modelChanges.Where(c => c.Db == "nhl_game").Select(c => c.Gid).Distinct().ToList();
+if (modelGoalies.Count > 0) Say($"  gear models from the team row: {modelGoalies.Count} goalie(s) ({string.Join(", ", modelGoalies.Take(30).Select(g => $"{abbr.GetValueOrDefault(teamOf.GetValueOrDefault(g))} {nameOf.GetValueOrDefault(g, g.ToString())}"))})");
 foreach (var g in customOn.Where(c => c.Db == "nhl_game").Select(c => c.Gid).Distinct())
     Say($"  custom colours switched on: {abbr.GetValueOrDefault(teamOf.GetValueOrDefault(g))} {nameOf.GetValueOrDefault(g, g.ToString())}");
 if (ApplyTarget.RunningGame() is { } running) { Say("REFUSED: " + running + " is running"); return 1; }
