@@ -150,19 +150,30 @@ static double Dist(long a, long b)
     return Math.Sqrt(dr * dr + dg * dg + db * db);
 }
 static int Chroma(long c) { int r = (int)(c >> 16) & 255, g = (int)(c >> 8) & 255, b = (int)c & 255; return Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)); }
-// Team palette: the coloured (non white/grey/black) zone colours of its club rows, most used first.
+// Near black, navy included (Winnipeg's 1C2132 is as dark as black): a team's dark tone, not a neutral.
+static bool Dark(long c) => Math.Max((c >> 16) & 255, Math.Max((c >> 8) & 255, c & 255)) < 70;
+// Team palette: the coloured (not white/grey, not dark) zone colours of its club rows, most used first.
 var palette = clubRows.GroupBy(c => c.Team).ToDictionary(g => g.Key, g =>
 {
     var counts = new List<(long C, int N)>();
-    foreach (var v in g.SelectMany(c => colourCols.Select(col => c.V[col])).Where(v => Chroma(v) >= 40))
+    foreach (var v in g.SelectMany(c => colourCols.Select(col => c.V[col])).Where(v => Chroma(v) >= 40 && !Dark(v)))
     {
         int i = counts.FindIndex(x => Dist(x.C, v) < 40);
         if (i < 0) counts.Add((v, 1)); else counts[i] = (counts[i].C, counts[i].N + 1);
     }
     return counts.OrderByDescending(x => x.N).Select(x => x.C).ToList();
 });
+// Team dark tone: the dark colour its club rows wear, when it is a real part of the look (at least a tenth of the
+// non-white zones).  Detroit has none, so a moved goalie's black becomes Detroit red, not black.
+var darkTone = clubRows.GroupBy(c => c.Team).ToDictionary(g => g.Key, g =>
+{
+    var zones = g.SelectMany(c => colourCols.Where(col => !col.StartsWith("stick")).Select(col => c.V[col])).Where(v => Dist(v, 0xE7E7E7) > 60 && Dist(v, 0xFFFFFF) > 60).ToList();
+    var dark = zones.Where(Dark).GroupBy(v => v).OrderByDescending(x => x.Count()).FirstOrDefault();
+    return dark is not null && dark.Count() * 10 >= zones.Count ? dark.Key : (long?)null;
+});
 long Recolour(long c, long from, long to)
 {
+    if (Dark(c)) return darkTone.GetValueOrDefault(to) ?? palette.GetValueOrDefault(to, [c])[0];
     var a = palette.GetValueOrDefault(from, []); var b = palette.GetValueOrDefault(to, []);
     int i = a.FindIndex(x => Dist(x, c) < 40);
     return i < 0 || b.Count == 0 ? c : b[Math.Min(i, b.Count - 1)];
@@ -271,7 +282,10 @@ foreach (var (gid, team) in teamOf)
 
 // ---- review ----
 File.WriteAllLines(review, new[] { $"Goalie gear review ({DateTime.Now:yyyy-MM-dd HH:mm})", "",
-    "Every goalie row is first put back to NHL 24's own values; then each NHL goalie below gets this on his personal and club rows.", "" }
+    "Every goalie row is first put back to NHL 24's own values; then each NHL goalie below gets this on his personal and club rows.", "",
+    "Team colours used for recolouring (palette, then dark tone):" }
+    .Concat(Enumerable.Range(0, 32).Select(t => $"  {abbr.GetValueOrDefault(t, t.ToString()),-4} {string.Join(' ', palette.GetValueOrDefault(t, []).Take(4).Select(c => c.ToString("X6")))} | dark {(darkTone.GetValueOrDefault(t) is { } d ? d.ToString("X6") : "none")}"))
+    .Concat(new[] { "" })
     .Concat(lines.OrderBy(l => abbr.GetValueOrDefault(l.Team, "")).ThenBy(l => l.Line).Select(l => $"{abbr.GetValueOrDefault(l.Team, l.Team.ToString()),-4} {l.Line}")));
 
 // Swatches, one band per goalie in review order: the colours his personal row has in the game now, then the plan
