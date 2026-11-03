@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Scorebug preview</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #12161c; }
+  /* The overlay stage is 1920x1080. "band" shows only the top of it, where the scorebug sits; "full" the whole stage. */
+  #wrap { position: relative; width: 100vw; overflow: hidden; }
+  #wrap.full { height: calc(100vw * 0.5625); }
+  #bg { position: absolute; inset: 0; background: linear-gradient(#cfe3ef, #e9f3f8 55%, #b9cfdb); }
+  #bg.dark { background: #2b2f38; }
+  ruffle-player { position: absolute; left: 0; top: 0; width: 100vw; height: calc(100vw * 0.5625); }
+</style>
+<script src="ruffle/ruffle.js"></script>
+</head>
+<body>
+<div id="wrap"><div id="bg"></div></div>
+<script>
+  // Center Ice Modding Suite: plays a scorebug preview movie (the ScoreClock with its images embedded). Every query
+  // parameter is passed to the movie as a FlashVar; nhl24kitPreview=1 makes it draw itself with sample data, and cfg=
+  // carries the settings text the game movie would read from its settings block.
+  window.RufflePlayer = window.RufflePlayer || {};
+  window.RufflePlayer.config = {
+    autoplay: "on", unmuteOverlay: "hidden", splashScreen: false, letterbox: "off",
+    wmode: "transparent", backgroundColor: null, contextMenu: "off", logLevel: "warn", publicPath: "ruffle/"
+  };
+  const q = new URLSearchParams(location.search);
+  const wrap = document.getElementById("wrap");
+  if (q.get("view") === "full") wrap.className = "full";
+  else wrap.style.height = "calc(100vw * " + (parseFloat(q.get("band")) || 0.135) + ")";
+  if (q.get("bg") === "dark") document.getElementById("bg").className = "dark";
+  window.addEventListener("load", () => {
+    const player = window.RufflePlayer.newest().createPlayer();
+    wrap.appendChild(player);
+    const parameters = { nhl24kitPreview: "1" };
+    for (const [k, v] of q) if (k !== "movie" && k !== "view" && k !== "band" && k !== "bg") parameters[k] = v;
+    player.load({ url: q.get("movie") + "?v=" + Date.now(), parameters });
+  });
+</script>
+</body>
+</html>
