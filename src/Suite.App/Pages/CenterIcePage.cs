@@ -69,6 +69,9 @@ public sealed class CenterIcePage : Grid
         linkRow.Children.Add(_file);
         linkRow.Children.Add(_nhl27);
         panel.Children.Add(linkRow);
+        // Right under the buttons that report into it: below the two 320-pixel previews it sat out of sight, and in a
+        // horizontal row it never wrapped, so a click looked like nothing happened.
+        panel.Children.Add(_status);
 
         var previews = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
         previews.Children.Add(Card("Stock slot (what is in the game now)", _stock));
@@ -77,7 +80,6 @@ public sealed class CenterIcePage : Grid
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
         actions.Children.Add(_apply);
-        actions.Children.Add(_status);
         panel.Children.Add(actions);
 
         _fetch.Click += async (_, _) => await FetchAsync();
@@ -122,11 +124,11 @@ public sealed class CenterIcePage : Grid
 
     void FillTargets()
     {
-        var test = @"D:\CIMS-test\NHL24-merged";
-        if (Directory.Exists(test)) _target.Items.Add(new Target("Test copy  —  " + test, test));
-        if (!string.IsNullOrWhiteSpace(_settings.ApplyTargetDir))
+        // The game folder from Settings, the one every other write goes to.  (A hardcoded test copy used to come first and
+        // stayed selected after that folder was deleted, so every read and fetch failed.)
+        if (!string.IsNullOrWhiteSpace(_settings.ApplyTargetDir) && Directory.Exists(_settings.ApplyTargetDir))
             _target.Items.Add(new Target("Game folder  —  " + _settings.ApplyTargetDir, _settings.ApplyTargetDir));
-        if (_target.Items.Count == 0) _target.Items.Add(new Target("(no game folder configured — Settings)", ""));
+        if (_target.Items.Count == 0) _target.Items.Add(new Target("(no game folder found — set ApplyTargetDir in Settings)", ""));
         _target.SelectedIndex = 0;
     }
 
@@ -156,8 +158,9 @@ public sealed class CenterIcePage : Grid
 
     async Task FetchAsync()
     {
-        if (string.IsNullOrWhiteSpace(_link.Text)) { Say("Paste the arena's TheFaceoff.net link first."); return; }
-        if (_stockSlot is null) { Say("Pick a slot with a readable stock texture first."); return; }
+        if (string.IsNullOrWhiteSpace(_link.Text)) { Say("Paste the arena's TheFaceoff.net link into the Link box first."); return; }
+        if (_stockSlot is null) await RefreshStockAsync();   // the slot preview may never have loaded (game folder moved, app opened early)
+        if (_stockSlot is null) { Say(_status.Text + "  Fetch needs the slot's stock texture to lay the picture out; fix that first."); return; }
         try
         {
             _fetch.IsEnabled = false;
