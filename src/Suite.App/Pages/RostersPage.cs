@@ -60,6 +60,36 @@ public sealed class RostersPage : ScrollViewer
         root.Children.Add(_results);
         root.Children.Add(Text("Team map (NHL API abbreviation → NHL 24 team): data\\nhlapi_teams.tsv, hand-editable. " +
             "Portraits from the NHL API and the saved-roster copy are the next steps of this button."));
+
+        root.Children.Add(Heading("Goalie gear"));
+        root.Children.Add(Text("Every goalie on an NHL roster: NHL 27's gear colours (or his team's), his current team's mask when his gear " +
+            "still names an old team, and readable brand lettering (TRUE on red pads). All five databases, in place. " +
+            "Preview only shows what would change; Write needs NHL 24 closed and backs up first."));
+        var goalies = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        goalies.Children.Add(Button("Preview goalie changes", () => _ = GoaliesAsync(false)));
+        goalies.Children.Add(Button("Write goalie gear to game", () => _ = GoaliesAsync(true)));
+        root.Children.Add(goalies);
+        root.Children.Add(_goalieStatus);
+    }
+
+    readonly TextBlock _goalieStatus = new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8)), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Consolas") };
+
+    /// <summary>Runs tools\GoalieFix (a dry run, or --apply on the game folder from Settings) and shows its summary.</summary>
+    async Task GoaliesAsync(bool write)
+    {
+        var exe = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tools", "GoalieFix", "bin", "Release", "net8.0", "GoalieFix.exe"));
+        const string nhl27 = @"C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\RosterConversion\nhl27-csv";
+        if (!File.Exists(exe)) { _goalieStatus.Text = @"GoalieFix is not built: dotnet build tools\GoalieFix -c Release"; return; }
+        if (write && MessageBox.Show($"Write goalie gear into {_settings.ApplyTargetDir}?\nClose NHL 24 first; a backup is taken.", "Goalie gear",
+                MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        _goalieStatus.Text = write ? "Writing..." : "Checking...";
+        var psi = new ProcessStartInfo(exe) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in new[] { "--target", _settings.ApplyTargetDir, "--nhl27", nhl27 }) psi.ArgumentList.Add(a);
+        if (write) psi.ArgumentList.Add("--apply");
+        var output = await Task.Run(() => { using var p = Process.Start(psi)!; var o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd(); p.WaitForExit(); return o; });
+        var review = Path.Combine(SuitePaths.Local, "goaliefix", "review.txt");
+        _goalieStatus.Text = string.Join("\n", output.Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).TakeLast(8)) +
+            (File.Exists(review) ? $"\nFull list: {review}" : "");
     }
 
     static string TeamsFile => Path.Combine(AppContext.BaseDirectory, "data", "nhlapi_teams.tsv");

@@ -31,6 +31,8 @@ public sealed class CenterIcePage : Grid
     readonly Image _result = new() { Width = 320, Height = 320, Stretch = Stretch.Uniform };
     readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)) };
     readonly Button _fetch = new() { Content = "Fetch from TheFaceoff.net", Padding = new Thickness(14, 5, 14, 5) };
+    readonly Button _file = new() { Content = "From file…", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(8, 0, 0, 0) };
+    readonly Button _nhl27 = new() { Content = "From NHL 27", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(8, 0, 0, 0) };
     readonly Button _apply = new() { Content = "Apply to this game", Padding = new Thickness(14, 5, 14, 5), IsEnabled = false, Margin = new Thickness(0, 0, 12, 0) };
 
     BundleIndex? _index;
@@ -48,7 +50,7 @@ public sealed class CenterIcePage : Grid
         panel.Children.Add(new TextBlock { Text = "Center ice", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
         panel.Children.Add(new TextBlock
         {
-            Text = Faceoff.Credit + "  Pick a slot, paste that arena's page or image link, fetch, look at the preview, then apply.",
+            Text = Faceoff.Credit + "  Pick a slot, then fetch its TheFaceoff.net link, pick a file, or take NHL 27's art; look at the preview, then apply.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 16),
             Foreground = new SolidColorBrush(Color.FromRgb(0x8f, 0xa3, 0xb8)), FontSize = 12,
         });
@@ -64,6 +66,8 @@ public sealed class CenterIcePage : Grid
         linkRow.Children.Add(new TextBlock { Text = "Link", Width = 52, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0x8f, 0xa3, 0xb8)) });
         linkRow.Children.Add(_link);
         linkRow.Children.Add(_fetch);
+        linkRow.Children.Add(_file);
+        linkRow.Children.Add(_nhl27);
         panel.Children.Add(linkRow);
 
         var previews = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
@@ -77,6 +81,8 @@ public sealed class CenterIcePage : Grid
         panel.Children.Add(actions);
 
         _fetch.Click += async (_, _) => await FetchAsync();
+        _file.Click += (_, _) => FromFile();
+        _nhl27.Click += async (_, _) => await FromNhl27Async();
         _apply.Click += async (_, _) => await ApplyAsync();
         panel.Children.Add(new TextBlock
         {
@@ -167,6 +173,51 @@ public sealed class CenterIcePage : Grid
         }
         catch (Exception ex) { Say("Fetch failed: " + ex.Message); _apply.IsEnabled = false; }
         finally { _fetch.IsEnabled = true; }
+    }
+
+    /// <summary>
+    /// A picture on disk: a ready decal (it has transparency) is used as it is, resized to the slot; a flat rink picture
+    /// goes through the same conversion as a TheFaceoff.net fetch. The red-line strip is cut either way when written.
+    /// </summary>
+    void FromFile()
+    {
+        if (_stockSlot is null) { Say("Pick a slot with a readable stock texture first."); return; }
+        var dlg = new Microsoft.Win32.OpenFileDialog { Title = $"Center ice for slot {Slot}", Filter = "Images (*.png;*.jpg;*.jpeg;*.dds;*.tga;*.bmp)|*.png;*.jpg;*.jpeg;*.dds;*.tga;*.bmp" };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            _rink = ImageIO.Load(dlg.FileName);
+            bool decal = Enumerable.Range(0, _rink.Width * _rink.Height).Any(i => _rink.Pixels[i * 4 + 3] < 250);
+            _converted = CenterIceImage.CutRedLine(decal ? ImageIO.ResizeSmooth(_rink, _stockSlot.Image.Width, _stockSlot.Image.Height) : CenterIceImage.ToSlot(_rink, _stockSlot.Image));
+            _result.Source = Show(_converted);
+            _apply.IsEnabled = true;
+            Say($"{Path.GetFileName(dlg.FileName)}: {(decal ? "transparent decal, used as it is" : "rink picture, ice keyed out and relaid out")}. Check the preview, then apply.");
+        }
+        catch (Exception ex) { Say("Could not use that file: " + ex.Message); _apply.IsEnabled = false; }
+    }
+
+    /// <summary>NHL 27's center ice for this team (same slot, except Utah: NHL 27 slot 30), decoded with the NHL 27 reader.</summary>
+    async Task FromNhl27Async()
+    {
+        if (_stockSlot is null) { Say("Pick a slot with a readable stock texture first."); return; }
+        try
+        {
+            _nhl27.IsEnabled = false;
+            var name = CenterIceSlots.Name(CenterIceSlots.Nhl27Slot(Slot));
+            var index = await IndexStore.GetAsync(IndexStore.Nhl27, _settings);
+            var entry = index.Entries.FirstOrDefault(e => e.Path == name);
+            if (entry is null) { Say($"NHL 27 has no {name.Split('/')[^1]}."); return; }
+            Say("Decoding NHL 27's art...");
+            var pngs = await new Suite.Convert27.TextureImages(_settings).Nhl27Async([new Suite.Convert27.Nhl27Texture(entry)]);
+            if (!pngs.TryGetValue(name, out var png)) { Say("The NHL 27 reader could not decode it."); return; }
+            _rink = ImageIO.Load(png);
+            _converted = CenterIceImage.CutRedLine(ImageIO.ResizeSmooth(_rink, _stockSlot.Image.Width, _stockSlot.Image.Height));
+            _result.Source = Show(_converted);
+            _apply.IsEnabled = true;
+            Say($"NHL 27 slot {CenterIceSlots.Nhl27Slot(Slot)} (same layout as NHL 24; red-line strip cut). Check the preview, then apply.");
+        }
+        catch (Exception ex) { Say("NHL 27 art failed: " + ex.Message); _apply.IsEnabled = false; }
+        finally { _nhl27.IsEnabled = true; }
     }
 
     async Task ApplyAsync()
