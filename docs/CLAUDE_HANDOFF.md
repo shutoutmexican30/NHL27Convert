@@ -263,3 +263,17 @@ Do **not** change the DB layout: same tables, columns, record counts, sort order
 Regenerate the staged CSVs with: read `nhl24-csv` + `nhl27-csv` under
 `C:\Users\devin\Documents\Codex\2026-10-20\...\RosterConversion\`, copy every `*color` column (player tables) and
 `zone1..zone15` (team table) from the 27 row with the same key into the 24 row, write with `\r\n`.
+### The user's bug report that names the real cause (2026-11-03): "when we moved john gibson he was still using a duck helmet"
+
+Checked in the dumps: **John Gibson, `game_id 9490`** - NHL 24 goalie equipment row says `team 0, maskid 0` (Anaheim's mask),
+NHL 27 says `team 10, maskid 10`. So the ported rosters **never updated `stockgoalieequipment.team`**, and the mask follows
+that stale team. The goalie equipment rows are per player and independent of the roster tables that were ported.
+
+`maskid == team` is **not** a general rule (only ~2 % of rows in either game), so do not derive the mask from the team id.
+Derive it per team from that game's own goalies: for each team, the **most common `maskid` among its goalies** is the team's
+mask; every goalie of that team gets it. Order matters:
+
+1. Set `team` per goalie from his current roster (NHL 24 ids) - this is the actual bug.
+2. Set `maskid` (and `masktype`) to his team's mode mask from step 1.
+3. Set the 52 colour-zone columns from the **team's** row, not from the player's NHL 27 row: for a moved player the 27 row
+   carries his old colours (Gibson's `trapperzone1color` is identical in both games because it is still Anaheim's).
