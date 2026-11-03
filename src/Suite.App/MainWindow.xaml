@@ -24,6 +24,7 @@
         <StackPanel x:Name="Nav">
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="home" Content="Home" IsChecked="True" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="convert27" Content="Convert 27" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="centerice" Content="Center ice" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="textures" Content="Textures &amp; logos" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="teams" Content="Teams &amp; roster" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="scorebug" Content="Scorebug" Checked="Nav_Checked" />
