@@ -7,7 +7,9 @@ public sealed record BrandingLayerSet(string ColorArraySlot, int Layer, string C
 
 public static class ManufacturerBranding
 {
-    public static void KeepStockLayer(ModFile mod, string colorSlot, int layer)
+    /// <param name="numberedColorSlot">The numbered texture showing this layer's picture (<see cref="SlotRoles.PairNumbered"/>),
+    /// whose colour/normal/coeff replacements go too; null = no numbered texture shows it, so none is touched.</param>
+    public static void KeepStockLayer(ModFile mod, string colorSlot, int layer, string? numberedColorSlot)
     {
         foreach (var role in new[] { "color", "normal", "coeff" })
         {
@@ -18,8 +20,8 @@ public static class ManufacturerBranding
                 if (r.Source.Length > 0) throw new InvalidDataException("A whole branding array cannot retain an unmatched team-logo layer. Use per-layer replacements.");
                 r.Layers?.Remove(layer);
             }
-            mod.Replacements.RemoveAll(r => (r.Slot == slot && (r.Layers?.Count ?? 0) == 0)
-                || r.Slot == stem + $"_{layer}_{role}");
+            var numbered = numberedColorSlot is null ? null : numberedColorSlot[..^"_color".Length] + "_" + role;
+            mod.Replacements.RemoveAll(r => (r.Slot == slot && (r.Layers?.Count ?? 0) == 0) || r.Slot == numbered);
         }
     }
 
@@ -37,7 +39,12 @@ public static class ManufacturerBranding
         mod.Replacements.RemoveAll(r => r.Layers is { Count: 0 });
     }
 
-    public static void ApplyToRows(IEnumerable<SlotMatch> rows, BrandingLayerSet item, string? reason = null)
+    /// <param name="numbered">
+    /// The numbered texture (…_N_color) that shows the same picture as array layer <c>item.Layer</c>, or null when none
+    /// does.  NHL 24 does not keep its arrays in the numbered textures' order (Detroit pants: array 0 = shield, 1 = club;
+    /// numbered 0 = club, 1 = empty, 2 = shield), so the mirror is never found by number.  The normal goes to the same N.
+    /// </param>
+    public static void ApplyToRows(IEnumerable<SlotMatch> rows, BrandingLayerSet item, Func<int, string?> numbered, string? reason = null)
     {
         var list = rows.ToList();
         foreach (var (slot, source) in new[] { (item.ColorArraySlot, item.ColorPng),
@@ -52,8 +59,9 @@ public static class ManufacturerBranding
                 row.Confidence = 1;
             }
             var role = slot.EndsWith("_color_array", StringComparison.Ordinal) ? "color" : "normal";
-            var mirrorSlot = item.ColorArraySlot[..^"_color_array".Length] + $"_{item.Layer}_{role}";
-            var mirror = list.FirstOrDefault(r => r.Slot == mirrorSlot);
+            if (numbered(item.Layer) is not { } colorSlot) continue;
+            var mirrorSlot = colorSlot[..^"_color".Length] + "_" + role;
+            var mirror = list.FirstOrDefault(r => r.Slot == mirrorSlot && !r.Manual);
             if (mirror is null) continue;
             mirror.Source27 = null; mirror.FilePath = source; mirror.Kind = SourceKind.File;
             mirror.Reason = reason ?? "Adidas → Fanatics: matching logo normal/mask and alpha"; mirror.Confidence = 1;

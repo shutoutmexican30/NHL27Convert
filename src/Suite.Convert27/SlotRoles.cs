@@ -164,17 +164,33 @@ public static class SlotRoles
     public const double PantsShieldMad = 40;
 
     /// <summary>
-    /// Pants layers match by position (user, 2026-11-03, checked on Detroit and Los Angeles): both games lay a pants set
-    /// out the same way - layer 0 the club mark, layer 1 an empty grey square, layer 2 the NHL shield - so NHL 24 layer N
-    /// takes NHL 27 layer N.  Recognition had read Detroit's empty layer 1 as the club mark and put the Red Wings onto it.
-    /// Each NHL 24 layer takes the role of the NHL 27 layer in the same place (so the role-by-role links pair them up);
-    /// layers marked manual are left alone, and a layer with no NHL 27 counterpart keeps what recognition found.
+    /// Which numbered texture (…_N_color) shows the same stock picture as each layer of a colour array, from the folder's
+    /// stock images (<paramref name="stock"/>: slot name → PNG, array layers as "slot#layer").  NHL 24 keeps its branding
+    /// arrays in its own order (Detroit pants: array 0 = NHL shield, 1 = club; numbered 0 = club, 1 = empty grey,
+    /// 2 = shield), so pairing by number put the Red Wings on the empty layer and turned sponsor patches into crests.
+    /// Pairs by picture instead: closest pairs first, each texture used once (two identical shoulder patches get one
+    /// each), only within the logo matcher's acceptance.  A layer with no partner is absent from the result.
     /// </summary>
-    public static List<LayerLabel> PantsByPosition(List<LayerLabel> labels24, IReadOnlyList<LayerLabel> labels27)
+    public static Dictionary<int, string> PairNumbered(string colorArraySlot, IReadOnlyDictionary<string, string> stock, Dictionary<string, double[]?>? cache = null)
     {
-        foreach (var l in labels24.Where(l => !l.Manual))
-            if (labels27.FirstOrDefault(x => x.Layer == l.Layer) is { } same) { l.Role = same.Role; l.Detail = same.Detail; }
-        return labels24;
+        cache ??= new(StringComparer.Ordinal);
+        double[]? Sil(string png)
+        {
+            if (!cache.TryGetValue(png, out var s)) cache[png] = s = LogoMatcher.Silhouette(png);
+            return s;
+        }
+        var prefix = colorArraySlot[..^"_color_array".Length] + "_";
+        var numbered = stock.Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal) && kv.Key.EndsWith("_color", StringComparison.Ordinal)
+                && int.TryParse(kv.Key[prefix.Length..^"_color".Length], out _))
+            .Select(kv => (Slot: kv.Key, Sil: Sil(kv.Value))).Where(x => x.Sil is not null).ToList();
+        var slices = stock.Where(kv => kv.Key.StartsWith(colorArraySlot + "#", StringComparison.Ordinal) && int.TryParse(kv.Key[(colorArraySlot.Length + 1)..], out _))
+            .Select(kv => (Layer: int.Parse(kv.Key[(colorArraySlot.Length + 1)..]), Sil: Sil(kv.Value))).Where(x => x.Sil is not null).ToList();
+        var pairs = new Dictionary<int, string>();
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (layer, slot, _) in slices.SelectMany(s => numbered.Select(n => (s.Layer, n.Slot, D: LogoMatcher.Difference(s.Sil!, n.Sil!))))
+                     .Where(x => x.D <= LogoMatcher.AcceptMad).OrderBy(x => x.D))
+            if (!pairs.ContainsKey(layer) && taken.Add(slot)) pairs[layer] = slot;
+        return pairs;
     }
 
     /// <summary>
@@ -267,7 +283,6 @@ public sealed class SlotMapStore
         if (entry is null) { entry = new SlotMapEntry { Folder24 = folder24, Folder27 = folder27, Garment = garment }; Entries.Add(entry); }
         entry.Layers24 = MergeLabels(entry.Layers24, SlotRoles.Label(images24, garment), garment == "branding_pant");
         entry.Layers27 = MergeLabels(entry.Layers27, SlotRoles.Label(images27, garment), garment == "branding_pant");
-        if (garment == "branding_pant") entry.Layers24 = SlotRoles.PantsByPosition(entry.Layers24, entry.Layers27);
         var (links, noSlot) = SlotRoles.Map(entry.Layers24, entry.Layers27);
         var manual = entry.Links.Where(l => l.Manual).ToDictionary(l => l.Nhl24);
         entry.Links = links.Select(l => manual.TryGetValue(l.Nhl24, out var m) ? m : l).ToList();

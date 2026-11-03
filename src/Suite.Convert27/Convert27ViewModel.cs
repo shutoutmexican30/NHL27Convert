@@ -355,6 +355,7 @@ public sealed class Convert27ViewModel : Observable
         if (_folder24 is null) return;
         var folder = _folder24;
         Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s, expected: ExpectedFor(folder));
+        _numbered.Clear();
         if (folder != _folder24) return;
         foreach (var r in Rows) UpdateThumbs(r);
         ClampArrayLayers();
@@ -544,19 +545,23 @@ public sealed class Convert27ViewModel : Observable
             }
         }
 
-        // Pass 2: the individual `_N_color` slots mirror the array layers, so they follow the array's answer.
-        foreach (var row in Rows)
-        {
-            if (row.IsArray || row.Manual || row.Kind != SourceKind.Stock) continue;
-            var name = row.Name;
-            if (name.Role != "color" || !IsLogoGarment(name.Garment) || name.Layer is not { } layerIndex) continue;
-            if (!arrayLayerSource.TryGetValue((name.Garment, layerIndex), out var source)) continue;
-            row.Kind = SourceKind.Nhl27;
-            row.Source27 = source;
-            row.Confidence = 0.9;
-            row.Reason = "same as the branding array layer (the game reads logos from the array)";
-            filled++;
-        }
+        // Pass 2: each individual `_N_color` slot follows the array layer that shows the same picture - found by picture,
+        // never by number (NHL 24 Detroit pants: array 0 = shield, 1 = club; numbered 0 = club, 1 = empty, 2 = shield,
+        // so "by number" put the Red Wings on the empty layer and sponsor patches turned into crests).  No picture match
+        // = it stays stock.
+        foreach (var array in Rows.Where(r => r.IsArray && r.Role == "color" && IsLogoGarment(r.Garment)).ToList())
+            foreach (var layer in array.Layers)
+            {
+                if (!arrayLayerSource.TryGetValue((array.Garment, layer.Layer), out var source)) continue;
+                if (NumberedFor(array.Slot, layer.Layer) is not { } slot) continue;
+                var row = Rows.FirstOrDefault(r => r.Slot == slot);
+                if (row is null || row.Manual || row.Kind != SourceKind.Stock) continue;
+                row.Kind = SourceKind.Nhl27;
+                row.Source27 = source;
+                row.Confidence = 0.9;
+                row.Reason = $"same picture as branding array layer {layer.Layer} (the game reads logos from the array)";
+                filled++;
+            }
 
         // Required branding rules also repair old saved/manual picks. Normal maps follow
         // the selected logo's source layer, never the destination's numeric index.
@@ -584,6 +589,7 @@ public sealed class Convert27ViewModel : Observable
                     {
                         ManufacturerBranding.ApplyToRows(Rows, new BrandingLayerSet(array.Slot, label.Layer,
                             TextureImages.Nhl27Png(alt.Value.Color.Name), TextureImages.Nhl27Png(alt.Value.Normal.Name)),
+                            l => NumberedFor(array.Slot, l),
                             "Adidas → Fanatics logo + normal from another NHL 27 set (the paired set has no brand layer)");
                         continue;
                     }
@@ -601,7 +607,7 @@ public sealed class Convert27ViewModel : Observable
                 if (normal is not null && File.Exists(TextureImages.Nhl27Png(normal.Name)))
                 {
                     ManufacturerBranding.ApplyToRows(Rows, new BrandingLayerSet(array.Slot, label.Layer,
-                        candidate.Png, TextureImages.Nhl27Png(normal.Name)), ManufacturerBranding.IsAdidas(label) ? null
+                        candidate.Png, TextureImages.Nhl27Png(normal.Name)), l => NumberedFor(array.Slot, l), ManufacturerBranding.IsAdidas(label) ? null
                             : "Pants club logo + matching normal; NHL shield is not a fallback");
                 }
                 else array.Reason = "Required matching logo normal map is missing; check before exporting";
@@ -812,7 +818,7 @@ public sealed class Convert27ViewModel : Observable
                             && n.Garment == array.Garment && n.Layer == crest.Layer);
                         if (crest is null || crestNormal is null || !File.Exists(TextureImages.Nhl27Png(crestNormal.Name)))
                         {
-                            ManufacturerBranding.KeepStockLayer(mod, array.Slot, target.Layer);
+                            ManufacturerBranding.KeepStockLayer(mod, array.Slot, target.Layer, SlotRoles.PairNumbered(array.Slot, stock).GetValueOrDefault(target.Layer));
                             continue;
                         }
                         manufacturerLayers.Add(new BrandingLayerSet(array.Slot, target.Layer,
@@ -1054,6 +1060,17 @@ public sealed class Convert27ViewModel : Observable
             Status = "Cannot read image: " + ex.Message;
             return null;
         }
+    }
+
+    readonly Dictionary<string, Dictionary<int, string>> _numbered = new(StringComparer.Ordinal);
+    readonly Dictionary<string, double[]?> _stockSil = new(StringComparer.Ordinal);
+
+    /// <summary>The numbered texture showing the same picture as an array layer (<see cref="SlotRoles.PairNumbered"/>), or null.</summary>
+    string? NumberedFor(string colorArraySlot, int layer)
+    {
+        if (!_numbered.TryGetValue(colorArraySlot, out var pairs))
+            _numbered[colorArraySlot] = pairs = SlotRoles.PairNumbered(colorArraySlot, Stock24, _stockSil);
+        return pairs.GetValueOrDefault(layer);
     }
 
     public string? StockImage(SlotMatch row) => Stock24.GetValueOrDefault(row.Slot) ?? Stock24.GetValueOrDefault(row.Slot + "#0");
