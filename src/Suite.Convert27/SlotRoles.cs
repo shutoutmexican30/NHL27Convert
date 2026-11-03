@@ -165,7 +165,8 @@ public static class SlotRoles
 
     /// <summary>
     /// NHL 24 pants layout (user, 2026-11-03: "for all teams the matching equivalent is ... 1", "all teams that have that
-    /// slot"): in every NHL 24 pants set that has a layer 1, layer 1 is the club mark and layer 0 the league shield.
+    /// slot", "there's no logo there at all"): in every NHL 24 pants set that has a layer 1, layer 1 is the club mark and
+    /// layer 0 is empty (blank, never written).
     /// Image recognition got this right only where it could read layer 1 (Detroit); elsewhere it saw a "sponsor" (Los
     /// Angeles) or blanks (sets with no cached art), and the NHL 27 club mark went nowhere.  A set without a layer 1 keeps
     /// what recognition found; no layer is ever added.  Layers marked manual are left alone.
@@ -173,7 +174,7 @@ public static class SlotRoles
     public static List<LayerLabel> PantsLayout24(List<LayerLabel> labels)
     {
         if (!labels.Any(x => x.Layer == 1)) return labels;
-        foreach (var (layer, role) in new[] { (0, "shield"), (1, "crest") })
+        foreach (var (layer, role) in new[] { (0, "blank"), (1, "crest") })
             if (labels.FirstOrDefault(x => x.Layer == layer) is { Manual: false } l) { l.Role = role; l.Detail = null; }
         return labels;
     }
