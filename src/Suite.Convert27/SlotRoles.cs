@@ -164,6 +164,21 @@ public static class SlotRoles
     public const double PantsShieldMad = 40;
 
     /// <summary>
+    /// NHL 24 pants layout (user, 2026-11-03: "for all teams the matching equivalent is ... 1", "all teams that have that
+    /// slot"): in every NHL 24 pants set that has a layer 1, layer 1 is the club mark and layer 0 the league shield.
+    /// Image recognition got this right only where it could read layer 1 (Detroit); elsewhere it saw a "sponsor" (Los
+    /// Angeles) or blanks (sets with no cached art), and the NHL 27 club mark went nowhere.  A set without a layer 1 keeps
+    /// what recognition found; no layer is ever added.  Layers marked manual are left alone.
+    /// </summary>
+    public static List<LayerLabel> PantsLayout24(List<LayerLabel> labels)
+    {
+        if (!labels.Any(x => x.Layer == 1)) return labels;
+        foreach (var (layer, role) in new[] { (0, "shield"), (1, "crest") })
+            if (labels.FirstOrDefault(x => x.Layer == layer) is { Manual: false } l) { l.Role = role; l.Detail = null; }
+        return labels;
+    }
+
+    /// <summary>
     /// Pants rule (user, 2026-11-02): every NHL 24 pants set already carries the NHL shield on the back, so no pants layer
     /// ever takes the shield from NHL 27 and the shield layers themselves stay stock. A team-logo layer is only ever
     /// filled by a club mark.
@@ -252,6 +267,7 @@ public sealed class SlotMapStore
         var entry = Find(folder24, folder27, garment);
         if (entry is null) { entry = new SlotMapEntry { Folder24 = folder24, Folder27 = folder27, Garment = garment }; Entries.Add(entry); }
         entry.Layers24 = MergeLabels(entry.Layers24, SlotRoles.Label(images24, garment), garment == "branding_pant");
+        if (garment == "branding_pant") entry.Layers24 = SlotRoles.PantsLayout24(entry.Layers24);
         entry.Layers27 = MergeLabels(entry.Layers27, SlotRoles.Label(images27, garment), garment == "branding_pant");
         var (links, noSlot) = SlotRoles.Map(entry.Layers24, entry.Layers27);
         var manual = entry.Links.Where(l => l.Manual).ToDictionary(l => l.Nhl24);
