@@ -384,3 +384,19 @@ section start)`).
 So the in-place editor is now unblocked at its hardest point: edit bits in records, recompute the table header CRC if a
 header byte changed (it will not, since field descriptors are untouched), recompute the trailing section CRC, and leave the
 header/list CRCs alone (they only cover sizes and names).
+### Field descriptors and the name map (also solved, 2026-11-03)
+
+Table header at its start: `u32[0]=2`, `u32[1]=record bytes (68)`, `u32[2]=total bits (543)`, `u32[3]=0`,
+`u32[4]=?`, `u32[5]=0xFFFF0000`, `u32[6]=field count (48)`, `u32[7]=0`; then the CRC at `+32`; then the descriptors.
+
+Each descriptor is **16 bytes**: `[u32 type][u32 bitOffset][name: 4 chars][u32 depth]`. Verified on the first table
+(`kVlL`): `type 3, bitOffset 384, name 'hMhA', depth 5`, then `389 / 'VLJB' / 3`, then `16 / 'MeaB' / 24` (a 24-bit colour).
+
+**No meta-XML parsing needed**: `dbwork\<db>\after\tables.json` (68 KB, written beside the CSVs) has, per table, the real
+`table` name, its `shortName`, `records`, `valid`, `max`, and **`fields` in descriptor order**. So field *i* of that list is
+descriptor *i* in the file - that is the whole mapping.
+
+Unknown left before writing: **where each integer field's minimum lives.** The format stores integers as an offset from the
+field minimum, and the 16-byte descriptor has no room for it, so it is either the `u32[4]`/`u32[5]` pair in the table header,
+a separate array between the descriptors and the records, or encoded in the `type` word. Resolve it by taking a known value -
+e.g. a colour that the CSV says is `15198183` - and finding which reading of the bits plus a plausible min reproduces it.
