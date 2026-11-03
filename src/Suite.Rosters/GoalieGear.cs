@@ -45,6 +45,19 @@ public sealed class GoalieGear
     {
         if (!File.Exists(T3Csv.PathOf(dumpDir, Table))) return 0;
         var table = T3Csv.Load(dumpDir, Table);
+        // The palette must come from NHL 24's own team rows: zone numbers are model-specific, so NHL 27's palette lands in the
+        // wrong place on NHL 24's blocker and trapper models. NHL 24 ships a correct per-team row for its own models.
+        Dictionary<(string, string), Dictionary<string, string>> ownTeams = [];
+        if (File.Exists(T3Csv.PathOf(dumpDir, TeamTable)))
+        {
+            var own = T3Csv.Load(dumpDir, TeamTable);
+            if (own.Has("team"))
+                foreach (var r in own.Rows.Take(own.ValidCount))
+                {
+                    var key = (own.Get(r, "team"), own.Has("league") ? own.Get(r, "league") : "");
+                    ownTeams.TryAdd(key, own.Header.ToDictionary(c => c, c => own.Get(r, c), StringComparer.Ordinal));
+                }
+        }
         int changed = 0, matched = 0, fallbackModels = 0;
         foreach (var row in table.Rows.Take(table.ValidCount))
         {
@@ -56,7 +69,7 @@ public sealed class GoalieGear
             if (table.Has("team"))
             {
                 var key = (table.Get(row, "team"), table.Has("league") ? table.Get(row, "league") : "");
-                _byTeam.TryGetValue(key, out teamColours);
+                if (!ownTeams.TryGetValue(key, out teamColours)) _byTeam.TryGetValue(key, out teamColours);
             }
             bool any = false;
             foreach (var col in table.Header)
