@@ -138,22 +138,25 @@ public sealed class CenterIcePage : Grid
     async Task RefreshStockAsync()
     {
         _converted = null; _apply.IsEnabled = false; _result.Source = null;
-        if (Game.Length == 0) { Say("Choose a game folder first."); return; }
+        // The dropdowns belong to the UI thread: read them here, and give the background task plain values ("The calling
+        // thread cannot access this object" otherwise, and the stock slot never loaded).
+        var game = Game; var slot = Slot;
+        if (game.Length == 0) { Say("Choose a game folder first."); return; }
         try
         {
             _status.Text = "Reading the stock slot...";
-            _stockSlot = await Task.Run(() => CenterIceSlots.Read(Game, Index(), Slot));
+            _stockSlot = await Task.Run(() => CenterIceSlots.Read(game, Index(game), slot));
             _stock.Source = Show(_stockSlot.Image);
-            Say($"Slot {Slot}: {_stockSlot.Res.Width}x{_stockSlot.Res.Height}, {_stockSlot.Res.MipCount} mips, BC7.");
+            Say($"Slot {slot}: {_stockSlot.Res.Width}x{_stockSlot.Res.Height}, {_stockSlot.Res.MipCount} mips, BC7.");
         }
-        catch (Exception ex) { _stockSlot = null; _stock.Source = null; Say("Slot " + Slot + ": " + ex.Message); }
+        catch (Exception ex) { _stockSlot = null; _stock.Source = null; Say("Slot " + slot + ": " + ex.Message); }
     }
 
-    BundleIndex Index()
+    BundleIndex Index(string game)
     {
-        if (_index is not null && _indexGame == Game) return _index;
-        _indexGame = Game;
-        return _index = BundleIndex.Build(Game);
+        if (_index is not null && _indexGame == game) return _index;
+        _indexGame = game;
+        return _index = BundleIndex.Build(game);
     }
 
     async Task FetchAsync()
@@ -236,7 +239,9 @@ public sealed class CenterIcePage : Grid
             Say("Applying...");
             var slot = Slot;
             var image = _converted;
-            var (ok, message, _) = await Task.Run(() => CenterIceSlots.Apply(Game, new Dictionary<int, Rgba> { [slot] = image }, p => _status.Text = p));
+            var game = Game;
+            var (ok, message, _) = await Task.Run(() => CenterIceSlots.Apply(game, new Dictionary<int, Rgba> { [slot] = image },
+                p => Dispatcher.BeginInvoke(() => _status.Text = p)));
             Say(message);
             if (ok) _stock.Source = Show(_stockSlot is null ? image : _stockSlot.Image);
         }
