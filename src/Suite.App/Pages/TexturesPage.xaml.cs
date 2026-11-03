@@ -190,9 +190,11 @@ public partial class TexturesPage : UserControl
             Filter = "Textures (*.dds;*.png;*.tga;*.jpg;*.bmp)|*.dds;*.png;*.tga;*.jpg;*.bmp|All files (*.*)|*.*",
         };
         if (dlg.ShowDialog() != true) return;
+        int? layer = int.TryParse(Layer.Text.Trim(), out var l) && l >= 0 ? l : null;
         _selected.Replacement = dlg.FileName;
+        _selected.ReplaceLayer = layer;
         _replacements[_selected.Slot] = dlg.FileName;
-        Status.Text = $"{_selected.Leaf}  →  {Path.GetFileName(dlg.FileName)}";
+        Status.Text = $"{_selected.Leaf}{(layer is null ? "" : $" layer {layer}")}  →  {Path.GetFileName(dlg.FileName)}";
     }
 
     void Clear_Click(object sender, RoutedEventArgs e)
@@ -220,7 +222,10 @@ public partial class TexturesPage : UserControl
                 Kind = "textures",
                 Comment = "Made by the texture browser.",
             };
-            foreach (var r in chosen) mod.Replacements.Add(new TextureReplacement(r.Slot, r.Replacement!));
+            foreach (var r in chosen)
+                mod.Replacements.Add(r.ReplaceLayer is { } layer
+                    ? new TextureReplacement(r.Slot, "", new Dictionary<int, string> { [layer] = r.Replacement! })
+                    : new TextureReplacement(r.Slot, r.Replacement!));
             var path = mod.Save();
             Status.Text = $"Saved {chosen.Count} replacement(s) to {path}. Nothing is written to the game.";
         }
@@ -229,6 +234,65 @@ public partial class TexturesPage : UserControl
             Status.Text = "Could not save the mod: " + ex.Message;
         }
     }
+
+    async void Export_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || !Game24) { Status.Text = "Pick an NHL 24 texture in the grid first."; return; }
+        var game = _settings.ApplyTargetDir;
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game)) { Status.Text = "Set the apply target game in Settings first."; return; }
+        var dlg = new OpenFolderDialog { Title = $"Folder for {_selected.Leaf} PNGs" };
+        if (dlg.ShowDialog() != true) return;
+        var slot = _selected.Slot;
+        Busy(true);
+        try
+        {
+            Status.Text = $"Reading {_selected.Leaf} from the game...";
+            int n = await Task.Run(() =>
+            {
+                var index = Suite.Core.Frostbite.BundleIndex.Build(game);
+                var t = Suite.Core.Frostbite.TextureSlots.Read(game, index, slot);
+                var layers = Suite.Core.Frostbite.Ps4Codec.DecodeSlices(t.Res, t.Stock);
+                var leaf = slot[(slot.LastIndexOf('/') + 1)..];
+                for (int i = 0; i < layers.Count; i++)
+                    ImageIO.SavePng(layers[i], Path.Combine(dlg.FolderName, layers.Count == 1 ? leaf + ".png" : $"{leaf}_layer{i}.png"));
+                return layers.Count;
+            });
+            Status.Text = $"Exported {n} PNG(s) to {dlg.FolderName}. Edit, then Choose replacement (with the Layer number for arrays).";
+        }
+        catch (Exception ex) { Status.Text = "Export failed: " + ex.Message; }
+        finally { Busy(false); }
+    }
+
+    async void Apply_Click(object sender, RoutedEventArgs e)
+    {
+        var mods = ModApply.LoadMods();
+        if (MessageBox.Show($"Write the mod list ({ModApply.TotalReplacements(mods)} texture(s)) into\n{_settings.ApplyTargetDir}?\n\nClose NHL 24 first. A backup is taken before writing.",
+                "Apply mod list", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        Busy(true);
+        try
+        {
+            var (ok, message) = await ModApply.ApplyAsync(_settings, line => Dispatcher.Invoke(() => Status.Text = line));
+            Status.Text = message;
+            if (!ok) MessageBox.Show(message, "Apply", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { Busy(false); }
+    }
+
+    async void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Put the game back to the backup taken right before the last apply?\nAnything written after that apply is undone too.",
+                "Undo last apply", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        Busy(true);
+        try
+        {
+            var (ok, message) = await ModApply.RestoreAsync(_settings, line => Dispatcher.Invoke(() => Status.Text = line));
+            Status.Text = message;
+            if (!ok) MessageBox.Show(message, "Undo", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { Busy(false); }
+    }
+
+    void ModList_Click(object sender, RoutedEventArgs e) => new ModListWindow(_settings) { Owner = Window.GetWindow(this) }.ShowDialog();
 
     void ShowReplacements_Click(object sender, RoutedEventArgs e)
     {
@@ -263,5 +327,7 @@ public sealed class TextureRow : Observable
         set { if (Set(ref _replacement, value)) Raise(nameof(ReplaceText)); }
     }
 
-    public string ReplaceText => _replacement is null ? "" : "✓ " + Path.GetFileName(_replacement);
+    public int? ReplaceLayer { get; set; }
+
+    public string ReplaceText => _replacement is null ? "" : "✓ " + (ReplaceLayer is { } l ? $"layer {l}: " : "") + Path.GetFileName(_replacement);
 }

@@ -41,12 +41,24 @@
         <WrapPanel Margin="0,8,0,0">
           <TextBlock Style="{StaticResource Caption}" Text="Selected" Margin="0,0,6,0" />
           <TextBlock x:Name="Selection" Text="(none)" VerticalAlignment="Center" Foreground="#aab4c3" Margin="0,0,12,0" MaxWidth="520" TextTrimming="CharacterEllipsis" />
+          <Button Content="Export current (PNG)…" Click="Export_Click"
+                  ToolTip="Saves what the game holds now (every layer of an array) as PNG, to edit and import back." />
+          <TextBlock Style="{StaticResource Caption}" Text="Layer" />
+          <TextBox x:Name="Layer" Width="36" VerticalContentAlignment="Center" Margin="0,0,6,0"
+                   ToolTip="For logo arrays (branding_*_array): the layer to replace, 0 = first (see Export). Blank = a whole sheet." />
           <Button Content="Choose replacement…" Click="Replace_Click" Background="#2f6fd6" />
           <Button Content="Clear replacement" Click="Clear_Click" />
           <TextBlock Style="{StaticResource Caption}" Text="Mod name" />
           <TextBox x:Name="ModName" Width="210" Text="Texture replacements" VerticalContentAlignment="Center" Margin="0,0,6,0" />
           <Button Content="Add replacements to mod list" Click="Save_Click" FontWeight="SemiBold" />
           <Button Content="Show replacements" Click="ShowReplacements_Click" />
+        </WrapPanel>
+        <WrapPanel Margin="0,8,0,0">
+          <Button Content="Apply mod list to game" Click="Apply_Click" FontWeight="SemiBold" Background="#2f8a4a"
+                  ToolTip="Writes the whole mod list into the apply target (Settings) with the suite's writer: backup, every copy, read-back. Close NHL 24 first." />
+          <Button Content="Undo last apply" Click="Undo_Click"
+                  ToolTip="Puts the game back to the backup taken right before the last apply." />
+          <Button Content="Open mod list…" Click="ModList_Click" />
         </WrapPanel>
       </StackPanel>
     </Border>
