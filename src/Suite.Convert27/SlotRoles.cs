@@ -164,19 +164,17 @@ public static class SlotRoles
     public const double PantsShieldMad = 40;
 
     /// <summary>
-    /// NHL 24 pants layout (user, 2026-11-03: "for all teams the matching equivalent is ... 1", "all teams that have that
-    /// slot", "there's no logo there at all"): in every NHL 24 pants set that has a layer 1, layer 1 is the club mark and
-    /// layer 0 is empty (blank, never written).
-    /// Image recognition got this right only where it could read layer 1 (Detroit); elsewhere it saw a "sponsor" (Los
-    /// Angeles) or blanks (sets with no cached art), and the NHL 27 club mark went nowhere.  A set without a layer 1 keeps
-    /// what recognition found; no layer is ever added.  Layers marked manual are left alone.
+    /// Pants layers match by position (user, 2026-11-03, checked on Detroit and Los Angeles): both games lay a pants set
+    /// out the same way - layer 0 the club mark, layer 1 an empty grey square, layer 2 the NHL shield - so NHL 24 layer N
+    /// takes NHL 27 layer N.  Recognition had read Detroit's empty layer 1 as the club mark and put the Red Wings onto it.
+    /// Each NHL 24 layer takes the role of the NHL 27 layer in the same place (so the role-by-role links pair them up);
+    /// layers marked manual are left alone, and a layer with no NHL 27 counterpart keeps what recognition found.
     /// </summary>
-    public static List<LayerLabel> PantsLayout24(List<LayerLabel> labels)
+    public static List<LayerLabel> PantsByPosition(List<LayerLabel> labels24, IReadOnlyList<LayerLabel> labels27)
     {
-        if (!labels.Any(x => x.Layer == 1)) return labels;
-        foreach (var (layer, role) in new[] { (0, "blank"), (1, "crest") })
-            if (labels.FirstOrDefault(x => x.Layer == layer) is { Manual: false } l) { l.Role = role; l.Detail = null; }
-        return labels;
+        foreach (var l in labels24.Where(l => !l.Manual))
+            if (labels27.FirstOrDefault(x => x.Layer == l.Layer) is { } same) { l.Role = same.Role; l.Detail = same.Detail; }
+        return labels24;
     }
 
     /// <summary>
@@ -268,8 +266,8 @@ public sealed class SlotMapStore
         var entry = Find(folder24, folder27, garment);
         if (entry is null) { entry = new SlotMapEntry { Folder24 = folder24, Folder27 = folder27, Garment = garment }; Entries.Add(entry); }
         entry.Layers24 = MergeLabels(entry.Layers24, SlotRoles.Label(images24, garment), garment == "branding_pant");
-        if (garment == "branding_pant") entry.Layers24 = SlotRoles.PantsLayout24(entry.Layers24);
         entry.Layers27 = MergeLabels(entry.Layers27, SlotRoles.Label(images27, garment), garment == "branding_pant");
+        if (garment == "branding_pant") entry.Layers24 = SlotRoles.PantsByPosition(entry.Layers24, entry.Layers27);
         var (links, noSlot) = SlotRoles.Map(entry.Layers24, entry.Layers27);
         var manual = entry.Links.Where(l => l.Manual).ToDictionary(l => l.Nhl24);
         entry.Links = links.Select(l => manual.TryGetValue(l.Nhl24, out var m) ? m : l).ToList();
