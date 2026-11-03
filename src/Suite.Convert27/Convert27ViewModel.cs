@@ -203,6 +203,24 @@ public sealed class Convert27ViewModel : Observable
 
     public Task ProposeWholeTeamAsync() => MatchFoldersAsync(Folders24.ToList(), $"team {Team}");
 
+    /// <summary>
+    /// Checks every team's NHL 27 kit picks (variant_map.json home/away/extraKits) against nhluniforms.com's drawings of
+    /// this season and shows the report. Read only; the drawings stay a local personal reference.
+    /// </summary>
+    public async Task CheckUniformsAsync()
+    {
+        if (Catalog27 is null) { Status = "The NHL 27 index is still loading."; return; }
+        Busy = true;
+        try
+        {
+            var (report, summary) = await UniformReference.CheckAsync(UniformReference.CurrentSeason(), Settings, Catalog27, Variants, s => Status = s);
+            Status = summary + " Report: " + report;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(report) { UseShellExecute = true });
+        }
+        catch (Exception ex) { Status = "Uniform check failed: " + ex.Message; }
+        finally { Busy = false; }
+    }
+
     /// <summary>Matches every uniform folder of every NHL team in the NHL 24 index (folders set by hand are kept).</summary>
     public Task ProposeAllTeamsAsync()
     {

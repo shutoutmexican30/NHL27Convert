@@ -115,6 +115,8 @@ public partial class Convert27View : UserControl
 
     async void ProposeAll_Click(object sender, RoutedEventArgs e) => await _vm.ProposeAllTeamsAsync();
 
+    async void CheckUniforms_Click(object sender, RoutedEventArgs e) => await _vm.CheckUniformsAsync();
+
     void Save_Click(object sender, RoutedEventArgs e) => _vm.Save();
 
     void EditVariants_Click(object sender, RoutedEventArgs e)

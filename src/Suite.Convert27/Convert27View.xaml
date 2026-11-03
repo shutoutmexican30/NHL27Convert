@@ -53,6 +53,8 @@
           <Button Content="Reset this folder" Click="Reset_Click" ToolTip="Recomputes every row, including ones you edited." />
           <Button Content="Match whole team" Click="ProposeTeam_Click" ToolTip="Every uniform folder of this team; folders you set by hand are kept." />
           <Button Content="Match all teams" Click="ProposeAll_Click" ToolTip="Every uniform folder of every team. Nothing is written to the game until Apply." />
+          <Button Content="Check vs nhluniforms.com" Click="CheckUniforms_Click"
+                  ToolTip="Compares every team's NHL 27 home, road and alternate picks with this season's drawings on nhluniforms.com, and flags kits that changed since last season. Read only; the drawings stay on this PC as a personal reference." />
           <Button Content="Save matches" Click="Save_Click" />
           <TextBlock Style="{StaticResource Caption}" Text="Mod name" Margin="12,0,6,0" />
           <TextBox x:Name="ModName" Width="200" Text="NHL 27 uniforms" VerticalContentAlignment="Center" Margin="0,0,6,0" />
