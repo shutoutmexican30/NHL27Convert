@@ -50,4 +50,29 @@ public class T3DbTests
         Assert.Equal(File.ReadAllBytes(path).Length, saved.Length);
         Assert.NotEqual(7122148, old);
     }
+
+    [Fact]
+    public void Insert_record_grows_the_table_inside_its_slots_with_valid_crcs()
+    {
+        var path = Path.Combine(Stock, "database", "t3db", "nhl_game.db");
+        if (!File.Exists(path)) return;
+        var bytes = File.ReadAllBytes(path);
+        var db = T3Db.Load((byte[])bytes.Clone(), Meta);
+        var t = db.Tables["stockteamjerseys"];
+        int inUse = t.InUse;
+        long after = db.GetInt(t, 11, "variant"), copied = db.GetInt(t, 3, "variant");
+        t = db.InsertRecord(t, 11, 3);
+        db.SetInt(t, 11, "variant", 99);
+        var saved = db.Save();
+        Assert.Equal(bytes.Length, saved.Length);
+        var again = T3Db.Load(saved, Meta);   // throws on any CRC mismatch
+        var g = again.Tables["stockteamjerseys"];
+        Assert.Equal(inUse + 1, g.InUse);
+        Assert.Equal(99, again.GetInt(g, 11, "variant"));
+        Assert.Equal(after, again.GetInt(g, 12, "variant"));       // the old record 11 moved down one slot
+        Assert.Equal(copied, again.GetInt(g, 3, "variant"));
+        // Every other table is untouched.
+        foreach (var other in again.Tables.Values.Where(x => x.Name != "stockteamjerseys"))
+            Assert.True(bytes.AsSpan(other.Start, other.End - other.Start).SequenceEqual(saved.AsSpan(other.Start, other.End - other.Start)), other.Name);
+    }
 }

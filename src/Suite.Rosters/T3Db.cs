@@ -115,6 +115,31 @@ public sealed class T3Db
         return f;
     }
 
+    /// <summary>
+    /// Adds one record at <paramref name="at"/>, a copy of record <paramref name="copyOf"/> (an index before the insert),
+    /// inside the table's own spare slots: the records from <paramref name="at"/> move down one slot, the header's in-use
+    /// count (high 16 bits of u32 +16) goes up and its CRC is recomputed.  The file size and every other table stay put;
+    /// only usable for tables whose records nothing points at by position (stockteamjerseys: keyed by team + variant).
+    /// Returns the table with the new count (also replacing it in <see cref="Tables"/>).
+    /// </summary>
+    public Table InsertRecord(Table t, int at, int copyOf)
+    {
+        if (t.InUse >= t.Slots) throw new InvalidOperationException($"{t.Name}: no spare slot ({t.InUse}/{t.Slots}).");
+        if (at < 0 || at > t.InUse || copyOf < 0 || copyOf >= t.InUse) throw new ArgumentOutOfRangeException(nameof(at));
+        var copy = Bytes.AsSpan(t.RecordsAt + copyOf * t.RecordBytes, t.RecordBytes).ToArray();
+        int from = t.RecordsAt + at * t.RecordBytes;
+        Buffer.BlockCopy(Bytes, from, Bytes, from + t.RecordBytes, (t.InUse - at) * t.RecordBytes);
+        copy.CopyTo(Bytes.AsSpan(from));
+        uint head = U32(Bytes, t.Start + 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(t.Start + 16), (uint)(t.InUse + 1) << 16 | (head & 0xFFFF));
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(t.Start + 32), Crc(Bytes.AsSpan(t.Start, 32)));
+        var grown = new Table { Name = t.Name, Short = t.Short, Start = t.Start, End = t.End, RecordBytes = t.RecordBytes, RecordsAt = t.RecordsAt, InUse = t.InUse + 1, Fields = t.Fields };
+        Tables[t.Name] = grown;
+        _dirty.Remove(t);
+        _dirty.Add(grown);
+        return grown;
+    }
+
     /// <summary>Recomputes the section CRC of every edited table and returns the bytes (same length as loaded).</summary>
     public byte[] Save()
     {

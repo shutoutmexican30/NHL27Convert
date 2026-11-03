@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Opens NHL 24 kit folders the game cannot select: adds their stockteamjerseys rows (in place, spare slots). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\..\src\Suite.Rosters\Suite.Rosters.csproj" />
+  </ItemGroup>
+</Project>
