@@ -50,6 +50,14 @@ public sealed class GoalieGear
         {
             if (!_byGameId.TryGetValue(table.Get(row, "game_id"), out var source)) continue;
             matched++;
+            // Colours come from the player's TEAM row, not his own row: a moved goalie keeps his old team's colours in his
+            // own NHL 27 row (Gibson still carried Anaheim's), and the team row is what makes the pads match the jersey.
+            Dictionary<string, string>? teamColours = null;
+            if (table.Has("team"))
+            {
+                var key = (table.Get(row, "team"), table.Has("league") ? table.Get(row, "league") : "");
+                _byTeam.TryGetValue(key, out teamColours);
+            }
             bool any = false;
             foreach (var col in table.Header)
             {
@@ -61,6 +69,8 @@ public sealed class GoalieGear
                 bool model = col == "masktype";
                 if (!colour && !model && col is not "showcustomcolors" and not "showcustomstick") continue;
                 if (model && _validModels.TryGetValue(col, out var allowed) && !allowed.Contains(value)) { fallbackModels++; continue; }
+                if (colour && teamColours is not null && teamColours.TryGetValue(col, out var teamValue) && teamValue.Length > 0)
+                    value = teamValue;
                 if (table.Get(row, col) != value) { table.Set(row, col, value); any = true; }
             }
             if (any) changed++;
