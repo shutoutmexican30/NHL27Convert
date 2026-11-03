@@ -315,3 +315,24 @@ Fallback if the in-place edit proves unsafe: full serialise from the parsed tabl
 re-emitted unchanged), which the format supports but needs the Huffman tree round-tripped.
 
 Do not grow tables (`NMaxRecords`), do not change keys, and keep `RosterDbJob.Guard` (layout identical) passing.
+
+### The game has FIVE databases - all of them matter
+
+| Database | Legacy file | Dumped to |
+|---|---|---|
+| `nhl_game` | `gamemodes/database/t3db/nhl_game.db` | `dbwork\nhl_game\` |
+| `entry_draft` | `gamemodes/roster/entry_draft.db` | `dbwork\entry_draft\` |
+| `expansion_draft` | `gamemodes/roster/expansion_draft.db` | `dbwork\expansion_draft\` |
+| `initial_experience` | `gamemodes/roster/initial_experience.db` | `dbwork\initial_experience\` |
+| `threes_campaign` | `gamemodes/roster/threes_campaign.db` | `dbwork\threes_campaign\` |
+
+They **all open with the same `nhl_game-meta.xml`** (per `docs/reference/DATABASE_EDITING.md` §1), and each carries its own
+copy of the equipment tables - `entry_draft`/`expansion_draft`/`threes_campaign` have 11 tables each, `initial_experience`
+39, `nhl_game` 119. `RosterSyncRun` already loops over the five (`dbs`), so the writer must:
+
+- be given the **same meta XML** for every one of them,
+- be run per database, and the result written back per database,
+- never assume the table set is the same: `stockgoalieequipment` / `stockteamequipmenttable` exist only where that mode
+  has them, so skip a database that has no such table instead of failing the run.
+
+A goalie who appears in the season modes keeps his NHL 24 colours if those four databases are not written too.
