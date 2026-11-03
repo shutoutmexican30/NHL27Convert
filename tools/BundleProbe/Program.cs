@@ -10,7 +10,8 @@ Oodle.Ensure(SuiteSettings.Load());
 var index = BundleIndex.Build(args[0], s => Console.WriteLine(s));
 Console.WriteLine($"index built in {sw.Elapsed.TotalSeconds:F1}s");
 var tocs = BundleIndex.Tocs(args[0]).Select(TocFile.Load).ToList();
-foreach (var name in args.Skip(1))
+foreach (var name in args.Skip(1).SelectMany(a => index.ResByName.ContainsKey(a) ? [a]
+    : index.ResByName.Keys.Where(k => k.EndsWith("/" + a, StringComparison.OrdinalIgnoreCase)).DefaultIfEmpty(a)))
 {
     if (!index.ResByName.TryGetValue(name, out var list)) { Console.WriteLine($"{name}: no RES"); continue; }
     foreach (var r in list)
@@ -24,8 +25,8 @@ foreach (var name in args.Skip(1))
             var id = new Guid(raw.AsSpan(32, 16));
             int w = BitConverter.ToUInt16(raw, 22), h = BitConverter.ToUInt16(raw, 24), mips = raw[30];
             Console.WriteLine($"   header: {w}x{h}, {mips} mips, chunk {id}");
-            var tocHit = tocs.Select(t => t.Find(id)).FirstOrDefault(x => x is not null);
-            if (tocHit is not null) Console.WriteLine($"   chunk in TOC table {Path.GetFileName(tocHit.Toc)}: patch={tocHit.Patch} cat={tocHit.Catalog} cas={tocHit.Cas} @{tocHit.Offset} {tocHit.Size}");
+            foreach (var tocHit in tocs.Select(t => t.Find(id)).Where(x => x is not null))
+                Console.WriteLine($"   chunk in TOC table {Path.GetFileName(tocHit.Toc)}: patch={tocHit.Patch} cat={tocHit.Catalog} cas={tocHit.Cas} @{tocHit.Offset} {tocHit.Size}");
             if (index.ChunksById.TryGetValue(id, out var bc))
                 foreach (var c in bc) Console.WriteLine($"   chunk in bundle '{c.Bundle.FirstName}' ({Path.GetFileName(c.Bundle.Toc)}): {Path.GetRelativePath(args[0], c.Data.Cas)} @{c.Data.Offset} {c.Data.Size}, logical {c.LogicalOffset}+{c.LogicalSize}");
         }
