@@ -336,3 +336,23 @@ copy of the equipment tables - `entry_draft`/`expansion_draft`/`threes_campaign`
   has them, so skip a database that has no such table instead of failing the run.
 
 A goalie who appears in the season modes keeps his NHL 24 colours if those four databases are not written too.
+### Layout confirmed from the real `nhl_game.db` (13,726,652 bytes) - start here
+
+```
+0      "DB\0\x08" then u32 0            (8 bytes)
+8      u32 file size          = 13726652
+12     u32 0
+16     u32 table count        = 119
+20     u32 header CRC         = 0x0CA397FA
+24     table list: count x [4-byte short name][u32 offset]   (offset 0 = first table, relative to the end of the list)
+976    u32 table-list CRC     = 0xE1F14E46
+984    first table            (short name kVlL, offset 0)
+```
+
+**The CRC is not zlib CRC-32** - tried over `0..20`, `0..16`, `8..20`, `4..20`, `0..24` and the table list, none matched the
+stored values. Identify the polynomial before writing anything: candidates are the standard reflected CRC-32 with an
+explicit init/xor (FIFA tools use one), non-reflected poly `0x04C11DB7`, or EA's DBO variant. The test that settles it is the
+header CRC itself: one u32 covering bytes the format defines, so a correct implementation reproduces `0x0CA397FA` exactly.
+
+Once that matches, the table section CRC is found the same way (probe the bytes between a table's start and its trailing
+CRC), and only then is the in-place editor safe.
