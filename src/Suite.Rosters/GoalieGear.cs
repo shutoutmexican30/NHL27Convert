@@ -55,7 +55,10 @@ public sealed class GoalieGear
             {
                 if (!source.TryGetValue(col, out var value) || col == "game_id") continue;
                 bool colour = col.Contains("zone", StringComparison.Ordinal) || col == "sticktapecolor";
-                bool model = PlayerModels.Contains(col, StringComparer.Ordinal);
+                // Never adopt the NHL 27 pad/trapper/blocker/stick model: the model carries the brand wordmark, so
+                // copying it renames the gear on the player. Only the mask type travels, and the team mask comes from the
+                // team table below.
+                bool model = col == "masktype";
                 if (!colour && !model && col is not "showcustomcolors" and not "showcustomstick") continue;
                 if (model && _validModels.TryGetValue(col, out var allowed) && !allowed.Contains(value)) { fallbackModels++; continue; }
                 if (table.Get(row, col) != value) { table.Set(row, col, value); any = true; }
