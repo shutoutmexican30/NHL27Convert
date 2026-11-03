@@ -144,7 +144,18 @@ foreach (var (gid, team) in teamOf)
             }
         }
     (long, long)? mask = null;
-    if (!stRow.TryGetValue(gid, out var row)) noRow.Add($"{abbr.GetValueOrDefault(team)} {who}");
+    if (!stRow.TryGetValue(gid, out var row))
+    {
+        // No NHL gear row: the game falls back to his personal row (exhibitiongoalieequipment), which still carries his
+        // old (often AHL) mask. Give that row his team's home mask; the stock rows stay as they are.
+        if (exRow.TryGetValue(gid, out var pr) && teamMask.TryGetValue(team, out var hm) &&
+            (main.GetInt(exMain, pr, "masktype"), main.GetInt(exMain, pr, "maskid")) != hm)
+        {
+            mask = hm;
+            maskChanges.Add($"{who} (personal row, no NHL gear row): mask {main.GetInt(exMain, pr, "masktype")}/{main.GetInt(exMain, pr, "maskid")} -> {abbr.GetValueOrDefault(team)} {hm.Type}/{hm.Id}");
+        }
+        else noRow.Add($"{abbr.GetValueOrDefault(team)} {who}");
+    }
     else if (main.GetInt(stMain, row, "team") != team && teamMask.TryGetValue(team, out var tm))
     {
         mask = tm;
@@ -182,7 +193,7 @@ File.WriteAllLines(review, new[] { $"Goalie gear review ({DateTime.Now:yyyy-MM-d
     .Concat(["", $"Mask changes ({maskChanges.Count}):"]).Concat(maskChanges.Select(s => "  " + s))
     .Concat(["", $"Brand contrast fixed ({contrastFixed.Count}):"]).Concat(contrastFixed.Select(s => "  " + s))
     .Concat(["", $"Contrast still failing ({contrastFailed.Count}):"]).Concat(contrastFailed.Select(s => "  " + s))
-    .Concat(["", $"On an NHL roster but no NHL gear row (left as is, {noRow.Count}):"]).Concat(noRow.Select(s => "  " + s)));
+    .Concat(["", $"No NHL gear row and no usable personal row (left as is, {noRow.Count}):"]).Concat(noRow.Select(s => "  " + s)));
 Say($"{plan.Count} goalies planned, {maskChanges.Count} mask changes, {contrastFixed.Count} contrast fixes, {contrastFailed.Count} failing. Review: {review}");
 // Writing needs --apply: anything else (a typo'd or missing mode included) stops here, read only.
 if (!WriteGate.Allowed(args)) { Say("dry run (pass --apply with --target to write)"); return 0; }
