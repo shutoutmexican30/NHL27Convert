@@ -522,7 +522,10 @@ public sealed class Convert27ViewModel : Observable
                 if (stockPng is null || Sil(stockPng) is not { } stock) continue;
                 string? pick = null;
                 double best = double.MaxValue;
-                foreach (var i in items.Where(i => !used.Contains(i.Name)))
+                // A league-wide logo (NHL shield, maker mark, patch) only pairs with that same logo, and anything else
+                // never with one: shape alone paired sponsor patches and shield-shaped crests with the NHL shield.
+                var league = SlotRoles.KnownLogo(stock);
+                foreach (var i in items.Where(i => !used.Contains(i.Name) && SlotRoles.KnownLogo(i.Sil) == league))
                 {
                     var score = LogoMatcher.Difference(stock, i.Sil);
                     if (score <= LogoMatcher.AcceptMad && score < best) { best = score; pick = i.Name; }

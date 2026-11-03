@@ -80,10 +80,19 @@ public static class SlotRoles
     {
         if (png is null) return null;
         var s = LogoMatcher.Silhouette(png);
-        if (s is null || IsBlank(s)) return null;
-        return Refs().Select(r => (r.Key, d: LogoMatcher.Difference(s, r.Value)))
-            .Where(r => r.d <= LogoMatcher.AcceptMad).OrderBy(r => r.d).Select(r => r.Key).FirstOrDefault();
+        return s is null || IsBlank(s) ? null : KnownLogo(s);
     }
+
+    /// <summary>
+    /// How close a silhouette must be to a league-wide reference to BE that logo.  League logos are the same picture in
+    /// every set of both games: the NHL shield, adidas, Fanatics and End Plastic Waste score 0 (measured on DET, LA, MIN,
+    /// NYR and NHL 27 LA).  Club crests shaped like the shield score 18-40 (Kings 21, Rangers pants 18, Wild 38), so the
+    /// old cut-off (24, pants 40) read them as the shield and paired the NHL shield onto them; sponsors score 50+.
+    /// </summary>
+    public const double LeagueLogoMad = 10;
+
+    public static string? KnownLogo(double[] s) => Refs().Select(r => (r.Key, d: LogoMatcher.Difference(s, r.Value)))
+        .Where(r => r.d <= LeagueLogoMad).OrderBy(r => r.d).Select(r => r.Key).FirstOrDefault();
 
     /// <summary>Automatic labels for a garment's layers. <paramref name="images"/>: layer → PNG/DDS path (null = no image).</summary>
     public static List<LayerLabel> Label(IReadOnlyList<(int Layer, string? Image)> images, string? garment = null)
@@ -94,8 +103,7 @@ public static class SlotRoles
         {
             var s = sil[layer];
             if (s is null || IsBlank(s)) { labels.Add(new LayerLabel { Layer = layer, Role = "blank" }); continue; }
-            var known = Refs().Select(r => (r.Key, d: LogoMatcher.Difference(s, r.Value))).Where(r => r.d <= LogoMatcher.AcceptMad)
-                .OrderBy(r => r.d).Select(r => r.Key).FirstOrDefault();
+            var known = KnownLogo(s);
             if (known == "patch_epw")
             {
                 labels.Add(new LayerLabel { Layer = layer, Role = EpwRole, Detail = "End Plastic Waste", Placement = EpwPlacement });
@@ -151,17 +159,16 @@ public static class SlotRoles
     }
 
     /// <summary>
-    /// Looser than <see cref="KnownLogo"/>: true when an image is the NHL shield even as rendered a little differently by
-    /// either game (different logos are >= 46 apart on the silhouette scale, so 40 still separates them).
+    /// True when an image is the NHL shield.  It was looser than <see cref="KnownLogo"/> (40, "rendered a little
+    /// differently by either game"), but both games' shields score 0 against the reference and shield-shaped club logos
+    /// score 18-40: at 40 the Kings' and Wild's pants logos counted as the shield and were kept stock.
     /// </summary>
     public static bool LooksLikeShield(string? png)
     {
         if (png is null || !File.Exists(png) || !Refs().TryGetValue("shield", out var shield)) return false;
         var s = LogoMatcher.Silhouette(png);
-        return s is not null && !IsBlank(s) && LogoMatcher.Difference(s, shield) <= PantsShieldMad;
+        return s is not null && !IsBlank(s) && LogoMatcher.Difference(s, shield) <= LeagueLogoMad;
     }
-
-    public const double PantsShieldMad = 40;
 
     /// <summary>
     /// Which numbered texture (…_N_color) shows the same stock picture as each layer of a colour array, from the folder's
