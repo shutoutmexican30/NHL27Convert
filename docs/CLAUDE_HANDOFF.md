@@ -226,3 +226,40 @@ The stock fabric is a fine **diagonal** weave; whatever comes out has to read at
 The CPU has been throwing fatal WHEA 18 cache-hierarchy errors (11 in 14 days, 8 on one SMT pair) plus 9 Kernel-Power
 41 resets — a Ryzen Master `-16` all-core curve optimiser was the cause. `tools\remove-ryzen-master.ps1` (run elevated,
 then reboot) and `tools\stability-report.ps1 -Days 2` are ready. XMP now holds at 3200. Zero Display TDRs.
+---
+
+## 11. NEXT NEXT TASK — goalie colours and team masks (user asked 2026-11-03, not started)
+
+The user wants **every goalie's pads/blocker/trapper/stick in team colours** and **every goalie in his team's mask**, taking
+the values from NHL 27 because the rosters are ported from it. Explicit approval was given to write to the CIMS game.
+
+**Data is already staged** in `%TEMP%\goalie-colors\` (regenerate with the script in this section if missing):
+
+| Table | Rows | Matched | Rows changed | Colour cells |
+|---|---|---|---|---|
+| `stockgoalieequipment.csv` | 2,129 | 1,737 | 751 | 14,090 |
+| `exhibitiongoalieequipment.csv` | 1,783 | 1,435 | 407 | 7,322 |
+| `stockteamequipmenttable.csv` | 12,781 | 12,666 | 4,410 | 41,573 |
+
+Keyed by `game_id` (player tables, 52 `*color` columns) and by `team`+`brand`+`equipment` (team table, `zone1..zone15`).
+Schemas are identical apart from NHL 27's extra `skatebrand`.
+
+**Masks cannot be coloured** - there is no mask colour column anywhere in the DB. A mask is chosen by `masktype` +
+`maskid` (per player) and its colour lives in the mask art `content/character/skater/goalie/helmet/<brand>/textures/
+goalie_helmet_<brand>_<n>_color`. So "team mask" means either (a) pointing goalies at the mask whose art is that team's
+(NHL 27 assignment, ported by the same `game_id` key) or (b) porting the NHL 27 mask texture - which is only valid if the
+mask model's UV matches between games (**not yet tested**; do the same crop comparison that caught the jersey error).
+
+**The write pipeline (DB, not CSV drop) - use the Worker's DB commands, which still work** (it only breaks on `Texture`):
+
+1. `LegacyWrite export <CIMS game> <dir> gamemodes/database/t3db/nhl_game.db` (and the other four DBs).
+2. `NHL24Kit.Worker db-dump <db> <metaXml> <outDir>` - see `Suite.Rosters.RosterDbJob.DumpAsync` for the exact call.
+3. Overwrite the three CSVs in that dump with the staged ones.
+4. `NHL24Kit.Worker db-import ...` to rebuild the DB (see `RosterDbJob`/`RosterSyncRun.ExportStockAsync` for the flow).
+5. Write it back with `LegacyApply.Apply` (backup + read-back), exactly as `tools\RosterApply` does.
+
+Do **not** change the DB layout: same tables, columns, record counts, sort order (`RosterDbJob.Guard` checks this).
+
+Regenerate the staged CSVs with: read `nhl24-csv` + `nhl27-csv` under
+`C:\Users\devin\Documents\Codex\2026-10-20\...\RosterConversion\`, copy every `*color` column (player tables) and
+`zone1..zone15` (team table) from the 27 row with the same key into the 24 row, write with `\r\n`.
