@@ -6,6 +6,20 @@
 using Suite.Core;
 using Suite.Core.Frostbite;
 
+if (args.Length == 4 && args[0] == "slotapply")
+{
+    // slotapply <game> <slot> <rink image> - the page's Apply, from the command line (backup, read-back).
+    var game = Path.GetFullPath(args[1]);
+    int slot = int.Parse(args[2]);
+    var rink = ImageIO.Load(args[3]);
+    var index = BundleIndex.Build(game);
+    var s = CenterIceSlots.Read(game, index, slot);
+    var image = CenterIceImage.ToSlot(rink, s.Image);
+    var (ok, message, _) = CenterIceSlots.Apply(game, new Dictionary<int, Rgba> { [slot] = image }, Console.WriteLine);
+    Console.WriteLine((ok ? "OK " : "FAILED ") + message);
+    return ok ? 0 : 1;
+}
+
 if (args.Length == 5 && args[0] == "slotconvert")
 {
     // slotconvert <game> <slot> <rink image> <out.png> - the conversion the page performs, previewed as a PNG only.

@@ -89,8 +89,12 @@ public static class Faceoff
     static DateTime _last = DateTime.MinValue;
     static readonly SemaphoreSlim Gate = new(1, 1);
 
-    /// <summary>The site's "1-1 Placeholder" upload, shown for seasons whose art is not posted yet (seen 2026-11-03).</summary>
-    const string PlaceholderMedia = "1355d81e56fb457f9291640812cf4f9f";
+    /// <summary>
+    /// Was treated as the site's "1-1 Placeholder" upload and refused. It is also the real 2027 Detroit page's picture
+    /// (checked 2026-11-03: 1000x1000 Hockeytown without the 100), so refusing it rejected a page the user wanted. A
+    /// page's own picture is what gets fetched; if a season has no art, the mismatch shows up in the preview instead.
+    /// </summary>
+    const string PlaceholderMedia = "";
 
     public static string Cache => SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "faceoff"));
 
@@ -126,7 +130,7 @@ public static class Faceoff
             if (!m.Success) throw new InvalidOperationException("No picture found on that page.");
             imageUrl = System.Net.WebUtility.HtmlDecode(m.Groups[m.Groups.Count > 1 && m.Groups[1].Success ? 1 : 0].Value);
             // A season whose art is not posted yet uses the site's shared placeholder picture (one fixed upload).
-            if (imageUrl.Contains(PlaceholderMedia, StringComparison.OrdinalIgnoreCase))
+            if (PlaceholderMedia.Length > 0 && imageUrl.Contains(PlaceholderMedia, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("That page has no center ice posted yet (placeholder picture). Try the previous season's page.");
         }
         // Wix serves resized copies under /v1/...; the part before it is the original upload.
