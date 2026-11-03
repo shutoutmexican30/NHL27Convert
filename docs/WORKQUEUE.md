@@ -93,6 +93,24 @@ slots we cannot write yet are the ones whose header we have never exported. Two 
 from index metadata (width/height/format/mips are all in the index) validated byte-for-byte against the two known headers,
 or export headers with FMT under elevation.
 
+## 0c. Which maps may cross games - the rule the Boston test proved (2026-11-02)
+
+The Boston colour write worked mechanically and looked **wrong in game**, and the user spotted why: the jersey's
+`_color` sheet is **bound to that game's jersey mesh unwrap**. NHL 24 and NHL 27 unwrap the jersey differently (the
+before/after comparison shows NHL 27's sleeve stripes angled and its shoulder yoke wavy where NHL 24's are straight), so
+blitting one onto the other puts the stripes in the wrong places. Same applies to `_normal` and `_coeff`.
+
+**Never transfer across games**: `jersey_*_color`, `jersey_*_normal`, `jersey_*_coeff`, and the same for pants/socks -
+anything whose pixels are addressed by the garment mesh's UVs.
+
+**Safe to transfer**, because the game composites them itself and they are not addressed by the garment mesh:
+- the **branding array layers** (crest, shield, brand mark, back-hem tag, sponsor) - this is the matcher's whole basis;
+- helmet logos and other array-backed sheets;
+- **stamps** drawn onto the destination's own stock map (layout preserved by construction).
+
+**Heads are the exception that proves it**: the head surface UVs are identical in both games (3,146 of 3,146 shared), so
+face textures *can* move verbatim - jerseys cannot.
+
 ## 1. Texture chunk pipeline (shared by fabric, gear, faces)
 
 | Item | Status | Next action |
