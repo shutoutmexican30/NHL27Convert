@@ -99,6 +99,17 @@ foreach (var g in stock27.GroupBy(r => int.Parse(r["team"])))
     teamColours[g.Key] = colourCols.ToDictionary(c => c, c => long.Parse(best[c]));
 }
 
+var exMain = main.Tables["exhibitiongoalieequipment"]; var stMain = main.Tables["stockgoalieequipment"];
+// Teams NHL 27 gives no usable mask (Utah: NHL 24's team 22 is Arizona's slot, so its home mask is team 22's in NHL 24):
+// the most common mask on NHL 24's own NHL gear rows for that team.
+for (int t = 0; t < 32; t++)
+{
+    if (teamMask.ContainsKey(t)) continue;
+    var own = Enumerable.Range(0, stMain.InUse).Where(r => main.GetInt(stMain, r, "league") == 0 && main.GetInt(stMain, r, "team") == t)
+        .Select(r => (main.GetInt(stMain, r, "masktype"), main.GetInt(stMain, r, "maskid"))).GroupBy(m => m).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
+    if (own is { } m) teamMask[t] = m;
+}
+
 static double Dist(long a, long b)
 {
     double dr = ((a >> 16) & 255) - ((b >> 16) & 255), dg = ((a >> 8) & 255) - ((b >> 8) & 255), db = (a & 255) - (b & 255);
@@ -110,7 +121,6 @@ static string Group(string col) => col.StartsWith("pads") ? "pads" : col.StartsW
 // Per goalie: the new colours (with the contrast fix) and the mask decision, from the main database, applied to all five.
 var plan = new Dictionary<long, (Dictionary<string, long> Colours, (long Type, long Id)? Mask, int Team)>();
 var contrastFixed = new List<string>(); var contrastFailed = new List<string>(); var maskChanges = new List<string>(); var noRow = new List<string>();
-var exMain = main.Tables["exhibitiongoalieequipment"]; var stMain = main.Tables["stockgoalieequipment"];
 var exRow = new Dictionary<long, int>();
 for (int r = 0; r < exMain.InUse; r++) exRow.TryAdd(main.GetInt(exMain, r, "game_id"), r);
 var stRow = new Dictionary<long, int>();
