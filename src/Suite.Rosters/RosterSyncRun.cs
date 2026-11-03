@@ -170,6 +170,7 @@ public static class RosterSyncRun
             notes.Add($"Portraits: {portraitArt.Count} players get their portrait slot ({planned.Count(p => p.NewSlot)} new in this plan)");
         }
         var ratings = Ratings.Build(Directory.Exists(Ratings.Nhl27Dir) ? Ratings.Nhl27Dir : null, RosterDbJob.BeforeDump(dbs[0].Name), dbs[0].MetaXml, notes);
+        var goalieGear = GoalieGear.Build(Directory.Exists(Ratings.Nhl27Dir) ? Ratings.Nhl27Dir : null, RosterDbJob.BeforeDump(dbs[0].Name), notes);
         var outcomes = new List<DbOutcome>();
         var placements = new List<(string Db, Dictionary<long, string> P)>();
         var checkApi = onlyTeams is null ? api : api.Where(kv => onlyTeams.Contains(kv.Key)).ToDictionary();
@@ -179,7 +180,7 @@ public static class RosterSyncRun
         {
             var outDb = Path.Combine(RosterDbJob.WorkDir, db.Name, db.Name + ".db");
             var teamsDump = db == dbs[0] ? null : RosterDbJob.BeforeDump(dbs[0].Name);
-            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings, portraitArt, extraTables.GetValueOrDefault(db.Name));
+            var (report, guard, after) = await job.WriteAsync(db, tables[db.Name], outDb, api, prospects, teamMap, onlyTeams, teamsDump, progress, ct, overrides, ratings, portraitArt, extraTables.GetValueOrDefault(db.Name), goalieGear);
             File.WriteAllLines(Path.Combine(RosterDbJob.WorkDir, db.Name, "changes.tsv"),
                 report.Changes.Concat(report.Warnings.Select(w => "Warning\t" + w)));
             var problems = new List<string>();

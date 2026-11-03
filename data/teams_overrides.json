@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "comment": "Hand-editable team overrides. Colours #RRGGBB. Asset ids absent: a team keeps NHL 24's ids unless an entry sets them.",
+  "comment": "Hand-editable team overrides for NHL24Kit. The Teams tab edits this file; RosterPort/LocAdd read it. Colours are #RRGGBB. Asset ids are deliberately absent: a team keeps NHL 24's own asset ids unless an entry sets them.",
   "teams": [
     {
       "index": 22,
@@ -22,9 +22,17 @@
       },
       "colors": {
         "primary": "#6CACE4",
-        "secondary": "#010101",
-        "tertiary": "#FFFFFF",
-        "stockteamcolors": ["#6CACE4", "#010101", "#FFFFFF", "#6CACE4", "#010101", "#FFFFFF"]
+        "secondary": "#202020",
+        "tertiary": "#000000",
+        "stockteamcolors": [
+          "#1B1B1B",
+          "#4F86BC",
+          "#FFFFFF",
+          "#6CACE4",
+          "#010101",
+          "#101010"
+        ],
+        "note": "Team row values = NHL 27 Utah row (secondary #202020, tertiary 0 as in both games). stockteamcolors slots 0-1 = NHL 27, 2-5 = Mammoth fills (Salt White, Mountain Blue, Rock Black, keep 101010)."
       },
       "arena": {
         "index": 22,

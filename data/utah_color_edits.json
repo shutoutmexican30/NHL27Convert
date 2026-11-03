@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "purpose": "Every colour field tied to Arizona's team id 22 switched to Utah Mammoth. Applied by RosterPortService to each db where the table exists; teams_overrides.json applies last. Rows stay where they are; only colour values change.",
+  "dbs": [
+    "gamemodes/database/t3db/nhl_game.db",
+    "gamemodes/roster/initial_experience.db",
+    "savedata roster (when present)"
+  ],
+  "tables": [
+    {
+      "table": "exhibitionteams",
+      "key": {
+        "index": 22
+      },
+      "dbs": [
+        "nhl_game",
+        "initial_experience",
+        "savedata"
+      ],
+      "set": {
+        "feprimarycolor": 7122148,
+        "presprimarycolor": 7122148,
+        "overlayprimarycolor": 7122148,
+        "fesecondarycolor": 2105376,
+        "pressecondarycolor": 2105376,
+        "overlaysecondarycolor": 2105376
+      },
+      "leave": "tertiary colours (0 in both games); team 279 Alumni and 613 untouched"
+    },
+    {
+      "table": "exhibitionarena",
+      "key": {
+        "index": 22
+      },
+      "dbs": [
+        "nhl_game",
+        "initial_experience",
+        "savedata"
+      ],
+      "set": {
+        "crowdlightcolor": 7122148
+      }
+    },
+    {
+      "table": "stockteamcolorstable",
+      "key": {
+        "team": 22,
+        "rows": "index 76-81, colorid 0-5"
+      },
+      "dbs": [
+        "nhl_game",
+        "savedata"
+      ],
+      "set_by_colorid": {
+        "0": "1B1B1B",
+        "1": "4F86BC",
+        "2": "FFFFFF",
+        "3": "6CACE4",
+        "4": "010101",
+        "5": "101010"
+      },
+      "was": [
+        "862633",
+        "154734",
+        "E2D6B5",
+        "A9431E",
+        "5F259F",
+        "101010"
+      ]
+    },
+    {
+      "table": "stockteamequipmenttable",
+      "key": {
+        "team": 22
+      },
+      "dbs": [
+        "nhl_game (48 rows)",
+        "initial_experience (52 rows)",
+        "savedata"
+      ],
+      "rule": "Copy zone1..zone15 colours from NHL 27 Utah stockteamequipmenttable, matched on equipment + era. NHL 24 light-jersey variants {1,3,4} take NHL 27 variant 13; every other variant takes NHL 27 variant -1 (fallback: same equipment, any era). Covers 41 rows. The 7 rows with equipment = -1 are debug placeholders: leave.",
+      "never": "model/asset ids, row count, sort order"
+    },
+    {
+      "table": "exhibitiongoalieequipment, exhibitionskaterequipment",
+      "key": {
+        "players": "on team 22 after NHL API sync"
+      },
+      "rule": "Spec C: every *color field from the player's NHL 27 row; masks = NHL 24 team 22 goaliemask0_starter/backup ids (Mammoth mask art replaces those textures)."
+    },
+    {
+      "table": "stockteamjerseys",
+      "rule": "No colour columns in NHL 24 (preset ids only): no change. NHL 27 scoreclockcolor/scoreclocklogo are dropped."
+    }
+  ],
+  "not_in_db": "Scorebug, menu team-select tiles, logos, jersey/pants/helmet art and any UI colour baked into textures or UI files are with the textures thread (t22 art overwrite)."
+}

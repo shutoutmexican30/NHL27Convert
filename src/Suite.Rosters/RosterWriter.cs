@@ -64,7 +64,7 @@ public static class RosterWriter
 
     public static WriteReport Write(string dbName, string dumpDir, string outDir,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
-        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null, IReadOnlyDictionary<string, int>? portraitArt = null)
+        IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null, IReadOnlyDictionary<string, int>? portraitArt = null, GoalieGear? goalieGear = null)
     {
         var report = new WriteReport { Db = dbName };
         // The main database's player ids settle ambiguous matches in the older snapshots.
@@ -361,6 +361,8 @@ public static class RosterWriter
             report.Counts["RatingsRowsChanged"] = newRatings.ApplyTo(dumpDir, outDir, report);
             foreach (var (id, e) in newRatings.ByGameId) ratings[id] = e.Values;
         }
+        if (goalieGear is not null)
+            goalieGear.ApplyTo(dumpDir, outDir, report);
         var injured = want.Where(w => w.Value.P.FromSearch).Select(w => w.Key).ToHashSet();
         var abbrevOf = teamMap.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
         foreach (var t in nhl.Order())

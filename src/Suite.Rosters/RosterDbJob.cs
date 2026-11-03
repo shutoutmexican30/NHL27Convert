@@ -87,13 +87,13 @@ public sealed class RosterDbJob(SuiteSettings settings)
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
         IReadOnlySet<string>? onlyTeams = null, string? teamsDump = null, Action<string>? progress = null, CancellationToken ct = default,
         LineOverrides? lineOverrides = null, Ratings? ratings = null, IReadOnlyDictionary<string, int>? portraitArt = null,
-        IReadOnlyCollection<string>? extraTables = null)
+        IReadOnlyCollection<string>? extraTables = null, GoalieGear? goalieGear = null)
     {
         var work = SuitePaths.Ensure(Path.Combine(WorkDir, db.Name));
         string before = BeforeDump(db.Name), edit = Path.Combine(work, "edit"), after = Path.Combine(work, "after");
         progress?.Invoke($"{db.Name}: applying the NHL API rosters");
         if (Directory.Exists(edit)) Directory.Delete(edit, true);
-        var report = RosterWriter.Write(db.Name, before, edit, api, prospects, teamMap, onlyTeams, teamsDump, lineOverrides, ratings, portraitArt);
+        var report = RosterWriter.Write(db.Name, before, edit, api, prospects, teamMap, onlyTeams, teamsDump, lineOverrides, ratings, portraitArt, goalieGear);
         // Tables the new-player step changed in the "before" dump but the writer did not rewrite go to the import as they are.
         foreach (var t in extraTables ?? [])
             if (!File.Exists(T3Csv.PathOf(edit, t)) && File.Exists(T3Csv.PathOf(before, t)))
