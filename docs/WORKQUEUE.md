@@ -73,6 +73,26 @@ fabric work went through our own writer, and it means the in-app Apply path for 
 elevation but has a mismatched FrostySdk; our writer needs neither but cannot yet read a slot's `.res` header (EBX). So the
 only route that works today is FMT under elevation - the command recorded in section 2.
 
+## 0b. The write path works end to end - 2026-11-02
+
+Boston home jersey **colour** now holds the NHL 27 Fanatics art on the test copy, written with our own tooling only - no FMT,
+no elevation, no Worker:
+
+```
+build  jersey_adidas_boston_home_color.res  live-color-full.chunk  boston_home_color.png  out.chunk
+       length identical to template: True (2,798,592)   source vs encoded mip 0: mean |d| 2.21  max 39
+apply  D:\CIMS-test\NHL24-merged ...
+       appended 63,802 bytes to cas_05 @ 1,074,648,234; 1 TOC entry repointed
+       verified copy: contentsb.toc patch=False cas=05 @339,302,004: 2,798,592 raw, expected
+       read back identical; restore: 0 differences; re-apply verified; restore check passed
+```
+
+The NHL 27 source is 2048x2048 BC1 with 12 mips - **the same layout as the NHL 24 slot**, which is why the existing header
+applies unchanged. That is the general rule: a slot can be written as soon as its `.res` header is known, and the only
+slots we cannot write yet are the ones whose header we have never exported. Two ways to close that: synthesise the header
+from index metadata (width/height/format/mips are all in the index) validated byte-for-byte against the two known headers,
+or export headers with FMT under elevation.
+
 ## 1. Texture chunk pipeline (shared by fabric, gear, faces)
 
 | Item | Status | Next action |
