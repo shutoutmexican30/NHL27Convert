@@ -97,6 +97,13 @@ public sealed class LegacyFiles
         return list;
     }
 
+    /// <summary>Every legacy file name in the index that lists <paramref name="anyKnown"/> (read only).</summary>
+    public List<string> Names(string anyKnown)
+    {
+        EnsureIndex(anyKnown);
+        return Records().Select(r => r.Name).Distinct().Order(StringComparer.Ordinal).ToList();
+    }
+
     public byte[] Read(string name)
     {
         EnsureIndex(name);

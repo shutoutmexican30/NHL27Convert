@@ -38,6 +38,28 @@ if (args.Length > 3 && args[1] == "--dump")
     }
     return;
 }
+if (args.Length > 2 && args[1] == "--scan")
+{
+    // --scan <name filter or *> <int|float values...>: decoded EBX/RES whose bytes hold any of the values (LE int32/float32).
+    var pats = args.Skip(3).SelectMany(v => new[] { BitConverter.GetBytes(int.Parse(v)), BitConverter.GetBytes((float)int.Parse(v)) }).ToList();
+    var items = index.EbxByName.Values.Select(l => (l[0].Name, l[0].Data, Kind: "EBX"))
+        .Concat(index.ResByName.Values.Select(l => (l[0].Name, l[0].Data, Kind: "RES")))
+        .Where(x => args[2] == "*" || x.Name.Contains(args[2], StringComparison.OrdinalIgnoreCase)).ToList();
+    Console.WriteLine($"scanning {items.Count}");
+    Parallel.ForEach(items, x =>
+    {
+        try
+        {
+            if (x.Data.Size > 8 << 20) return;
+            var st = BundleIndex.ReadBytes(x.Data);
+            byte[] dec; try { dec = ChunkBlocks.Parse(st).Decode(); } catch { dec = st; }
+            foreach (var p in pats)
+                if (dec.AsSpan().IndexOf(p) is var at and >= 0) { lock (pats) Console.WriteLine($"{x.Kind} {x.Name} @{at} {Convert.ToHexString(p)}"); }
+        }
+        catch { }
+    });
+    return;
+}
 if (args.Length > 2 && args[1] == "--grep")
 {
     foreach (var (n, l) in index.ResByName.Where(kv => kv.Key.Contains(args[2], StringComparison.OrdinalIgnoreCase)).OrderBy(kv => kv.Key))
