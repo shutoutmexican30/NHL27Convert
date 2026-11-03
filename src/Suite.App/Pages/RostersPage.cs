@@ -74,22 +74,56 @@ public sealed class RostersPage : ScrollViewer
 
     readonly TextBlock _goalieStatus = new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8)), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Consolas") };
 
+    const string Nhl27Csv = @"C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\RosterConversion\nhl27-csv";
+
+    /// <summary>Runs a built tool (tools\&lt;name&gt;\bin\Release\net8.0) and returns its exit code and output; null when not built.</summary>
+    static async Task<(int Code, string Output)?> RunToolAsync(string name, params string[] args)
+    {
+        var exe = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tools", name, "bin", "Release", "net8.0", name + ".exe"));
+        if (!File.Exists(exe)) return null;
+        var psi = new ProcessStartInfo(exe) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        return await Task.Run(() => { using var p = Process.Start(psi)!; var o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd(); p.WaitForExit(); return (p.ExitCode, o); });
+    }
+
+    static string LastLines(string output, int n) => string.Join("\n", output.Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).TakeLast(n));
+
     /// <summary>Runs tools\GoalieFix (a dry run, or --apply on the game folder from Settings) and shows its summary.</summary>
     async Task GoaliesAsync(bool write)
     {
-        var exe = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tools", "GoalieFix", "bin", "Release", "net8.0", "GoalieFix.exe"));
-        const string nhl27 = @"C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\RosterConversion\nhl27-csv";
-        if (!File.Exists(exe)) { _goalieStatus.Text = @"GoalieFix is not built: dotnet build tools\GoalieFix -c Release"; return; }
         if (write && MessageBox.Show($"Write goalie gear into {_settings.ApplyTargetDir}?\nClose NHL 24 first; a backup is taken.", "Goalie gear",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         _goalieStatus.Text = write ? "Writing..." : "Checking...";
-        var psi = new ProcessStartInfo(exe) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
-        foreach (var a in new[] { "--target", _settings.ApplyTargetDir, "--nhl27", nhl27 }) psi.ArgumentList.Add(a);
-        if (write) psi.ArgumentList.Add("--apply");
-        var output = await Task.Run(() => { using var p = Process.Start(psi)!; var o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd(); p.WaitForExit(); return o; });
+        var run = await RunToolAsync("GoalieFix", write ? ["--target", _settings.ApplyTargetDir, "--nhl27", Nhl27Csv, "--apply"] : ["--target", _settings.ApplyTargetDir, "--nhl27", Nhl27Csv]);
+        if (run is not { } r) { _goalieStatus.Text = @"GoalieFix is not built: dotnet build tools\GoalieFix -c Release"; return; }
         var review = Path.Combine(SuitePaths.Local, "goaliefix", "review.txt");
-        _goalieStatus.Text = string.Join("\n", output.Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).TakeLast(8)) +
-            (File.Exists(review) ? $"\nFull list: {review}" : "");
+        _goalieStatus.Text = LastLines(r.Output, 8) + (File.Exists(review) ? $"\nFull list: {review}" : "");
+    }
+
+    /// <summary>
+    /// The in-place database edits that a whole-database roster write replaces (a sync always starts from NHL 24's own
+    /// databases): goalie gear, the extra jersey rows, portrait slots.  Run, in that order, right after the roster apply,
+    /// so applying new rosters never takes them back out.  Each takes its own backup and reads its write back.
+    /// </summary>
+    async Task<string> ReapplyDatabaseFixesAsync()
+    {
+        var target = _settings.ApplyTargetDir;
+        var steps = new (string Tool, string What, string[] Args)[]
+        {
+            ("GoalieFix", "goalie gear", ["--target", target, "--nhl27", Nhl27Csv, "--apply"]),
+            ("JerseyRows", "extra jersey slots", ["--target", target, "--apply"]),
+            ("PortraitFix", "portrait slots", ["--target", target, "--apply"]),
+        };
+        var report = new List<string>();
+        foreach (var (tool, what, args) in steps)
+        {
+            _status.Text = $"Putting the {what} back...";
+            var run = await RunToolAsync(tool, args);
+            report.Add(run is not { } r ? $"{what}: NOT RE-APPLIED ({tool} is not built: dotnet build tools\\{tool} -c Release)"
+                : r.Code != 0 ? $"{what}: FAILED - {LastLines(r.Output, 2)}"
+                : $"{what}: {LastLines(r.Output, 1)}");
+        }
+        return string.Join("\n", report);
     }
 
     static string TeamsFile => Path.Combine(AppContext.BaseDirectory, "data", "nhlapi_teams.tsv");
@@ -189,11 +223,14 @@ public sealed class RostersPage : ScrollViewer
         _apply.IsEnabled = false;
         _status.Text = "Applying to " + _settings.ApplyTargetDir + "...";
         Task.Run(() => Suite.Core.Frostbite.LegacyApply.Apply(_settings, legacy, s => Dispatcher.BeginInvoke(() => _status.Text = s)))
-            .ContinueWith(t => Dispatcher.BeginInvoke(() =>
+            .ContinueWith(t => Dispatcher.BeginInvoke(async () =>
             {
                 var (ok, message, _) = t.IsFaulted ? (false, t.Exception!.GetBaseException().Message, null) : t.Result;
-                _status.Text = (ok ? "Applied. " : "Not applied. ") + message;
                 _apply.IsEnabled = !ok;
+                if (!ok) { _status.Text = "Not applied. " + message; return; }
+                // The new databases came from NHL 24's own: put the in-place fixes back on top of them.
+                var fixes = await ReapplyDatabaseFixesAsync();
+                _status.Text = "Applied. " + message + "\n" + fixes;
             }));
     }
 

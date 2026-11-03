@@ -119,6 +119,14 @@ public static class ModApply
         var target = Full(s.ApplyTargetDir);
         var undo = File.Exists(UndoFile(target)) ? File.ReadAllLines(UndoFile(target)).Where(l => l.Length > 0).ToList() : [];
         if (undo.Count == 0 || !Directory.Exists(undo[^1])) return Task.FromResult((false, "Nothing to undo: no texture apply recorded for this game."));
+        // Restoring that backup also undoes everything written after it (goalie gear, portraits, jersey rows, rosters,
+        // other texture sets), so refuse when anything was: every suite write takes a backup first, so a newer backup of
+        // this game means a newer write.
+        var later = WritesAfter(target, undo[^1]);
+        if (later.Count > 0)
+            return Task.FromResult((false, $"Undo refused: {later.Count} write(s) to this game came after that apply, and undoing it would remove them too:\n" +
+                string.Join("\n", later.Select(b => "  " + b)) +
+                "\nTo change a uniform set, edit the mod list and Apply again instead (it writes on top of everything else)."));
         return Task.Run(() =>
         {
             progress?.Invoke("Restoring the backup taken before the last apply...");
@@ -128,6 +136,22 @@ public static class ModApply
             File.WriteAllLines(UndoFile(target), undo.Take(undo.Count - 1));
             return (true, $"Last texture apply undone; the game matches {Path.GetFileName(undo[^1])}. Anything written after that apply was undone too.");
         }, ct);
+    }
+
+    /// <summary>Backups of <paramref name="target"/> taken after <paramref name="backup"/> (each one marks a later write).</summary>
+    public static List<string> WritesAfter(string target, string backup)
+    {
+        var taken = ApplyTarget.LoadSnapshot(backup).Taken;
+        var list = new List<string>();
+        foreach (var dir in Directory.GetDirectories(Path.GetDirectoryName(backup)!))
+        {
+            if (string.Equals(dir.TrimEnd('\\'), backup.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) || !File.Exists(Path.Combine(dir, "snapshot.json"))) continue;
+            ApplyTarget.Snapshot snap;
+            try { snap = ApplyTarget.LoadSnapshot(dir); } catch { continue; }
+            if (snap.Taken > taken && string.Equals(Full(snap.Game), target, StringComparison.OrdinalIgnoreCase))
+                list.Add($"{snap.Taken:yyyy-MM-dd HH:mm} ({Path.GetFileName(dir)})");
+        }
+        return list.Order().ToList();
     }
 
     static string UndoFile(string target) =>

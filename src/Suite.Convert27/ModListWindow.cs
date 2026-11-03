@@ -68,7 +68,7 @@ public sealed class ModListWindow : Window
 
         var bottom = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var b in new[] { Btn("Apply all to the game…", Apply_Click), Btn("Restore stock game…", Restore_Click) })
+        foreach (var b in new[] { Btn("Apply all to the game…", Apply_Click), Btn("Undo last texture apply…", Restore_Click) })
         {
             var problems = ModApply.Problems(_settings);
             b.IsEnabled = problems.Count == 0;
@@ -118,7 +118,7 @@ public sealed class ModListWindow : Window
         if (_mods.Count > 0)
         {
             _list.SelectedIndex = 0;
-            _status.Text = "Press “Apply all to the game…” to write the list into the game, or “Restore stock game…” to undo everything.";
+            _status.Text = "Press “Apply all to the game…” to write the list into the game, or “Undo last texture apply…” to take the last texture apply back out.";
         }
         else
         {
@@ -154,9 +154,9 @@ public sealed class ModListWindow : Window
         var total = ModApply.TotalReplacements(mods);
         if (total == 0) { _status.Text = "The mod list is empty."; return; }
         var confirm = MessageBox.Show(
-            $"Apply {total:N0} replacement(s) from {mods.Count} mod(s) to the game at:\n{_settings.Nhl24GameDir}\n\n" +
+            $"Apply {total:N0} replacement(s) from {mods.Count} mod(s) to the game at:\n{_settings.ApplyTargetDir}\n\n" +
             "This appends new data to the game's CAS archives and repoints the TOCs. Close the game first.\n" +
-            "Use “Restore stock game…” to undo everything.\n\nContinue?",
+            "It writes on top of everything already in the game: rosters, goalie gear, portraits and center ice stay.\n\nContinue?",
             "Apply to game", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes;
         if (confirm) return;
 
@@ -177,12 +177,12 @@ public sealed class ModListWindow : Window
     async void Restore_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "Restore the stock game? This truncates the CAS files back to their stock length and copies the stock TOCs back, " +
-                "removing every mod applied through NHL24Kit.\n\nContinue?",
-                "Restore stock game", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                "Undo the last texture apply? The game goes back to the backup taken right before it. This is refused when " +
+                "anything was written to the game after that apply, because that would be lost too.\n\nContinue?",
+                "Undo last texture apply", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         IsEnabled = false;
-        _status.Text = "Restoring stock…";
+        _status.Text = "Undoing the last texture apply…";
         try
         {
             var (ok, message) = await ModApply.RestoreAsync(_settings, line => Dispatcher.Invoke(() => _status.Text = line));
