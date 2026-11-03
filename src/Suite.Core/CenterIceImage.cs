@@ -51,6 +51,32 @@ public static class CenterIceImage
     /// Converts <paramref name="rink"/> to the layout of <paramref name="stock"/> (the slot's current decoded mip 0).
     /// <paramref name="iceWhite"/> is the ice colour to key out (sampled from the image when null).
     /// </summary>
+    /// <summary>
+    /// TheFaceoff's pictures are flat renders: thin, light strokes and a grey wordmark, which read as washed out on the ice
+    /// next to the game's own bold art (measured: ink (145,73,80) here against (142,36,46) in stock). This raises the ink's
+    /// alpha, saturates it and darkens the neutral strokes, which lands it on the stock's weight without touching the layout.
+    /// </summary>
+    public static Rgba Strengthen(Rgba img)
+    {
+        var px = (byte[])img.Pixels.Clone();
+        const double AlphaGain = 2.0, Sat = 1.8, NeutralDarken = 0.55, NeutralThreshold = 40;
+        for (int i = 0; i + 3 < px.Length; i += 4)
+        {
+            int a = Math.Min(255, (int)(px[i + 3] * AlphaGain));
+            px[i + 3] = (byte)a;
+            if (a == 0) continue;
+            double r = px[i], g = px[i + 1], b = px[i + 2];
+            double mx = Math.Max(r, Math.Max(g, b)), mn = Math.Min(r, Math.Min(g, b));
+            double lum = (r + g + b) / 3.0;
+            double sr = lum + (r - lum) * Sat, sg = lum + (g - lum) * Sat, sb = lum + (b - lum) * Sat;
+            if (mx - mn < NeutralThreshold) { sr *= NeutralDarken; sg *= NeutralDarken; sb *= NeutralDarken; }
+            px[i] = (byte)Math.Clamp(sr, 0, 255);
+            px[i + 1] = (byte)Math.Clamp(sg, 0, 255);
+            px[i + 2] = (byte)Math.Clamp(sb, 0, 255);
+        }
+        return new Rgba(img.Width, img.Height, px);
+    }
+
     public static Rgba ToSlot(Rgba rink, Rgba stock)
     {
         var src = FindCircle(rink);
@@ -76,7 +102,7 @@ public static class CenterIceImage
                 px[p + 3] = (byte)Math.Round(c[3] * 255);
             }
         });
-        return CutRedLine(new Rgba(w, h, px));
+        return Strengthen(CutRedLine(new Rgba(w, h, px)));
     }
 
     /// <summary>
