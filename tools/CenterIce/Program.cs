@@ -1,10 +1,20 @@
 // CenterIce png   <res> <chunk> <out.png>       decode mip 0 of a BC7 slot (PS4 tiled)
+// CenterIce fetch <thefaceoff.net link>                      download the page's center-ice picture (cached, credited)
 // CenterIce convert <res> <chunk> <rink image> <out.png>   rink picture -> decal in the stock slot's layout (CenterIceImage)
 // CenterIce build <res> <image> <outChunk>      full BC7 mip chain, same byte length as the slot; resized to the slot if needed
 // Writes only the output files; the game write is ChunkWrite's (every reference, read-back, restore check).
 using Suite.Core;
 using Suite.Core.Frostbite;
 
+if (args.Length == 2 && args[0] == "fetch")
+{
+    // TheFaceoff.net page or image link -> cached file (user-initiated; personal use; credited).
+    var file = await Faceoff.FetchAsync(args[1]);
+    var pic = ImageIO.Load(file);
+    Console.WriteLine($"{file} ({pic.Width}x{pic.Height})");
+    Console.WriteLine(Faceoff.Credit);
+    return 0;
+}
 if (args.Length == 5 && args[0] == "convert")
 {
     var r = TextureRes.Parse(File.ReadAllBytes(args[1]));

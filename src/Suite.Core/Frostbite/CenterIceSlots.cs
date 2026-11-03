@@ -89,6 +89,9 @@ public static class Faceoff
     static DateTime _last = DateTime.MinValue;
     static readonly SemaphoreSlim Gate = new(1, 1);
 
+    /// <summary>The site's "1-1 Placeholder" upload, shown for seasons whose art is not posted yet (seen 2026-11-03).</summary>
+    const string PlaceholderMedia = "1355d81e56fb457f9291640812cf4f9f";
+
     public static string Cache => SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "faceoff"));
 
     static async Task<byte[]> GetAsync(string url, CancellationToken ct)
@@ -122,6 +125,9 @@ public static class Faceoff
             if (!m.Success) m = Regex.Match(html, "https://static\\.wixstatic\\.com/media/[^\"'\\s)]+", RegexOptions.IgnoreCase);
             if (!m.Success) throw new InvalidOperationException("No picture found on that page.");
             imageUrl = System.Net.WebUtility.HtmlDecode(m.Groups[m.Groups.Count > 1 && m.Groups[1].Success ? 1 : 0].Value);
+            // A season whose art is not posted yet uses the site's shared placeholder picture (one fixed upload).
+            if (imageUrl.Contains(PlaceholderMedia, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("That page has no center ice posted yet (placeholder picture). Try the previous season's page.");
         }
         // Wix serves resized copies under /v1/...; the part before it is the original upload.
         int v1 = imageUrl.IndexOf("/v1/", StringComparison.Ordinal);

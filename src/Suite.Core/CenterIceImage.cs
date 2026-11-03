@@ -61,6 +61,7 @@ public static class CenterIceImage
         var ice = SampleIce(rink, src);
         // Content radius: keep what the stock keeps (its text ring), nothing beyond.
         double keep = StockExtent(stock, dst) / dst.R;
+        var keyed = KeyIce(rink, ice);
         var px = new byte[w * h * 4];
         Parallel.For(0, h, y =>
         {
@@ -68,20 +69,68 @@ public static class CenterIceImage
             {
                 double dx = x - dst.X, dy = y - dst.Y;
                 if (Math.Sqrt(dx * dx + dy * dy) > keep * dst.R) continue;
-                double sx = src.X + dx * scale, sy = src.Y + dy * scale;
-                var c = Sample(rink, sx, sy);
-                double a = 1;
-                // Ice white → transparent, with the white un-mixed from edge pixels so there is no halo.
-                double dIce = Dist(c, ice);
-                a = Math.Clamp((dIce - 18) / 60.0, 0, 1);
-                if (a <= 0.004) continue;
+                var c = SamplePremultiplied(keyed, src.X + dx * scale, src.Y + dy * scale, rink.Width, rink.Height);
+                if (c[3] <= 0.004) continue;
                 int p = (y * w + x) * 4;
-                for (int k = 0; k < 3; k++)
-                    px[p + k] = (byte)Math.Clamp((c[k] - (1 - a) * ice[k]) / a, 0, 255);
-                px[p + 3] = (byte)Math.Round(a * 255);
+                for (int k = 0; k < 3; k++) px[p + k] = (byte)Math.Clamp(Math.Round(c[k] / c[3]), 0, 255);
+                px[p + 3] = (byte)Math.Round(c[3] * 255);
             }
         });
         return CutRedLine(new Rgba(w, h, px));
+    }
+
+    /// <summary>
+    /// Ice white → alpha at the source resolution, premultiplied (r·a, g·a, b·a, a). A pixel's alpha is its distance from
+    /// the ice colour divided by the distance of the nearest solid ink (the largest distance within 2 px), so the
+    /// anti-aliased edge of dark letters gets partial alpha and the ink's own colour instead of a light halo.
+    /// </summary>
+    static float[] KeyIce(Rgba img, double[] ice)
+    {
+        int w = img.Width, h = img.Height;
+        var d = new float[w * h];
+        for (int i = 0; i < w * h; i++)
+        {
+            int p = i * 4;
+            double r = img.Pixels[p] - ice[0], g = img.Pixels[p + 1] - ice[1], b = img.Pixels[p + 2] - ice[2];
+            d[i] = (float)Math.Sqrt(r * r + g * g + b * b);
+        }
+        var o = new float[w * h * 4];
+        const double floor = 22;   // ice grain and scratches stay transparent
+        Parallel.For(0, h, y =>
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                if (d[i] <= floor) continue;
+                // Foreground pixel: the most ink-like neighbour within 2 px.
+                int best = i; float bd = d[i];
+                for (int yy = Math.Max(0, y - 2); yy <= Math.Min(h - 1, y + 2); yy++)
+                    for (int xx = Math.Max(0, x - 2); xx <= Math.Min(w - 1, x + 2); xx++)
+                        if (d[yy * w + xx] > bd) { bd = d[yy * w + xx]; best = yy * w + xx; }
+                double a = Math.Clamp((d[i] - floor) / Math.Max(bd - floor, 40), 0, 1);
+                for (int k = 0; k < 3; k++)
+                {
+                    // Un-mix the ice from the edge pixel; fall back to the neighbour's ink colour where that overshoots.
+                    double c = a > 0.02 ? (img.Pixels[i * 4 + k] - (1 - a) * ice[k]) / a : img.Pixels[best * 4 + k];
+                    o[i * 4 + k] = (float)(Math.Clamp(c, 0, 255) * a);
+                }
+                o[i * 4 + 3] = (float)a;
+            }
+        });
+        return o;
+    }
+
+    static double[] SamplePremultiplied(float[] img, double x, double y, int w, int h)
+    {
+        x = Math.Clamp(x, 0, w - 1.001); y = Math.Clamp(y, 0, h - 1.001);
+        int x0 = (int)x, y0 = (int)y; double fx = x - x0, fy = y - y0;
+        var c = new double[4];
+        for (int k = 0; k < 4; k++)
+        {
+            double P(int xx, int yy) => img[(yy * w + xx) * 4 + k];
+            c[k] = P(x0, y0) * (1 - fx) * (1 - fy) + P(x0 + 1, y0) * fx * (1 - fy) + P(x0, y0 + 1) * (1 - fx) * fy + P(x0 + 1, y0 + 1) * fx * fy;
+        }
+        return c;
     }
 
     /// <summary>
