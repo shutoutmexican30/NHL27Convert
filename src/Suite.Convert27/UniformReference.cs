@@ -129,7 +129,13 @@ public static class UniformReference
         var mass = new double[b.Count];
         foreach (var s in a) mass[Enumerable.Range(0, b.Count).MinBy(j => Perceptual(s.Rgb, b[j].Rgb))] += s.Share / a.Sum(x => x.Share);
         double off = 0.5 * Enumerable.Range(0, b.Count).Sum(j => Math.Abs(mass[j] - b[j].Share / b.Sum(x => x.Share)));
-        return (Side(a, b) + Side(b, a)) / 2 + 30 * off;
+        // And the body colour must agree: Minnesota's green alternate is not NHL 27's white 'twentytwo', however close
+        // its green trim is.  Full lightness weight here, so white against green counts in full.
+        static double Body(long x, long y) { var (l1, a1, b1) = Lab(x); var (l2, a2, b2) = Lab(y); return Math.Sqrt((l1 - l2) * (l1 - l2) + (a1 - a2) * (a1 - a2) + (b1 - b2) * (b1 - b2)); }
+        // Only as far as a has a clear body colour: Dallas's alternate is black 45% / green 35%, no body colour at all.
+        double clear = Math.Clamp((a[0].Share - (a.Count > 1 ? a[1].Share : 0)) / a.Sum(x => x.Share) / 0.25, 0, 1);
+        double body = Body(a[0].Rgb, b[0].Rgb);
+        return (Side(a, b) + Side(b, a)) / 2 + 30 * off + 0.25 * clear * body;
     }
 
     static double Perceptual(long x, long y)
@@ -144,6 +150,27 @@ public static class UniformReference
         double x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047, y = 0.2126 * r + 0.7152 * g + 0.0722 * b, z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
         static double F(double t) => t > 0.008856 ? Math.Cbrt(t) : 7.787 * t + 16.0 / 116;
         return (116 * F(y) - 16, 500 * (F(x) - F(y)), 200 * (F(y) - F(z)));
+    }
+
+    /// <summary>One kit band of a drawing at half size, then each NHL 27 colour sheet as a 225-pixel square.</summary>
+    public static void SideBySide(string path, Rgba drawing, int kit, IReadOnlyList<Rgba> sheets)
+    {
+        const int H = 225, DrawW = 480;
+        int width = DrawW + H * sheets.Count;
+        var px = new byte[width * H * 4];
+        void Put(int x, int y, Rgba src, int sx, int sy)
+        {
+            int s = (sy * src.Width + sx) * 4, t = (y * width + x) * 4;
+            px[t] = src.Pixels[s]; px[t + 1] = src.Pixels[s + 1]; px[t + 2] = src.Pixels[s + 2]; px[t + 3] = 255;
+        }
+        for (int y = 0; y < H; y++)
+        {
+            for (int x = 0; x < DrawW; x++)
+                if (kit * Band + y * 2 < drawing.Height && x * 2 < drawing.Width) Put(x, y, drawing, x * 2, kit * Band + y * 2);
+            for (int i = 0; i < sheets.Count; i++)
+                for (int x = 0; x < H; x++) Put(DrawW + i * H + x, y, sheets[i], x * sheets[i].Width / H, y * sheets[i].Height / H);
+        }
+        ImageIO.SavePng(new Rgba(width, H, px), path);
     }
 
     public static string Hex(IEnumerable<Swatch> p) => string.Join(" ", p.Select(s => $"{s.Rgb:X6} {s.Share:P0}"));
@@ -237,13 +264,26 @@ public static class UniformReference
             {
                 Nhl27Texture? Sheet(string garment) => list.FirstOrDefault(t => t.Name[(t.Name.LastIndexOf('/') + 1)..] is var leaf
                     && leaf.StartsWith(garment + "_") && leaf.EndsWith("_color") && !leaf.Contains("_base_") && !leaf.Contains("branding"));
-                sheets[folder[(folder.LastIndexOf('/') + 1)..]] = (Sheet("jersey"), Sheet("sock"));
+                // Kits are named as variant_map.json names them: the adidas folder alone ("ten"), any other maker's with
+                // the maker ("rbk/home"), so Dallas's old Reebok 'home' is never taken for its adidas 'home'.
+                var rel = folder[prefix.Length..];
+                sheets[rel.StartsWith("adidas/") ? rel["adidas/".Length..] : rel] = (Sheet("jersey"), Sheet("sock"));
             }
             progress?.Invoke($"{nick}: decoding {sheets.Count} NHL 27 kit(s)");
             var pngs = await images.Nhl27Async(sheets.Values.SelectMany(s => new[] { s.Jersey, s.Sock }).OfType<Nhl27Texture>(), progress, ct);
-            var kitPal = sheets.Where(s => s.Value.Jersey is not null && pngs.ContainsKey(s.Value.Jersey.Name))
+            // Only the current maker's kits can be this season's (rbk/ and nineties/ are history).
+            var kitPal = sheets.Where(s => !s.Key.Contains('/') && s.Value.Jersey is not null && pngs.ContainsKey(s.Value.Jersey.Name))
                 .ToDictionary(s => s.Key, s => Palette(ImageIO.Load(pngs[s.Value.Jersey!.Name])));
             if (kitPal.Count == 0) { lines.Add("  (no decodable NHL 27 jersey sheets)"); lines.Add(""); continue; }
+            // Colours narrow it down; the eye decides (Dallas's big-star alternate scores closer to the black 'twentythree'
+            // than to 'thirteen', which is that very jersey).  So every flag gets the drawing beside the candidates.
+            string Look(string teamName, string label, Rgba drawing, int kit, IEnumerable<string> shownKits)
+            {
+                var shown = shownKits.Distinct().Where(kitPal.ContainsKey).Take(5).ToList();
+                var path = Path.Combine(Dir(season), $"look_{teamName}_{label.Replace(' ', '_')}.png");
+                SideBySide(path, drawing, kit, shown.Select(s => ImageIO.Load(pngs[sheets[s].Jersey!.Name])).ToList());
+                return $"look: {path} (the drawing, then NHL 27 {string.Join(", ", shown.Select(s => $"'{s}'"))})";
+            }
             checkedTeams++;
             var extras = team.ExtraKits.Select(x => x.Nhl27).ToHashSet();
             for (int k = 0; k < kits; k++)
@@ -258,7 +298,8 @@ public static class UniformReference
                     var mine = ranked.FirstOrDefault(x => x.Kit == chosen);
                     bool off = chosen is not null && mine.Kit is not null && best.Kit != chosen && mine.D > best.D + 6 && mine.D > 12;
                     if (off) flagged++;
-                    lines.Add($"  {label}: matcher uses NHL 27 '{chosen}' ({(mine.Kit is null ? "not found" : $"distance {mine.D:F0} [{Hex(kitPal[chosen!].Take(3))}]")}){(off ? "   <-- CHECK: another kit looks closer" : "")}");
+                    lines.Add($"  {label}: matcher uses NHL 27 '{chosen}' ({(mine.Kit is null ? "not found" : $"distance {mine.D:F0} [{Hex(kitPal[chosen!].Take(3))}]")}){(off ? "   <-- LOOK: another kit's colours are closer" : "")}");
+                    if (off) lines.Add("      " + Look(d.Team, label, img, k, new[] { chosen! }.Concat(ranked.Take(3).Select(x => x.Kit))));
                 }
                 else
                 {
@@ -268,9 +309,13 @@ public static class UniformReference
                     var near = ranked.FirstOrDefault(x => extras.Contains(x.Kit) && x.D <= best.D + 4);
                     string verdict = near.Kit is not null ? $"'{near.Kit}' in extraKits matches ({near.D:F0})"
                         : best.D > 22 ? "no NHL 27 kit is close: NHL 27 probably does not have this one"
-                        : $"closest NHL 27 kit '{best.Kit}' ({best.D:F0}) is NOT in extraKits   <-- CHECK: add it?";
-                    if (near.Kit is null && best.D <= 22) flagged++;
+                        : $"closest NHL 27 kit '{best.Kit}' ({best.D:F0}) is NOT in extraKits   <-- LOOK before adding it";
                     lines.Add($"  {label}: {verdict}");
+                    if (near.Kit is null && best.D <= 22)
+                    {
+                        flagged++;
+                        lines.Add("      " + Look(d.Team, label, img, k, ranked.Take(3).Select(x => x.Kit).Concat(extras.Where(kitPal.ContainsKey))));
+                    }
                 }
                 lines.Add($"      closest: {top3}");
             }
@@ -279,7 +324,7 @@ public static class UniformReference
         var report = Path.Combine(Dir(season), "report.txt");
         File.WriteAllLines(report, lines, new UTF8Encoding(false));
         var summary = $"{now.Count} teams on nhluniforms.com {season}: {changed} with a kit changed or added since {Previous(season)}, " +
-                      $"{checkedTeams} checked against NHL 27, {flagged} kit pick(s) to check (CHECK in the report).";
+                      $"{checkedTeams} checked against NHL 27, {flagged} to look at (LOOK in the report, each with a side-by-side picture).";
         return (report, summary);
     }
 }
