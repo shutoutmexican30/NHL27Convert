@@ -1,4 +1,4 @@
-// ChunkWrite --target <game-copy> <chunk-guid>=<full-raw-file> [...] [--restore-check]
+// ChunkWrite --target <game-copy> <chunk-guid>=<full-raw-file> [...] --apply [--restore-check]   (dry run without --apply)
 // Replaces each chunk everywhere the game reads it (ChunkReplace), then rebuilds the index and checks every reference
 // decodes to the new data (bundle slices to their logical range), that each changed TOC differs from the backup only in
 // the repointed offset/size pairs, and that CAS files only grew. With --restore-check: restore the backup, prove the
@@ -32,6 +32,7 @@ if (args.Contains("--dry"))
 static int Diff(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b) { int n = 0; for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) n++; return n; }
 var casSizes = Directory.EnumerateFiles(target, "*.cas", SearchOption.AllDirectories).ToDictionary(f => f, f => new FileInfo(f).Length);
 
+if (!WriteGate.Allowed(args)) { Say("dry run (pass --apply with --target to write)"); return 0; }
 var backup = ApplyTarget.Backup(target);
 Say("backup: " + backup);
 

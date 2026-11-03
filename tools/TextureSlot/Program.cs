@@ -1,5 +1,5 @@
 // TextureSlot export <game> <texture name> <out-dir>                 every layer's mip 0 as PNG (read only)
-// TextureSlot apply  <game> <texture name> <png> [--layer N] [--alpha] [--restore]
+// TextureSlot apply  <game> <texture name> <png> [--layer N] [--alpha] [--restore] --apply   (dry run without --apply)
 //     writes with TextureSlots.Apply (backup, all references, read-back); --restore puts the backup back afterwards
 //     and checks the game is byte-identical to it again (test copies only: the original game is refused).
 using Suite.Core;
@@ -22,6 +22,7 @@ if (args[0] == "export")
     Console.WriteLine($"{layers.Count} PNG(s) -> {args[3]}");
     return 0;
 }
+if (!WriteGate.Allowed(args.Skip(3).Prepend(args[1]).Prepend("--target").ToArray()) || !args.Contains("--apply")) { Console.WriteLine("dry run (add --apply to write)"); return 0; }
 int li = Array.IndexOf(args, "--layer");
 var r = li >= 0
     ? new TextureReplacement(args[2], "", new Dictionary<int, string> { [int.Parse(args[li + 1])] = Path.GetFullPath(args[3]) }, args.Contains("--alpha") ? "auto" : null)
