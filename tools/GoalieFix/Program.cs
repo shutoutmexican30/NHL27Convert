@@ -110,6 +110,10 @@ for (int t = 0; t < 32; t++)
     if (own is { } m) teamMask[t] = m;
 }
 
+// Pads model -> (brand letters zone, zone under them), from that model's recolor masks.
+static Dictionary<long, (string Letters, string Under)> BrandOnPads() => new() { [126] = ("padszone5color", "padszone8color") };
+var BrandOn = BrandOnPads();
+
 static double Dist(long a, long b)
 {
     double dr = ((a >> 16) & 255) - ((b >> 16) & 255), dg = ((a >> 8) & 255) - ((b >> 8) & 255), db = (a & 255) - (b & 255);
@@ -153,6 +157,16 @@ foreach (var (gid, team) in teamOf)
                 if (Dist(pick, newBase) < 60) contrastFailed.Add($"{abbr.GetValueOrDefault(team)} {who}: {z}");
             }
         }
+    // Brand lettering read from the pad's recolor masks: on TRUE pads (model 126, HZRDUS) the "TRUE" letters are zone 5,
+    // cut out of zone 8. Same colour on both = unreadable (Detroit: red on red), so the letters get the contrast colour.
+    if (exRow.TryGetValue(gid, out var prow) && BrandOn.TryGetValue(main.GetInt(exMain, prow, "pads"), out var brand)
+        && Dist(colours[brand.Letters], colours[brand.Under]) < 60)
+    {
+        var under = colours[brand.Under];
+        var pick = new[] { 0xFFFFFFL, 0x101010L, secondary.GetValueOrDefault(team, 0xFFFFFF) }.OrderByDescending(c => Dist(c, under)).First();
+        contrastFixed.Add($"{abbr.GetValueOrDefault(team)} {who}: {brand.Letters} {colours[brand.Letters]:X6} on {brand.Under} {under:X6} -> {pick:X6}");
+        colours[brand.Letters] = pick;
+    }
     (long, long)? mask = null;
     if (!stRow.TryGetValue(gid, out var row))
     {
