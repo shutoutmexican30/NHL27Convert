@@ -27,8 +27,8 @@ public sealed class CenterIcePage : Grid
     readonly ComboBox _slot = new() { Width = 120, Margin = new Thickness(0, 0, 12, 0) };
     readonly ComboBox _target = new() { Width = 460 };
     readonly TextBox _link = new() { MinWidth = 520, Margin = new Thickness(0, 0, 8, 0) };
-    readonly Image _stock = new() { Width = 320, Height = 320, Stretch = Stretch.Uniform };
-    readonly Image _result = new() { Width = 320, Height = 320, Stretch = Stretch.Uniform };
+    readonly Image _stock = new() { Stretch = Stretch.Uniform };
+    readonly Image _result = new() { Stretch = Stretch.Uniform };
     readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)) };
     readonly Button _fetch = new() { Content = "Fetch from TheFaceoff.net", Padding = new Thickness(14, 5, 14, 5) };
     readonly Button _file = new() { Content = "From file…", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(8, 0, 0, 0) };
@@ -45,7 +45,7 @@ public sealed class CenterIcePage : Grid
         _settings = settings;
         Background = new SolidColorBrush(Color.FromRgb(0x12, 0x16, 0x1c));
 
-        var panel = new StackPanel { Margin = new Thickness(32, 26, 32, 26), MaxWidth = 1120, HorizontalAlignment = HorizontalAlignment.Left };
+        var panel = new StackPanel { Margin = new Thickness(32, 26, 32, 26), MaxWidth = 1600, HorizontalAlignment = HorizontalAlignment.Left };
 
         panel.Children.Add(new TextBlock { Text = "Center ice", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
         panel.Children.Add(new TextBlock
@@ -73,9 +73,15 @@ public sealed class CenterIcePage : Grid
         // horizontal row it never wrapped, so a click looked like nothing happened.
         panel.Children.Add(_status);
 
-        var previews = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
-        previews.Children.Add(Card("Stock slot (what is in the game now)", _stock));
-        previews.Children.Add(Card("Result (relaid out for this slot)", _result));
+        // The two previews share the page width and stay square, so they grow with the window (they were 320 px).
+        var previews = new Grid { Margin = new Thickness(0, 16, 0, 0) };
+        previews.ColumnDefinitions.Add(new ColumnDefinition());
+        previews.ColumnDefinitions.Add(new ColumnDefinition());
+        var stockCard = Card("Stock slot (what is in the game now)", _stock);
+        var resultCard = Card("Result (relaid out for this slot)", _result);
+        Grid.SetColumn(resultCard, 1);
+        previews.Children.Add(stockCard);
+        previews.Children.Add(resultCard);
         panel.Children.Add(previews);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
