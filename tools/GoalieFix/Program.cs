@@ -64,7 +64,7 @@ if (args.Contains("--show"))
         for (int r = 0; r < t.InUse; r++)
             if (main.GetInt(t, r, "game_id") == gidShow)
                 Console.WriteLine(tn + (t.Fields.ContainsKey("team") ? $" team {main.GetInt(t, r, "team")} league {main.GetInt(t, r, "league")}" : "") +
-                    $" mask {main.GetInt(t, r, "masktype")}/{main.GetInt(t, r, "maskid")}: " +
+                    $" mask {main.GetInt(t, r, "masktype")}/{main.GetInt(t, r, "maskid")} pads {main.GetInt(t, r, "pads")} showcustomcolors {main.GetInt(t, r, "showcustomcolors")}: " +
                     string.Join(' ', t.Fields.Keys.Where(f => f.EndsWith("color")).OrderBy(f => f).Select(f => $"{f.Replace("color", "").Replace("zone", "")}={main.GetInt(t, r, f):X6}")));
     }
     return 0;
@@ -81,6 +81,14 @@ for (int r = 0; r < teams.InUse; r++)
 foreach (var t in Csv(Path.Combine(nhl27, "exhibitionteams.csv"))) if (int.TryParse(t["index"], out var i) && i is >= 0 and < 32) abbr[i] = i == 0 ? "ANA" : t["artabbr"];
 foreach (var p in Csv(Path.Combine(nhl27, "exhibitionplayerbiotable.csv"))) nameOf.TryAdd(long.Parse(p["game_id"]), p["firstname"] + " " + p["lastname"]);
 
+// Gear models NHL 24 already uses, per column (an NHL 27 model id is adopted only when NHL 24 has it).
+string[] modelCols = ["pads", "blocker", "trapper", "stick"];
+var validModels = modelCols.ToDictionary(c => c, _ => new HashSet<long>());
+foreach (var tn in new[] { "stockgoalieequipment", "exhibitiongoalieequipment" })
+{
+    var t = main.Tables[tn];
+    for (int r = 0; r < t.InUse; r++) foreach (var c in modelCols) validModels[c].Add(main.GetInt(t, r, c));
+}
 // Masks NHL 24 already uses (masktype, maskid), from both goalie tables of the main database.
 var validMasks = new HashSet<(long, long)>();
 foreach (var tn in new[] { "stockgoalieequipment", "exhibitiongoalieequipment" })
@@ -123,7 +131,7 @@ static double Ink(long c) => Math.Min(Dist(c, 0xFFFFFF), Dist(c, 0x000000));
 static string Group(string col) => col.StartsWith("pads") ? "pads" : col.StartsWith("blocker") ? "blocker" : col.StartsWith("trapper") ? "trapper" : "stick";
 
 // Per goalie: the new colours (with the contrast fix) and the mask decision, from the main database, applied to all five.
-var plan = new Dictionary<long, (Dictionary<string, long> Colours, (long Type, long Id)? Mask, int Team)>();
+var plan = new Dictionary<long, (Dictionary<string, long> Colours, (long Type, long Id)? Mask, int Team, Dictionary<string, long> Models)>();
 var contrastFixed = new List<string>(); var contrastFailed = new List<string>(); var maskChanges = new List<string>(); var noRow = new List<string>();
 var exRow = new Dictionary<long, int>();
 for (int r = 0; r < exMain.InUse; r++) exRow.TryAdd(main.GetInt(exMain, r, "game_id"), r);
@@ -186,7 +194,12 @@ foreach (var (gid, team) in teamOf)
         long oldTeam = main.GetInt(stMain, row, "team");
         maskChanges.Add($"{who}: {(oldTeam is >= 0 and < 32 ? abbr.GetValueOrDefault((int)oldTeam) : oldTeam.ToString())} mask {main.GetInt(stMain, row, "masktype")}/{main.GetInt(stMain, row, "maskid")} -> {abbr.GetValueOrDefault(team)} {tm.Type}/{tm.Id}");
     }
-    plan[gid] = (colours, mask, team);
+    // NHL 27's gear models when he is on the same team there: the zone colours are laid out for them (Carter Hart: NHL 24's
+    // row kept model 110, his old Flyers Brian's, whose texture shows red where NHL 27's model 67 takes the zones).
+    var models = by27.TryGetValue(gid.ToString(), out var m27) && int.Parse(m27["team"]) == team
+        ? modelCols.Where(c => long.TryParse(m27[c], out var v) && validModels[c].Contains(v)).ToDictionary(c => c, c => long.Parse(m27[c]))
+        : new Dictionary<string, long>();
+    plan[gid] = (colours, mask, team, models);
 }
 
 // ---- Detroit swatches (before = the main database now) ----
@@ -224,6 +237,8 @@ if (!WriteGate.Allowed(args)) { Say("dry run (pass --apply with --target to writ
 
 // ---- write all five databases in place ----
 var output = new Dictionary<string, byte[]>();
+var customOn = new List<(string Db, int Team, long Gid)>();
+var modelChanges = new List<(string Db, long Gid, string Col, long Value)>();
 foreach (var (db, bytes) in raw)
 {
     var t3 = T3Db.Load((byte[])bytes.Clone(), meta);
@@ -238,6 +253,11 @@ foreach (var (db, bytes) in raw)
             if (stock && t3.GetInt(t, r, "league") != 0) continue;
             foreach (var (col, v) in p.Colours)
                 if (t.Fields.ContainsKey(col) && t3.GetInt(t, r, col) != v) { t3.SetInt(t, r, col, v); cells++; }
+            foreach (var (col, v) in p.Models)
+                if (t.Fields.ContainsKey(col) && t3.GetInt(t, r, col) != v) { t3.SetInt(t, r, col, v); cells++; modelChanges.Add((db, t3.GetInt(t, r, "game_id"), col, v)); }
+            // The zone colours only show when this flag is on; off, the game draws the gear model's own stock colours
+            // (Carter Hart on Vegas in red Flyers-style Brian's).
+            if (t.Fields.ContainsKey("showcustomcolors") && t3.GetInt(t, r, "showcustomcolors") != 1) { t3.SetInt(t, r, "showcustomcolors", 1); cells++; customOn.Add((db, p.Team, t3.GetInt(t, r, "game_id"))); }
             if (p.Mask is { } m)
             {
                 if (stock && t3.GetInt(t, r, "team") != p.Team) { t3.SetInt(t, r, "team", p.Team); cells++; }
@@ -253,6 +273,10 @@ foreach (var (db, bytes) in raw)
     if (cells > 0) output[names[db]] = saved;
 }
 
+foreach (var g in modelChanges.Where(c => c.Db == "nhl_game").GroupBy(c => c.Gid))
+    Say($"  gear models from NHL 27: {abbr.GetValueOrDefault(teamOf.GetValueOrDefault(g.Key))} {nameOf.GetValueOrDefault(g.Key, g.Key.ToString())} ({string.Join(", ", g.Select(c => $"{c.Col} {c.Value}").Distinct())})");
+foreach (var g in customOn.Where(c => c.Db == "nhl_game").Select(c => c.Gid).Distinct())
+    Say($"  custom colours switched on: {abbr.GetValueOrDefault(teamOf.GetValueOrDefault(g))} {nameOf.GetValueOrDefault(g, g.ToString())}");
 if (ApplyTarget.RunningGame() is { } running) { Say("REFUSED: " + running + " is running"); return 1; }
 var backup = ApplyTarget.Backup(target);
 Say("backup: " + backup);
