@@ -10,6 +10,11 @@
     <ProjectReference Include="..\Suite.Sounds\Suite.Sounds.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The Scorebug page's preview (Ruffle in WebView2); same version as Suite.Convert27's viewer. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>

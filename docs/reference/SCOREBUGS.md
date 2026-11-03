@@ -84,3 +84,18 @@ animation in the background.
   (`nhl/data/common/movie/transitions/match_start_*.vp6`). It's empty in offline modes: a possible hook for city
   intro videos.
 - `nhluidata.swf` must keep its exact size when edited: patch bytecode in place, recompress tighter, zero-pad.
+
+## 8. In the suite (Scorebug page)
+
+- Files: `data\scorebug` (both movies, `OFL-Figtree.txt`) and `data\scorebug\preview` (`preview.html`, the preview
+  SWFs `espn.swf` / `prime.swf`, Ruffle 0.6). Code: `src\Suite.Scorebug`; CLI checks: `tools\Scorebug`
+  (`check [packs...]`, `read <game>`, `apply <espn|prime> [settings] --target <game> --apply`).
+- Settings schema (`ScorebugSettings`) is NHL24Kit's, decompiled; `Scorebug check` confirms every key is in each movie's
+  string pool and that a rewrite changes only bytes inside the 4096-byte block. The stock block is all spaces (defaults).
+- Saved per style in `%APPDATA%\CenterIceModdingSuite\scorebug` (`style.txt`, `<style>.json`, NHL24Kit's `Stored` shape).
+- In NHL 24 both movies are **legacy files** of a second collector index (chunk `fb77e834…` in `Patch\…\globals.toc`,
+  340 `nhl/ui/swf_assets/…` files), stored in one shared 10 MB chunk (`afb71b90…`, 256 KB blocks, absolute raw offsets).
+  Stock sizes 16,139 and 115,242 bytes, so `LegacyFiles` moves a resized file to the chunk's end on a block boundary
+  (both names share one copy; the tail is reused on the next write). Write = `LegacyApply` (guard incl. running game,
+  backup, read-back, put back on failure).
+- Movie header length fields are left alone: the stock movies' own fields don't match their data.
