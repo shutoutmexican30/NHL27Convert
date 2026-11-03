@@ -59,6 +59,9 @@ public sealed class GoalieGearTests : IDisposable
         Assert.Equal("999", team.Get(team.Rows[0], "padszone1color"));
         // The pad/trapper/blocker/stick models are never adopted: the model carries the brand wordmark.
         Assert.NotEqual("65", result.Get(result.Rows[0], "pads"));
+        // Same on the team row: a traded goalie's NHL gear row keeps his brand.
+        foreach (var model in new[] { "pads", "trapper", "blocker" }) Assert.Equal("34", team.Get(team.Rows[0], model));
+        Assert.Equal("69", team.Get(team.Rows[0], "stick"));
     }
 
     public void Dispose() => Directory.Delete(root, true);

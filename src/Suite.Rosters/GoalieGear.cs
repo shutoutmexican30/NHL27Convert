@@ -1,9 +1,9 @@
 namespace Suite.Rosters;
 
 /// <summary>
-/// The NHL 27 goalie-equipment table supplies the individual colour zones and the selected pads, gloves, stick and
-/// mask.  NHL 24 accepts only its own equipment ids, so a source model is adopted only when that exact id is already
-/// used by NHL 24; otherwise the player's NHL 24 model remains in place and receives the correct NHL 27 colours.
+/// The NHL 27 goalie-equipment table supplies the colour zones and the mask.  The pads, gloves and stick models are never
+/// taken (the model id is the brand wordmark), so every goalie keeps the NHL 24 gear he wears in his new colours.  A mask
+/// is adopted only when that exact id is already used by NHL 24.
 /// </summary>
 public sealed class GoalieGear
 {
@@ -109,7 +109,9 @@ public sealed class GoalieGear
             {
                 if (!source.TryGetValue(col, out var value) || col is "game_id" or "team" or "league" or "key") continue;
                 bool colour = col.Contains("zone", StringComparison.Ordinal) || col == "sticktapecolor";
-                bool model = TeamModels.Contains(col, StringComparer.Ordinal);
+                // Only the mask travels: the pad/trapper/blocker/stick model carries the brand wordmark, so copying the
+                // NHL 27 team row's model renamed the gear of every goalie on that team.
+                bool model = col is "masktype" or "maskid";
                 if (!colour && !model && col is not "showcustomcolors" and not "showcustomstick") continue;
                 if (model && _validModels.TryGetValue(col, out var allowed) && !allowed.Contains(value)) { fallbackModels++; continue; }
                 if (stock.Get(row, col) != value) { stock.Set(row, col, value); any = true; }

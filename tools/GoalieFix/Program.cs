@@ -6,8 +6,9 @@
 //     dbwork\stock, not the game being edited).  NHL 27's zone numbers are laid out for NHL 27's models, so its palette
 //     mis-colours NHL 24's blocker and trapper - the brand wordmark lands on the wrong zone and cannot be read.
 //  2. masks: the team row's masktype/maskid, so a traded goalie wears his new team's mask instead of his old team's.
-//  3. gear models are never touched: the model id carries the brand wordmark (a TRUE pad says TRUE), so copying the team
-//     row's model renamed the goalie's gear.  He keeps the pads/blocker/trapper/stick he already wears.
+//  3. gear models are never taken from anywhere else: the model id carries the brand wordmark (a TRUE pad says TRUE), so
+//     copying the team row's model renamed the goalie's gear.  Every goalie row gets NHL 24's own pads/blocker/trapper/
+//     stick back from the pristine stock DB, which undoes earlier writes that did rename them.
 //  4. brand contrast (fallback only, when no NHL 24 team row exists, plus the TRUE-pad letters guard): a zone that was
 //     white/black ink in the NHL 24 design, apart from the item's main colour, that the new colours put on the main colour
 //     becomes white, black or the team's secondary, whichever stands out most.
@@ -83,8 +84,57 @@ if (args.Contains("--show"))
                     $" mask {main.GetInt(t, r, "masktype")}/{main.GetInt(t, r, "maskid")} pads {main.GetInt(t, r, "pads")} showcustomcolors {main.GetInt(t, r, "showcustomcolors")}: " +
                     string.Join(' ', t.Fields.Keys.Where(f => f.EndsWith("color")).OrderBy(f => f).Select(f => $"{f.Replace("color", "").Replace("zone", "")}={main.GetInt(t, r, f):X6}")));
     }
+    // Read only: the team the live roster puts him on, identified by that team row's colours (the tables hold no strings).
+    if (teamOf.TryGetValue(gidShow, out var liveTeam))
+    {
+        var teamsT = main.Tables["exhibitionteams"];
+        for (int r = 0; r < teamsT.InUse; r++)
+            if (main.GetInt(teamsT, r, "index") == liveTeam)
+                Console.WriteLine($"live roster team {liveTeam}: primary {main.GetInt(teamsT, r, "feprimarycolor"):X6} secondary {main.GetInt(teamsT, r, "fesecondarycolor"):X6}");
+    }
+    else Console.WriteLine("live roster: not a goalie on an NHL team 0-31");
     return 0;
 }
+
+// Gear models back to NHL 24's own, on every goalie row: the model id is the brand wordmark, and earlier writes (GoalieFix
+// before 74df0df, the roster sync's team-row copy) put NHL 27's model on the row, renaming the pads he wore before the
+// trade.  Rows are matched to the pristine stock DB by game_id + league + occurrence (a traded goalie's team is rewritten).
+string[] gearModels = ["pads", "blocker", "trapper", "stick"];
+int RestoreModels(T3Db t3, string db, List<(long Gid, string Model, long From, long To)>? changes)
+{
+    var path = Path.Combine(SuitePaths.Local, "dbwork", "stock", names[db]);
+    if (!File.Exists(path)) return 0;
+    var src = T3Db.Load(File.ReadAllBytes(path), meta);
+    int cells = 0;
+    foreach (var tn in new[] { "exhibitiongoalieequipment", "stockgoalieequipment" })
+    {
+        if (!t3.Tables.TryGetValue(tn, out var t) || !src.Tables.TryGetValue(tn, out var s)) continue;
+        bool leagues = t.Fields.ContainsKey("league");
+        string Key(T3Db d, T3Db.Table x, int r, Dictionary<string, int> seen)
+        {
+            var k = $"{d.GetInt(x, r, "game_id")}/{(leagues ? d.GetInt(x, r, "league") : 0)}";
+            seen[k] = seen.GetValueOrDefault(k) + 1;
+            return k + "/" + seen[k];
+        }
+        var orig = new Dictionary<string, int>(); var seenSrc = new Dictionary<string, int>(); var seenNow = new Dictionary<string, int>();
+        for (int r = 0; r < s.InUse; r++) orig[Key(src, s, r, seenSrc)] = r;
+        for (int r = 0; r < t.InUse; r++)
+        {
+            if (!orig.TryGetValue(Key(t3, t, r, seenNow), out var o)) continue;
+            foreach (var m in gearModels.Where(t.Fields.ContainsKey))
+            {
+                long now = t3.GetInt(t, r, m), was = src.GetInt(s, o, m);
+                if (now == was) continue;
+                changes?.Add((t3.GetInt(t, r, "game_id"), $"{(leagues ? $"stock L{t3.GetInt(t, r, "league")}" : "personal")} {m}", now, was));
+                t3.SetInt(t, r, m, was); cells++;
+            }
+        }
+    }
+    return cells;
+}
+// On the main database first, so the plan (the TRUE-pad letters guard) follows the pads he really wears.
+var modelRestores = new List<(long Gid, string Model, long From, long To)>();
+RestoreModels(main, "nhl_game", modelRestores);
 var abbr = new Dictionary<int, string>();
 var secondary = new Dictionary<int, long>();
 var teams = main.Tables["exhibitionteams"];
@@ -267,11 +317,13 @@ ImageIO.SavePng(new Rgba(width, height, px), swatch);
 File.WriteAllLines(review, new[] { $"Goalie gear review ({DateTime.Now:yyyy-MM-dd HH:mm})", "",
     $"Detroit goalies (swatch rows: before, after; columns: {string.Join(' ', padCols)}):" }
     .Concat(det.Select(g => "  " + nameOf.GetValueOrDefault(g, g.ToString())))
+    .Concat(["", $"Gear models put back to NHL 24's own (main database, {modelRestores.Count}):"])
+    .Concat(modelRestores.Select(m => $"  {nameOf.GetValueOrDefault(m.Gid, m.Gid.ToString())}: {m.Model} {m.From} -> {m.To}"))
     .Concat(["", $"Mask changes ({maskChanges.Count}):"]).Concat(maskChanges.Select(s => "  " + s))
     .Concat(["", $"Brand contrast fixed ({contrastFixed.Count}):"]).Concat(contrastFixed.Select(s => "  " + s))
     .Concat(["", $"Contrast still failing ({contrastFailed.Count}):"]).Concat(contrastFailed.Select(s => "  " + s))
     .Concat(["", $"No NHL 24 team row and no usable personal row (left as is, {noRow.Count}):"]).Concat(noRow.Select(s => "  " + s)));
-Say($"{plan.Count} goalies planned, {maskChanges.Count} mask changes, {contrastFixed.Count} contrast fixes, {contrastFailed.Count} failing. Review: {review}");
+Say($"{plan.Count} goalies planned, {modelRestores.Count} gear models put back, {maskChanges.Count} mask changes, {contrastFixed.Count} contrast fixes, {contrastFailed.Count} failing. Review: {review}");
 // Writing needs --apply: anything else (a typo'd or missing mode included) stops here, read only.
 if (!WriteGate.Allowed(args)) { Say("dry run (pass --apply with --target to write)"); return 0; }
 
@@ -302,6 +354,7 @@ foreach (var (db, bytes) in raw)
             }
         }
     }
+    cells += RestoreModels(t3, db, null);
     var saved = t3.Save();
     if (saved.Length != bytes.Length) throw new InvalidOperationException($"{db}: size changed");
     T3Db.Load((byte[])saved.Clone(), meta);   // every CRC valid again
