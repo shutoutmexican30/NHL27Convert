@@ -1,9 +1,19 @@
 // CenterIce png   <res> <chunk> <out.png>       decode mip 0 of a BC7 slot (PS4 tiled)
+// CenterIce convert <res> <chunk> <rink image> <out.png>   rink picture -> decal in the stock slot's layout (CenterIceImage)
 // CenterIce build <res> <image> <outChunk>      full BC7 mip chain, same byte length as the slot; resized to the slot if needed
 // Writes only the output files; the game write is ChunkWrite's (every reference, read-back, restore check).
 using Suite.Core;
 using Suite.Core.Frostbite;
 
+if (args.Length == 5 && args[0] == "convert")
+{
+    var r = TextureRes.Parse(File.ReadAllBytes(args[1]));
+    var stock = Bc7.DecodeTiled(TextureChunk.Parse(File.ReadAllBytes(args[2]), r).Mips[0], r.Width, r.Height);
+    var outImg = CenterIceImage.ToSlot(ImageIO.Load(args[3]), stock);
+    ImageIO.SavePng(outImg, Path.GetFullPath(args[4]));
+    Console.WriteLine($"stock circle {CenterIceImage.FindCircle(stock, true)}; rink circle {CenterIceImage.FindCircle(ImageIO.Load(args[3]))} -> {args[4]}");
+    return 0;
+}
 if (args.Length != 4) { Console.Error.WriteLine("usage: CenterIce png|build <res> <chunk|image> <out>"); return 2; }
 var header = File.ReadAllBytes(args[1]);
 var res = TextureRes.Parse(header);
@@ -17,6 +27,7 @@ if (args[0] == "png")
 }
 var img = ImageIO.Load(args[2]);
 if (img.Width != res.Width || img.Height != res.Height) img = ImageIO.ResizeSmooth(img, res.Width, res.Height);
+img = CenterIceImage.CutRedLine(img);   // clean red-line gap, as every stock slot has
 var mips = new List<byte[]>();
 for (int i = 0, w = res.Width, h = res.Height; i < res.MipCount; i++, w = Math.Max(1, w / 2), h = Math.Max(1, h / 2))
 {
@@ -30,6 +41,7 @@ File.WriteAllBytes(args[3], built);
 var back = Bc7.DecodeTiled(mips[0], res.Width, res.Height);
 var src = ImageIO.Load(args[2]);
 if (src.Width != res.Width) src = ImageIO.ResizeSmooth(src, res.Width, res.Height);
+src = CenterIceImage.CutRedLine(src);
 double d = 0; for (int i = 0; i < src.Pixels.Length; i++) d += Math.Abs(src.Pixels[i] - back.Pixels[i]);
 Console.WriteLine($"built {built.Length} bytes ({res.MipCount} mips); mip 0 round trip mean |d| {d / src.Pixels.Length:F2}");
 return 0;
