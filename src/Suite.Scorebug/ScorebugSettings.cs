@@ -68,6 +68,16 @@ public sealed class ScorebugSettings
 
     public void ResetAll() { _values.Clear(); TeamColours.Clear(); }
 
+    /// <summary>Adds or replaces a team's own colours: one entry per abbreviation, a later one wins.
+    /// Colours are normalized (RRGGBB upper case); an invalid colour drops the entry.</summary>
+    public void SetTeamColour(string abbr, string primary, string secondary)
+    {
+        var a = CleanAbbr(abbr);
+        TeamColours.RemoveAll(c => c.Abbr == a);
+        if (a.Length > 0 && TryColour(primary, out var p) && TryColour(secondary, out var s))
+            TeamColours.Add((a, p.ToString("X6"), s.ToString("X6")));
+    }
+
     public string ToSettingsString()
     {
         var parts = All.Where(s => !IsDefault(s)).Select(s => s.Key + "=" + (s.Kind == SettingKind.Colour ? "0x" + Get(s) : Get(s))).ToList();
@@ -90,7 +100,7 @@ public sealed class ScorebugSettings
             {
                 foreach (var t in value.Split('|', StringSplitOptions.RemoveEmptyEntries))
                     if (t.Split(':') is [var a, var p, var s] && TryColour(p, out var pc) && TryColour(s, out var sc))
-                        TeamColours.Add((CleanAbbr(a), pc.ToString("X6"), sc.ToString("X6")));
+                        SetTeamColour(CleanAbbr(a), pc.ToString("X6"), sc.ToString("X6"));
                 continue;
             }
             if (All.FirstOrDefault(s => s.Key == key) is { } setting) Set(setting, value);
@@ -129,7 +139,7 @@ public sealed class ScorebugSettings
             if (st?.Values is { } v && v.TryGetValue(s.Key, out var value)) Set(s, value);
         foreach (var t in st?.TeamColours ?? [])
             if (t.Length >= 3 && TryColour(t[1], out var p) && TryColour(t[2], out var c))
-                TeamColours.Add((CleanAbbr(t[0]), p.ToString("X6"), c.ToString("X6")));
+                SetTeamColour(CleanAbbr(t[0]), p.ToString("X6"), c.ToString("X6"));
     }
 
     /// <summary>Schema keys the style's movie does not contain (should be none).</summary>

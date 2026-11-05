@@ -52,7 +52,7 @@ public class BrandingRulesTests
         var normal = ColorSlot.Replace("_color_array", "_normal_array");
         var rows = new[] { new SlotMatch { Slot = ColorSlot, IsArray = true, Layers = [new() { Layer = 2, Source27 = "wrong-color" }] },
             new SlotMatch { Slot = normal, IsArray = true, Layers = [new() { Layer = 2, Source27 = "adidas-normal" }] } };
-        ManufacturerBranding.ApplyToRows(rows, new(ColorSlot, 2, "fanatics.png", "fanatics-normal.png"));
+        ManufacturerBranding.ApplyToRows(rows, new(ColorSlot, 2, "fanatics.png", "fanatics-normal.png"), _ => null);
         Assert.Equal("fanatics-normal.png", rows[1].Layers[0].FilePath);
         Assert.Null(rows[1].Layers[0].Source27);
     }
@@ -86,7 +86,7 @@ public class BrandingRulesTests
     {
         var mod = new ModFile { Replacements = [new(ColorSlot, "", new() { [0] = "wrong-shield", [3] = "tag" }),
             new(ColorSlot.Replace("_color_array", "_normal_array"), "", new() { [0] = "wrong-shield-normal" })] };
-        ManufacturerBranding.KeepStockLayer(mod, ColorSlot, 0);
+        ManufacturerBranding.KeepStockLayer(mod, ColorSlot, 0, null);
         Assert.Single(mod.Replacements);
         Assert.Equal("tag", mod.Replacements[0].Layers![3]);
         Assert.False(mod.Replacements[0].Layers!.ContainsKey(0));

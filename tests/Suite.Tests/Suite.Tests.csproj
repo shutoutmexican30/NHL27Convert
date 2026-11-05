@@ -19,11 +19,14 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <None Include="..\..\data\logo_refs.json" Link="data\logo_refs.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The scorebug tests rewrite the real style movies in memory (never on disk). -->
+    <None Include="..\..\data\scorebug\*.gfx" Link="data\scorebug\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
     <ProjectReference Include="..\..\src\Suite.Convert27\Suite.Convert27.csproj" />
+    <ProjectReference Include="..\..\src\Suite.Scorebug\Suite.Scorebug.csproj" />
   </ItemGroup>
 
 </Project>

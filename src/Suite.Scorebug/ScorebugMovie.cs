@@ -46,6 +46,19 @@ public static class ScorebugMovie
 
     public static bool HasBlock(byte[] movie) => FindBlock(Unpack(movie).Body) >= 0;
 
+    /// <summary>
+    /// A content fingerprint that ignores the settings block: SHA-256 of the unpacked body with the whole 4096-byte
+    /// block zeroed. Two builds of the same style match no matter what settings they carry, and any other movie
+    /// (stock scoreclock, another style) does not.
+    /// </summary>
+    public static string Fingerprint(byte[] movie)
+    {
+        var body = Unpack(movie).Body;
+        int at = FindBlock(body);
+        if (at >= 0) Array.Clear(body, at, BlockSize);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(body));
+    }
+
     /// <summary>The settings text in the movie (without the marker, trailing spaces trimmed).</summary>
     public static string ReadSettings(byte[] movie)
     {

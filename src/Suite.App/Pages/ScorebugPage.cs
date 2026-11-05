@@ -50,7 +50,7 @@ public sealed class ScorebugPage : Grid
     readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(350) };
 
     ScorebugSettings _sb;
-    bool _webReady, _loading;
+    bool _webReady, _loading, _dirty;
 
     public ScorebugPage(SuiteSettings settings)
     {
@@ -182,10 +182,12 @@ public sealed class ScorebugPage : Grid
     }
 
     void Say(string text) => _status.Text = text;
-    void Restart() { _debounce.Stop(); _debounce.Start(); }
+    void Restart() { _dirty = true; _debounce.Stop(); _debounce.Start(); }
 
     void UseStyle(ScorebugStyle style)
     {
+        _debounce.Stop();
+        if (_dirty) Persist();   // a change made in the debounce window belongs to the style being left
         _sb = new ScorebugSettings(style);
         _sb.Load();
         try { ScorebugSettings.SaveActiveStyle(style); } catch (Exception ex) { SuiteLog.Write("scorebug style not saved: " + ex.Message); }
@@ -195,6 +197,7 @@ public sealed class ScorebugPage : Grid
 
     void Persist()
     {
+        _dirty = false;
         try { _sb.Save(); } catch (Exception ex) { Say("Could not save the settings: " + ex.Message); }
     }
 
@@ -360,15 +363,14 @@ public sealed class ScorebugPage : Grid
     void OwnChanged()
     {
         if (_loading || Edited is not { } t) return;
-        _sb.TeamColours.RemoveAll(c => c.Abbr == t.Abbr);
         bool own = _own.IsChecked == true;
         _ownPri.IsEnabled = _ownSec.IsEnabled = own;
         if (own)
         {
             if (!ScorebugSettings.TryColour(_ownPri.Text, out var p) || !ScorebugSettings.TryColour(_ownSec.Text, out var s)) return;
-            _sb.TeamColours.Add((t.Abbr, p.ToString("X6"), s.ToString("X6")));
+            _sb.SetTeamColour(t.Abbr, p.ToString("X6"), s.ToString("X6"));
         }
-        else { _loading = true; _ownPri.Text = t.Primary; _ownSec.Text = t.Secondary; _loading = false; }
+        else { _sb.TeamColours.RemoveAll(c => c.Abbr == t.Abbr); _loading = true; _ownPri.Text = t.Primary; _ownSec.Text = t.Secondary; _loading = false; }
         Paint(_ownPriSwatch, _ownPri.Text); Paint(_ownSecSwatch, _ownSec.Text);
         _loading = true;
         _teamColours.Text = string.Join("|", _sb.TeamColours.Select(c => $"{c.Abbr}:{c.Primary}:{c.Secondary}"));
@@ -411,7 +413,7 @@ public sealed class ScorebugPage : Grid
         _sb.TeamColours.Clear();
         foreach (var part in _teamColours.Text.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             if (part.Split(':') is [var a, var p, var s] && ScorebugSettings.TryColour(p, out var pc) && ScorebugSettings.TryColour(s, out var sc) && ScorebugSettings.CleanAbbr(a).Length > 0)
-                _sb.TeamColours.Add((ScorebugSettings.CleanAbbr(a), pc.ToString("X6"), sc.ToString("X6")));
+                _sb.SetTeamColour(ScorebugSettings.CleanAbbr(a), pc.ToString("X6"), sc.ToString("X6"));
     }
 
     // ---- Preview ----
@@ -500,6 +502,7 @@ public sealed class ScorebugPage : Grid
         try
         {
             var pack = ScorebugPack.Read(dlg.FileName);
+            if (!ConfirmImport(pack)) { Say("Import cancelled; nothing changed."); return; }
             UseStyle(pack.Style);
             _sb.FromStored(pack.Manifest.Scorebug);
             Persist();
@@ -513,11 +516,62 @@ public sealed class ScorebugPage : Grid
         catch (Exception ex) { Say("Could not import that pack: " + ex.Message); }
     }
 
+    /// <summary>Shows what a pack holds (with its embedded preview picture) and asks before the current settings are replaced.</summary>
+    static bool ConfirmImport(ScorebugPack.Loaded pack)
+    {
+        var m = pack.Manifest;
+        var details = new StackPanel { Margin = new Thickness(16, 14, 16, 0) };
+        details.Children.Add(new TextBlock
+        {
+            Text = $"\"{m.Name}\"" + (string.IsNullOrWhiteSpace(m.Author) ? "" : $" by {m.Author}") + (string.IsNullOrWhiteSpace(m.Created) ? "" : $", {m.Created}"),
+            FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, FontSize = 14, TextWrapping = TextWrapping.Wrap,
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = $"{pack.Style.Name} · {m.Scorebug?.Values.Count ?? 0} changed setting(s) · {m.Scorebug?.TeamColours.Count ?? 0} team colour(s)" +
+                   (m.Mods.Count > 0 ? $"\nAlso carries {m.Mods.Count} NHL24Kit mod(s), which the suite does not apply." : ""),
+            Foreground = Body, Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap,
+        });
+        if (pack.Preview is { Length: > 0 } png)
+        {
+            var bmp = new System.Windows.Media.Imaging.BitmapImage();
+            bmp.BeginInit(); bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.StreamSource = new MemoryStream(png); bmp.EndInit(); bmp.Freeze();
+            details.Children.Add(new Border
+            {
+                BorderBrush = CardLine, BorderThickness = new Thickness(1), Margin = new Thickness(0, 10, 0, 0),
+                Child = new Image { Source = bmp, MaxWidth = 560, Stretch = System.Windows.Media.Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left },
+            });
+        }
+        details.Children.Add(new TextBlock
+        {
+            Text = "Replace the current " + pack.Style.Name + " settings with this pack?",
+            Foreground = Body, Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap,
+        });
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 14, 16, 14) };
+        var ok = new Button { Content = "Import", IsDefault = true, Padding = new Thickness(18, 5, 18, 5), Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, Padding = new Thickness(18, 5, 18, 5) };
+        buttons.Children.Add(ok); buttons.Children.Add(cancel);
+        var win = new Window
+        {
+            Title = "Import scorebug pack", SizeToContent = SizeToContent.WidthAndHeight, MinWidth = 380, MaxWidth = 640,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize,
+            Background = new SolidColorBrush(Color.FromRgb(0x12, 0x16, 0x1c)),
+            Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive),
+            Content = new StackPanel { Children = { details, buttons } },
+        };
+        bool answer = false;
+        ok.Click += (_, _) => { answer = true; win.Close(); };
+        cancel.Click += (_, _) => win.Close();
+        win.ShowDialog();
+        return answer;
+    }
+
     async Task ExportPackAsync()
     {
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export a scorebug pack", Filter = "Scorebug packs (*.nhl24bug)|*.nhl24bug", FileName = _sb.Style.Name.Replace('+', 'P') + " scorebug" + ScorebugPack.Extension,
+            Title = "Export a scorebug pack", Filter = "Scorebug packs (*.nhl24bug)|*.nhl24bug", FileName = _sb.Style.Name.Replace("+", " Plus") + " scorebug" + ScorebugPack.Extension,
         };
         if (dlg.ShowDialog() != true) return;
         try
@@ -540,9 +594,12 @@ public sealed class ScorebugPage : Grid
         {
             var settings = _settings;
             var (style, text, bytes) = await Task.Run(() => ScorebugApply.Read(game, settings));
-            _inGame.Text = $"In {game} now: " + (style is null
-                ? $"the game's own scorebug (scoreclock.gfx {bytes:N0} bytes)."
-                : $"{style.Name}, {(string.IsNullOrEmpty(text) ? "default settings" : text.Split(';').Length + " changed setting(s)")}.");
+            _inGame.Text = $"In {game} now: " + (style, text) switch
+            {
+                (null, null) => $"the game's own scorebug (scoreclock.gfx {bytes:N0} bytes).",
+                (null, _) => $"a custom scorebug of a style the suite doesn't ship (scoreclock.gfx {bytes:N0} bytes, settings \"{text}\").",
+                _ => $"{style!.Name}, {(string.IsNullOrEmpty(text) ? "default settings" : text.Split(';').Length + " changed setting(s)")}.",
+            };
         }
         catch (Exception ex) { _inGame.Text = "Could not read the game's scorebug: " + ex.Message; }
     }

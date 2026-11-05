@@ -38,13 +38,28 @@ public static class ScorebugApply
         return (ok, message, backup);
     }
 
-    /// <summary>What the game has now: the style whose movie matches (settings aside) and its settings, or null for stock.</summary>
+    static readonly Dictionary<string, string> _styleFingerprints = new(StringComparer.Ordinal);
+
+    static string StyleFingerprint(ScorebugStyle style)
+    {
+        if (!_styleFingerprints.TryGetValue(style.Id, out var fp))
+            _styleFingerprints[style.Id] = fp = ScorebugMovie.Fingerprint(File.ReadAllBytes(style.MoviePath));
+        return fp;
+    }
+
+    /// <summary>Which shipped style a movie's bytes belong to (settings aside), or null.</summary>
+    public static ScorebugStyle? Identify(byte[] movie)
+    {
+        var fp = ScorebugMovie.Fingerprint(movie);
+        return ScorebugStyle.All.FirstOrDefault(st => File.Exists(st.MoviePath) && StyleFingerprint(st) == fp);
+    }
+
+    /// <summary>What the game has now: the style whose movie matches (settings aside) and its settings, or null for stock.
+    /// A custom movie of a style the suite does not ship reports a null style with its settings text still filled.</summary>
     public static (ScorebugStyle? Style, string? Settings, int Bytes) Read(string game, SuiteSettings s)
     {
         var bytes = new LegacyFiles(game, s).Read(GameFiles[0]);
         if (!ScorebugMovie.HasBlock(bytes)) return (null, null, bytes.Length);
-        var body = ScorebugMovie.Unpack(bytes).Body.Length;
-        var style = ScorebugStyle.All.FirstOrDefault(st => File.Exists(st.MoviePath) && ScorebugMovie.Unpack(File.ReadAllBytes(st.MoviePath)).Body.Length == body);
-        return (style, ScorebugMovie.ReadSettings(bytes), bytes.Length);
+        return (Identify(bytes), ScorebugMovie.ReadSettings(bytes), bytes.Length);
     }
 }
