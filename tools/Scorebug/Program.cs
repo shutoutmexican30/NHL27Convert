@@ -84,6 +84,82 @@ if (args.Length >= 2 && args[0] == "read")
     return 0;
 }
 
+// get <game> <legacyName> <outFile> — extract one legacy file (for comparing base game vs update overlays)
+if (args.Length >= 4 && args[0] == "get")
+{
+    var bytes = new LegacyFiles(args[1], settings).Read(args[2]);
+    File.WriteAllBytes(args[3], bytes);
+    Say($"{args[2]}: {bytes.Length:N0} bytes -> {args[3]}");
+    return 0;
+}
+
+// find <game> <substring> — every legacy file whose name contains it (same index as the scorebug's)
+if (args.Length >= 3 && args[0] == "find")
+{
+    var lf = new LegacyFiles(args[1], settings);
+    foreach (var n in lf.Names(ScorebugApply.GameFiles[0]).Where(n => n.Contains(args[2], StringComparison.OrdinalIgnoreCase)))
+        Say($"  {n}");
+    return 0;
+}
+
+// findindex <game> <substring> — scan every chunk of every TOC for one whose decoded bytes hold the text; print its
+// id, size and the printable strings inside (to discover which legacy index / collector chunk holds a file).
+if (args.Length >= 3 && args[0] == "findindex")
+{
+    var game = args[1];
+    var needle = System.Text.Encoding.ASCII.GetBytes(args[2]);
+    Oodle.Ensure(settings);
+    var tocs = new[] { "Patch", "Data" }.Select(s => Path.Combine(game, s)).Where(Directory.Exists)
+        .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
+        .Select(TocFile.Load).ToList();
+    var seen = new HashSet<Guid>();
+    foreach (var toc in tocs)
+        foreach (var id in toc.Chunks)
+        {
+            if (!seen.Add(id)) continue;
+            var r = tocs.Select(t => t.Find(id)).FirstOrDefault(x => x is not null);
+            if (r is null || r.Size > 8_000_000) continue;
+            var cas = Path.Combine(game, r.Patch ? "Patch" : "Data", "Gen4b", "superbundlelayout", $"nhl_installpackage_{r.Catalog:D2}", $"cas_{r.Cas:D2}.cas");
+            byte[] raw;
+            try
+            {
+                using var fs = new FileStream(cas, FileMode.Open, FileAccess.Read, FileShare.Read);
+                fs.Position = r.Offset;
+                var b = new byte[r.Size];
+                fs.ReadExactly(b);
+                raw = ChunkBlocks.Parse(b).Decode();
+            }
+            catch { continue; }
+            if (raw.AsSpan().IndexOf(needle) < 0) continue;
+            Say($"chunk {id} in {Path.GetFileName(toc.Path)}: {raw.Length:N0} bytes, strings:");
+            for (int p = 0; p < raw.Length;)
+            {
+                int end = Array.IndexOf(raw, (byte)0, p);
+                if (end < 0) end = raw.Length;
+                if (end - p >= 4 && end - p <= 260)
+                {
+                    var s = System.Text.Encoding.ASCII.GetString(raw, p, end - p);
+                    if (s.All(c => c >= 0x20 && c <= 0x7E) && (s.Contains('/') || s.Contains('.'))) Say($"  {s}");
+                }
+                p = end + 1;
+            }
+        }
+    return 0;
+}
+
+// restore <game> [backupDir] — put the game back to a backup (default: the newest one under the suite's backup folder).
+if (args.Length >= 2 && args[0] == "restore")
+{
+    var game = args[1];
+    var backup = args.Length >= 3 ? args[2]
+        : Directory.GetDirectories(Path.Combine(SuitePaths.Local, "backups")).Order().LastOrDefault()
+            ?? throw new InvalidDataException("No backups found.");
+    ApplyTarget.RestoreFromBackup(game, backup);
+    var left = ApplyTarget.Compare(game, backup);
+    Say($"restored from {backup}: {(left.Count == 0 ? "identical to the backup" : string.Join("; ", left))}");
+    return left.Count == 0 ? 0 : 1;
+}
+
 if (args.Length >= 2 && args[0] == "apply")
 {
     var style = ScorebugStyle.ById(args[1]);

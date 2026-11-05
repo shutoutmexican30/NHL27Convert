@@ -246,6 +246,26 @@ public sealed class LegacyFiles
         return log;
     }
 
+    /// <summary>
+    /// The index chunk also carries one [u64 raw size][chunk guid] record per data chunk (past the file table). A resize
+    /// must update it: the game sizes its decode buffer by that record, and a resized file is placed at the chunk's end —
+    /// with the record stale the file reads as out of range and the game silently drops it (an invisible scorebug).
+    /// The file records are already rewritten by then, so only the stale per-chunk record still holds the old size.
+    /// </summary>
+    static void UpdateChunkSizeRecord(byte[] index, Guid chunk, long oldSize, long newSize)
+    {
+        var guid = chunk.ToByteArray();
+        int found = 0;
+        for (int p = 8; p + 16 <= index.Length; p++)
+        {
+            if (!index.AsSpan(p, 16).SequenceEqual(guid)) continue;
+            if (BinaryPrimitives.ReadInt64LittleEndian(index.AsSpan(p - 8)) != oldSize) continue;
+            BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(p - 8), newSize);
+            found++;
+        }
+        if (found == 0) throw new InvalidDataException($"Chunk {chunk}: the index has no [raw size][guid] record to follow a resize.");
+    }
+
     /// <summary>One chunk where at least one file changes size (see the class summary). Edits <paramref name="newIndex"/>.</summary>
     void ReplaceResized(Guid chunk, ChunkRef where, ChunkBlocks blocks, byte[] oldRaw, List<KeyValuePair<string, byte[]>> files,
         List<Record> inChunk, byte[] newIndex, List<(Guid Id, ChunkRef Old, byte[] Stored)> appends, List<string> log)
@@ -266,6 +286,7 @@ public sealed class LegacyFiles
             var stored = ChunkBlocks.EncodeBlocks(bytes, Math.Clamp(block, 4096, 262144));
             if (!ChunkBlocks.Parse(stored).Decode().AsSpan().SequenceEqual(bytes)) throw new InvalidOperationException("A rebuilt chunk does not decode to the new bytes.");
             Set(newIndex, inChunk[0], 0, 0, 0, bytes.Length);
+            UpdateChunkSizeRecord(newIndex, chunk, oldRaw.Length, bytes.Length);
             appends.Add((chunk, where, stored));
             log.Add($"{files[0].Key}: own chunk {chunk}, {inChunk[0].RawSize} -> {bytes.Length} bytes");
             return;
@@ -320,6 +341,7 @@ public sealed class LegacyFiles
             int first = (int)(offset / block), last = (int)((offset + size - 1) / block);
             Set(newIndex, rec, ranges[first].Start, ranges[last].End, offset, size);
         }
+        UpdateChunkSizeRecord(newIndex, chunk, oldRaw.Length, newRaw.Length);
         appends.Add((chunk, where, rebuilt.Stored));
         log.Add($"{string.Join(", ", files.Select(f => $"{f.Key} ({f.Value.Length} bytes)"))}: chunk {chunk} raw {oldRaw.Length} -> {newRaw.Length}, " +
                 $"stored {where.Size} -> {rebuilt.Stored.Length}, {rebuilt.Changed} of {sizes.Count} blocks encoded; placed at block boundary {baseAt}");

@@ -151,6 +151,10 @@ The index chunk starts with `[u32][i64][i32 file count][i64 file table offset]..
 
 - `offset`/`size` locate the file in the **uncompressed** data chunk.
 - `compressed start`/`end` cover the compressed blocks holding it: from the start of the block with its first byte to the end of the block with its last byte. Several files can share a block.
+- Past the file table, the index also carries one `[u64 raw size][16-byte chunk GUID]` record **per data chunk**. The game sizes
+  its decode buffer by that record, so any write that grows or shrinks a chunk must update it too (`LegacyFiles` does;
+  a resized file is placed at the chunk's end, and with a stale record the game reads it as out of range and silently
+  drops it — the custom scorebug showed nothing at all until this was fixed).
 
 FMT merges entries with the same name, so NHL24Kit reads the raw table itself and patches every entry.
 
