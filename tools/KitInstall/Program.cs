@@ -56,4 +56,6 @@ string art = Opt("--art-dir") ?? @"C:\dev\NHL27Convert\Debugging\new-uniform-int
 int workers = Opt("--workers") is { } value ? int.Parse(value) : Math.Min(8, Environment.ProcessorCount);
 return FullKitInstall.Run(new FullKitInstall.Options(target, mod, art,
     Opt("--backups") ?? (isTestCopy ? TestRoot + "fullkit-backups" : null), apply, Say, workers,
+    CutExtraLayers: args.Contains("--cut-extra-layers"),
+    JerseyName: Opt("--jersey-name") ?? FullKitInstall.DefaultJerseyName,
     RestoreAfterVerify: args.Contains("--verify-restore")), settings);

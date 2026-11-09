@@ -15,7 +15,9 @@ namespace Suite.Convert27;
 /// </summary>
 public sealed class FullKitInstall
 {
-    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0, bool RestoreAfterVerify = false);
+    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0, bool CutExtraLayers = false, string JerseyName = DefaultJerseyName, bool RestoreAfterVerify = false);
+
+    public const string DefaultJerseyName = "Fanatics 26-27";
 
     readonly Options o;
     readonly SuiteSettings settings;
@@ -123,6 +125,7 @@ public sealed class FullKitInstall
         }
         var additionPlan = NewUniformAdditionPlanner.Build(mods, sources, metaPath, Exists);
         var databases = AddEquipment(additionPlan, metaPath);
+        AddJerseyNames(additionPlan, databases, metaPath, legacy);
 
         tocFiles = index.Bundles.Select(b => b.Toc).Distinct(StringComparer.OrdinalIgnoreCase)
             .ToDictionary(t => t, File.ReadAllBytes, StringComparer.OrdinalIgnoreCase);
@@ -221,6 +224,48 @@ public sealed class FullKitInstall
         return files;
     }
 
+    /// <summary>
+    /// The picker reads a vintage kit's name from the language key VINTAGE_{style}_{art}_{variant}, so a new variant has no
+    /// name until that key exists. The new rows use the vintage label and every key goes into the English table.
+    /// </summary>
+    void AddJerseyNames(NewUniformAdditionPlan plan, Dictionary<string, byte[]> databases, string metaPath, LegacyFiles legacy)
+    {
+        const int VintageLabel = 6;
+        const string English = "loc/eng_us.db";
+        if (o.JerseyName.Length == 0) throw new InvalidDataException("A new uniform needs a jersey name.");
+        var keys = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (string name in plan.JerseyRows.ChangedDatabases)
+        {
+            string file = RosterSyncRun.LegacyName(name);
+            var db = T3Db.Load((byte[])databases[file].Clone(), metaPath);
+            var t = db.Tables["stockteamjerseys"];
+            foreach (var a in plan.Additions)
+            {
+                int row = Enumerable.Range(0, t.InUse).Single(r => db.GetInt(t, r, "teamid") == a.TeamId
+                    && db.GetInt(t, r, "style") == a.Style && db.GetInt(t, r, "variant") == a.TargetVariant);
+                db.SetInt(t, row, "locstring", VintageLabel);
+                keys.Add($"VINTAGE_{a.Style}_{db.GetInt(t, row, "teamartid")}_{a.TargetVariant}");
+            }
+            databases[file] = db.Save();
+        }
+        var strings = LanguageStrings.Load(legacy.Read(English));
+        foreach (string key in keys)
+        {
+            if (strings.Find(key) is { } existing)
+            {
+                if (existing != o.JerseyName) throw new InvalidDataException($"{key} already names a uniform: {existing}");
+                continue;
+            }
+            strings.Add(key, o.JerseyName);
+        }
+        byte[] built = strings.Build();
+        var check = LanguageStrings.Load(built);
+        foreach (string key in keys)
+            if (check.Find(key) != o.JerseyName) throw new InvalidDataException("Language table did not read back: " + key);
+        databases[English] = built;
+        o.Say($"jersey name '{o.JerseyName}' on {keys.Count} kit(s)");
+    }
+
     /// <summary>Encodes every mapped texture into its same-team source slot layout; unused array layers are blanked.</summary>
     void PrepareArt(NewUniformAddition a)
     {
@@ -250,7 +295,7 @@ public sealed class FullKitInstall
             var slots = TextureSlots.ReadAll(Game, index, source);
             int need = resolved.Layers is { Count: > 0 } ? resolved.Layers.Keys.Max() + 1 : 1;
             int shallowest = slots.Min(sl => Ps4Codec.Slices(sl.Res.Header));
-            if (shallowest < need) throw new InvalidDataException(
+            if (shallowest < need && !o.CutExtraLayers) throw new InvalidDataException(
                 $"{a.Team} {a.SourceKit}: {source} has a copy with only {shallowest} layer(s), but the artwork needs {need}. "
                 + "No layer will be dropped: choose a source kit whose every copy has the required slots.");
             string lower = target.ToLowerInvariant();
@@ -260,6 +305,11 @@ public sealed class FullKitInstall
             {
                 int have = Ps4Codec.Slices(slot.Res.Header);
                 var copy = resolved;
+                if (have < need)
+                {
+                    copy = resolved with { Layers = resolved.Layers!.Where(kv => kv.Key < have).ToDictionary(kv => kv.Key, kv => kv.Value) };
+                    o.Say($"LAYER CUT: {target}: copy has {have} layer(s); artwork layer(s) {have}-{need - 1} left out");
+                }
                 string baseKey = TexturePayloadCache.Key(slot, copy, out var stockForAlpha);
                 bool blankUnused = blankable && copy.Layers is { Count: > 0 }
                     && Enumerable.Range(0, have).Any(layer => !copy.Layers.ContainsKey(layer));

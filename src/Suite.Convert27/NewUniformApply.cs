@@ -113,8 +113,10 @@ public static class NewUniformApply
     static (bool Ok, string Message) Install(SuiteSettings settings, ModFile mod, Action<string>? progress)
     {
         string target = Path.GetFullPath(settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
+        settings.Save();
         var result = FullKitInstall.Apply(new FullKitInstall.Options(target, mod, SuitePaths.Nhl27Images, null, true,
-            s => { progress?.Invoke(s); SuiteLog.Write("new-uniform: " + s); }, settings.Workers), settings);
+            s => { progress?.Invoke(s); SuiteLog.Write("new-uniform: " + s); }, settings.Workers,
+            JerseyName: string.IsNullOrWhiteSpace(settings.NewUniformJerseyName) ? FullKitInstall.DefaultJerseyName : settings.NewUniformJerseyName.Trim()), settings);
         if (result.Ok && result.Backup is not null) ModApply.RecordUndo(target, result.Backup);
         return (result.Ok, result.Message);
     }

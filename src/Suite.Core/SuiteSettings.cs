@@ -32,9 +32,89 @@ public static class SuitePaths
     public static string Flatten(string assetPath) => assetPath.Replace('/', '_').Replace('\\', '_').Replace('#', '@');
 }
 
+/// <summary>One NHL 24 installation. Selecting a profile always switches its read source and apply target together.</summary>
+public sealed class GameBuildProfile
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "NHL 24";
+    public string GameDir { get; set; } = "";
+    public string ApplyTargetDir { get; set; } = "";
+}
+
 /// <summary>Hand-editable settings (settings.json). Every path can be changed in the app or in the file.</summary>
 public sealed class SuiteSettings
 {
+    /// <summary>Configured NHL 24 installations, shown in the main window's build selector.</summary>
+    public List<GameBuildProfile> GameBuilds { get; set; } = [];
+    public string ActiveGameBuildId { get; set; } = "";
+
+    [JsonIgnore]
+    public GameBuildProfile? ActiveGameBuild =>
+        GameBuilds?.FirstOrDefault(b => string.Equals(b.Id, ActiveGameBuildId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Selects one configured build and synchronizes the legacy paths used by all readers and writers.</summary>
+    public bool SelectGameBuild(string id)
+    {
+        var build = GameBuilds?.FirstOrDefault(b => string.Equals(b.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (build is null) return false;
+        ActiveGameBuildId = build.Id;
+        Nhl24GameDir = build.GameDir;
+        ApplyTargetDir = build.ApplyTargetDir;
+        return true;
+    }
+
+    /// <summary>Adds or selects a build. Folder pickers use this so a new source cannot retain another build's apply target.</summary>
+    public GameBuildProfile? UseGameBuild(string gameDir, string applyTargetDir, string? name = null)
+    {
+        GameBuilds ??= [];
+        gameDir = gameDir.Trim();
+        applyTargetDir = applyTargetDir.Trim();
+        if (gameDir.Length == 0)
+        {
+            ActiveGameBuildId = Nhl24GameDir = ApplyTargetDir = "";
+            return null;
+        }
+        var build = GameBuilds.FirstOrDefault(b => SamePath(b.GameDir, gameDir));
+        if (build is null)
+        {
+            var key = System.Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(gameDir.ToLowerInvariant())))[..12].ToLowerInvariant();
+            build = new GameBuildProfile { Id = "build-" + key, GameDir = gameDir };
+            GameBuilds.Add(build);
+        }
+        if (!string.IsNullOrWhiteSpace(name)) build.Name = name.Trim();
+        else if (string.IsNullOrWhiteSpace(build.Name) || build.Name == "NHL 24")
+            build.Name = Path.GetFileName(Path.TrimEndingDirectorySeparator(gameDir)) is { Length: > 0 } folder ? folder : "NHL 24";
+        build.GameDir = gameDir;
+        build.ApplyTargetDir = applyTargetDir;
+        SelectGameBuild(build.Id);
+        return build;
+    }
+
+    /// <summary>Migrates pre-profile settings once and keeps the active profile authoritative on later loads.</summary>
+    public bool EnsureGameBuilds()
+    {
+        var before = JsonSerializer.Serialize(new { ActiveGameBuildId, Nhl24GameDir, ApplyTargetDir, Count = GameBuilds?.Count ?? -1 });
+        GameBuilds ??= [];
+        if (ActiveGameBuild is null)
+        {
+            var matching = GameBuilds.FirstOrDefault(b => SamePath(b.GameDir, Nhl24GameDir));
+            if (matching is not null) SelectGameBuild(matching.Id);
+            else if (!string.IsNullOrWhiteSpace(Nhl24GameDir)) UseGameBuild(Nhl24GameDir, ApplyTargetDir);
+            else if (GameBuilds.FirstOrDefault(b => !string.IsNullOrWhiteSpace(b.Id)) is { } first) SelectGameBuild(first.Id);
+        }
+        else SelectGameBuild(ActiveGameBuild.Id);
+        var after = JsonSerializer.Serialize(new { ActiveGameBuildId, Nhl24GameDir, ApplyTargetDir, Count = GameBuilds.Count });
+        return before != after;
+    }
+
+    static bool SamePath(string a, string b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+        try { return string.Equals(GameLayout.Normalize(a), GameLayout.Normalize(b), StringComparison.OrdinalIgnoreCase); }
+        catch { return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase); }
+    }
+
     // Paths start empty and are filled by AutoDetect() or the folder pickers; nothing is tied to one machine.
     public string Nhl27GameRoot { get; set; } = "";
     public string Nhl27ViewerDir { get; set; } = "";
@@ -51,6 +131,8 @@ public sealed class SuiteSettings
     /// Empty = Apply is refused. See <see cref="ApplyTarget"/>.
     /// </summary>
     public string ApplyTargetDir { get; set; } = "";
+    /// <summary>The name new uniforms show in the jersey picker.</summary>
+    public string NewUniformJerseyName { get; set; } = "Fanatics 26-27";
     /// <summary>Last folder of replacement textures used in Uniform Studio.</summary>
     public string ReplacementDir { get; set; } = "";
 
@@ -103,6 +185,7 @@ public sealed class SuiteSettings
                 ? Directory.GetDirectories(Path.Combine(local, "NHL24Kit", "runtimes")).OrderByDescending(Directory.GetLastWriteTimeUtc)
                 : []);
         Fill(() => LegacyRefsDir, v => LegacyRefsDir = v, Directory.Exists, () => [Path.Combine(local, "NHL24Kit", "refs")]);
+        changed |= EnsureGameBuilds();
         return changed;
     }
 

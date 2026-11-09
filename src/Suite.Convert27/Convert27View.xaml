@@ -3,98 +3,200 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              xmlns:local="clr-namespace:Suite.Convert27"
-             Background="#151a22" Foreground="#d8dee9" FontFamily="Segoe UI" FontSize="12">
+             Background="#111720" Foreground="#dfe7f1" FontFamily="Segoe UI" FontSize="12">
   <UserControl.Resources>
     <local:PathToImageConverter x:Key="Img" />
     <local:ConfidenceToBrushConverter x:Key="ConfBrush" />
+    <local:FolderDisplayConverter x:Key="FolderName" />
+    <local:TitleCaseConverter x:Key="TitleCase" />
+    <local:PreflightSeverityToBrushConverter x:Key="SeverityBrush" />
+    <BooleanToVisibilityConverter x:Key="BoolVis" />
+    <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolVis" />
+
     <Style TargetType="Button">
-      <Setter Property="Background" Value="#243042" /><Setter Property="Foreground" Value="#e6ebf2" />
-      <Setter Property="BorderBrush" Value="#38465c" /><Setter Property="Padding" Value="10,4" /><Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="Background" Value="#253247" /><Setter Property="Foreground" Value="#edf3fa" />
+      <Setter Property="BorderBrush" Value="#3a4b65" /><Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="13,7" /><Setter Property="Margin" Value="0,0,8,6" />
+      <Setter Property="Cursor" Value="Hand" />
     </Style>
-    <Style TargetType="TextBlock" x:Key="Caption"><Setter Property="Foreground" Value="#8c97a8" /><Setter Property="Margin" Value="0,0,6,0" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
-    <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,0,10,0" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+    <Style TargetType="Button" x:Key="Primary" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="#3178d4" /><Setter Property="BorderBrush" Value="#4b91e8" />
+      <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Padding" Value="17,8" />
+    </Style>
+    <Style TargetType="Button" x:Key="ApplyButton" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="#24724b" /><Setter Property="BorderBrush" Value="#38966a" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style TargetType="TextBlock" x:Key="Caption">
+      <Setter Property="Foreground" Value="#93a5bc" /><Setter Property="Margin" Value="0,0,7,6" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Margin" Value="0,0,14,6" /><Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Padding" Value="7,5" /><Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Padding" Value="8,5" /><Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,14,6" /><Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style TargetType="Border" x:Key="Card">
+      <Setter Property="Background" Value="#192230" /><Setter Property="BorderBrush" Value="#2b3a50" />
+      <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="8" />
+    </Style>
   </UserControl.Resources>
 
   <Grid>
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- Folder pairing -->
-    <Border Background="#1b2230" Padding="10,8" BorderBrush="#273246" BorderThickness="0,0,0,1">
+    <!-- Selection and guided actions -->
+    <Border Style="{StaticResource Card}" Margin="14,14,14,8" Padding="18,14">
       <StackPanel>
-        <WrapPanel>
-          <TextBlock Style="{StaticResource Caption}" Text="NHL 24 team" />
-          <ComboBox Width="130" ItemsSource="{Binding Teams}" SelectedItem="{Binding Team}" />
-          <TextBlock Style="{StaticResource Caption}" Text="NHL 24 folder" />
-          <ComboBox x:Name="Folder24Box" Width="430" IsEditable="True" ItemsSource="{Binding Folders24}" Text="{Binding Folder24, UpdateSourceTrigger=LostFocus}"
-                    SelectionChanged="Folder24_SelectionChanged" ToolTip="Any NHL 24 folder can be typed here, not only uniforms." />
-          <TextBlock Style="{StaticResource Caption}" Text="takes art from NHL 27" />
-          <ComboBox x:Name="Folder27Box" Width="430" IsEditable="True" ItemsSource="{Binding Proposals}" Text="{Binding Folder27, UpdateSourceTrigger=LostFocus}"
-                    TextSearch.TextPath="Folder27" SelectionChanged="Folder27_SelectionChanged"
-                    ToolTip="Proposed NHL 27 folders, best first. Type any NHL 27 folder to override.">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <StackPanel Orientation="Horizontal">
-                  <Border Width="34" CornerRadius="3" Margin="0,0,6,0" Background="{Binding Confidence, Converter={StaticResource ConfBrush}}">
-                    <TextBlock Text="{Binding Confidence, StringFormat={}{0:P0}}" Foreground="Black" HorizontalAlignment="Center" FontSize="11" />
-                  </Border>
-                  <TextBlock Text="{Binding Folder27}" />
-                  <TextBlock Text="{Binding Reason, StringFormat=' — {0}'}" Foreground="#8c97a8" />
-                </StackPanel>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-        </WrapPanel>
-        <WrapPanel Margin="0,8,0,0">
-          <Button Content="Match textures" Click="Repropose_Click" FontWeight="SemiBold" Background="#2f6fd6" ToolTip="Matches every NHL 27 texture of the chosen uniform (jersey, pants, socks, helmet, gloves, branding arrays) to its NHL 24 slot. Rows you edited are kept." />
-          <Button Content="Reset this folder" Click="Reset_Click" ToolTip="Recomputes every row, including ones you edited." />
-          <Button Content="Match whole team" Click="ProposeTeam_Click" ToolTip="Every uniform folder of this team; folders you set by hand are kept." />
-          <Button Content="Match all teams" Click="ProposeAll_Click" ToolTip="Every uniform folder of every team. Nothing is written to the game until Apply." />
-          <Button Content="Check vs nhluniforms.com" Click="CheckUniforms_Click"
-                  ToolTip="Compares every team's NHL 27 home, road and alternate picks with this season's drawings on nhluniforms.com, and flags kits that changed since last season. Read only; the drawings stay on this PC as a personal reference." />
-          <Button Content="Save matches" Click="Save_Click" />
-          <TextBlock Style="{StaticResource Caption}" Text="Mod name" Margin="12,0,6,0" />
-          <TextBox x:Name="ModName" Width="200" Text="NHL 27 uniforms" VerticalContentAlignment="Center" Margin="0,0,6,0" />
-          <Button Content="Add folder to mod list" Click="AddFolder_Click" />
-          <Button Content="Add all matched folders" Click="AddAll_Click" />
-          <Button Content="Mod list…" Click="ModList_Click" ToolTip="See every saved mod and exactly what it will write." />
-          <Button Content="Apply…" Click="Apply_Click" FontWeight="SemiBold" Background="#2e7d4f"
-                  ToolTip="Writes the mod list into the apply target (Settings → ApplyTargetDir): one complete game folder, no links, game closed. Backs up TOCs and CAS lengths first; refuses with the reason otherwise." />
-        </WrapPanel>
-        <WrapPanel Margin="0,8,0,0">
-          <TextBlock Style="{StaticResource Caption}" Text="Replacement folder (DDS / PNG)" Margin="0,0,6,0" />
-          <TextBox x:Name="ReplacementFolder" Width="420" VerticalContentAlignment="Center" Margin="0,0,6,0"
-                   Text="{Binding Settings.ReplacementDir, Mode=OneWay}"
-                   ToolTip="A folder of your own replacement images. Match from folder fills the rows that are still stock, by name and material role." />
-          <Button Content="Browse…" Click="ReplacementBrowse_Click" />
-          <Button Content="Match from folder" Click="MatchFolder_Click" />
-          <Button Content="Stamp a logo…" Click="Stamp_Click" ToolTip="Paint a logo onto a colour map and bake it into the exported texture, for sponsors the branding arrays have no slot for." />
-
-        </WrapPanel>
-        <DockPanel Margin="0,8,0,0">
-          <Button DockPanel.Dock="Right" Content="Edit variant map" Click="EditVariants_Click" ToolTip="data\variant_map.json: default home/away variant per team in both games (hand-editable)" />
-          <Button DockPanel.Dock="Right" Content="Slot map…" Click="SlotMap_Click" Margin="0,0,6,0" ToolTip="Branding layers by role (crest, shoulder, brand, shield, patch, sponsor) in both games, and which NHL 27 layer fills each NHL 24 layer. Editable." />
-          <TextBlock Text="{Binding VariantInfo}" Foreground="#9fb4cf" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <DockPanel>
+          <CheckBox DockPanel.Dock="Right" VerticalAlignment="Center" IsChecked="{Binding AdvancedMode}"
+                    Foreground="#b7c5d6" Cursor="Hand" ToolTip="Show individual textures, logo layers, file drops, and manual mappings">
+            <TextBlock Text="Advanced texture controls" Foreground="#b7c5d6" Margin="5,0,0,0" />
+          </CheckBox>
+          <StackPanel>
+            <TextBlock Text="Uniform converter" FontSize="21" FontWeight="SemiBold" Foreground="#f3f7fc" />
+            <TextBlock Text="Convert NHL 27 uniforms with automatic logo, fabric, and material checks." Foreground="#91a2b8" Margin="0,3,0,0" />
+          </StackPanel>
         </DockPanel>
+
+        <WrapPanel Margin="0,15,0,0">
+          <TextBlock Style="{StaticResource Caption}" Text="Team" />
+          <ComboBox Width="160" ItemsSource="{Binding Teams}" SelectedItem="{Binding Team}">
+            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource TitleCase}}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Style="{StaticResource Caption}" Text="Uniform" />
+          <ComboBox x:Name="Folder24Box" Width="205" IsEditable="{Binding AdvancedMode}" ItemsSource="{Binding Folders24}"
+                    Text="{Binding Folder24, UpdateSourceTrigger=LostFocus}" SelectionChanged="Folder24_SelectionChanged"
+                    ToolTip="Choose the NHL 24 uniform to replace. Advanced mode also accepts a typed asset folder.">
+            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource FolderName}}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Style="{StaticResource Caption}" Text="Mod name" />
+          <TextBox x:Name="ModName" Width="190" Text="NHL 27 uniforms" />
+        </WrapPanel>
+
+        <Border Background="#142c45" CornerRadius="5" Padding="10,8" Margin="0,4,0,5"
+                Visibility="{Binding AdvancedMode, Converter={StaticResource InverseBoolVis}}">
+          <TextBlock Text="{Binding SourceSummary}" Foreground="#9fc5ed" TextWrapping="Wrap" />
+        </Border>
+
+        <WrapPanel Margin="0,5,0,0" Visibility="{Binding AdvancedMode, Converter={StaticResource InverseBoolVis}}">
+          <Button Style="{StaticResource Primary}" Content="Check &amp; convert" Click="Convert_Click"
+                  ToolTip="Repair safe automatic choices, validate the result, and update the preview. Nothing is written to the game." />
+          <Button Content="Replace in mod" Click="AddFolder_Click"
+                  ToolTip="Classic workflow: overwrite existing NHL 24 texture slots when replacement mods are applied." />
+          <Button Content="Add as new uniform" Click="AddNew_Click"
+                  ToolTip="Create independent assets and a spare selectable jersey row. Missing logo slots and artwork block export." />
+          <Button Content="Add all 64 as new" Click="AddAllNew_Click"
+                  ToolTip="Preflight all 32 teams' default home and away Fanatics uniforms as one independent set." />
+          <Button Style="{StaticResource ApplyButton}" Content="Install all 64 as new" Click="InstallAllNew_Click"
+                  ToolTip="Automated workflow: preflight once, save the mod, and install the same completed plan with coordinated backup and rollback." />
+          <Button Content="Mod list…" Click="ModList_Click" />
+          <Button Content="Apply replacements…" Click="Apply_Click" />
+          <Button Style="{StaticResource ApplyButton}" Content="Apply new uniforms…" Click="ApplyNew_Click"
+                  ToolTip="Write saved new-uniform mods with coordinated asset and database backup, read-back and rollback." />
+          <TextBlock Text="Jersey name:" VerticalAlignment="Center" Margin="8,0,4,0" />
+          <TextBox Width="150" VerticalAlignment="Center" Text="{Binding Settings.NewUniformJerseyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   ToolTip="The name new uniforms show in the jersey picker." />
+        </WrapPanel>
+
+        <!-- The complete original workflow remains available in Advanced mode. -->
+        <StackPanel Visibility="{Binding AdvancedMode, Converter={StaticResource BoolVis}}">
+          <WrapPanel Margin="0,4,0,0">
+            <TextBlock Style="{StaticResource Caption}" Text="NHL 27 source folder" />
+            <ComboBox x:Name="Folder27Box" Width="560" IsEditable="True" ItemsSource="{Binding Proposals}"
+                      Text="{Binding Folder27, UpdateSourceTrigger=LostFocus}" TextSearch.TextPath="Folder27"
+                      SelectionChanged="Folder27_SelectionChanged" ToolTip="Proposed NHL 27 folders, best first. Type any folder to override.">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal">
+                    <Border Width="34" CornerRadius="3" Margin="0,0,6,0" Background="{Binding Confidence, Converter={StaticResource ConfBrush}}">
+                      <TextBlock Text="{Binding Confidence, StringFormat={}{0:P0}}" Foreground="Black" HorizontalAlignment="Center" FontSize="11" />
+                    </Border>
+                    <TextBlock Text="{Binding Folder27}" /><TextBlock Text="{Binding Reason, StringFormat=' — {0}'}" Foreground="#8c97a8" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </WrapPanel>
+          <WrapPanel Margin="0,5,0,0">
+            <Button Style="{StaticResource Primary}" Content="Match textures" Click="Repropose_Click" />
+            <Button Content="Check &amp; convert" Click="Convert_Click" />
+            <Button Content="Reset this folder" Click="Reset_Click" />
+            <Button Content="Match whole team" Click="ProposeTeam_Click" />
+            <Button Content="Match all teams" Click="ProposeAll_Click" />
+            <Button Content="Check vs nhluniforms.com" Click="CheckUniforms_Click" />
+            <Button Content="Save matches" Click="Save_Click" />
+            <Button Content="Replace folder in mod" Click="AddFolder_Click" />
+            <Button Content="Replace all matched in mod" Click="AddAll_Click" />
+            <Button Content="Add folder as new" Click="AddNew_Click" />
+            <Button Content="Add all 64 as new" Click="AddAllNew_Click" />
+            <Button Content="Mod list…" Click="ModList_Click" />
+            <Button Content="Apply replacements…" Click="Apply_Click" />
+            <Button Style="{StaticResource ApplyButton}" Content="Apply new uniforms…" Click="ApplyNew_Click" />
+          </WrapPanel>
+          <WrapPanel Margin="0,3,0,0">
+            <TextBlock Style="{StaticResource Caption}" Text="Replacement folder (DDS / PNG)" />
+            <TextBox x:Name="ReplacementFolder" Width="390" Text="{Binding Settings.ReplacementDir, Mode=OneWay}" />
+            <Button Content="Browse…" Click="ReplacementBrowse_Click" />
+            <Button Content="Match from folder" Click="MatchFolder_Click" />
+            <Button Content="Stamp a logo…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a colour map when no branding-array slot exists." />
+            <Button Content="Slot map…" Click="SlotMap_Click" />
+            <Button Content="Edit variant map" Click="EditVariants_Click" />
+          </WrapPanel>
+          <TextBlock Text="{Binding VariantInfo}" Foreground="#8498b1" TextWrapping="Wrap" Margin="0,3,0,0" />
+        </StackPanel>
       </StackPanel>
     </Border>
 
-    <!-- Matcher and viewer side by side -->
+    <!-- Report/editor and live preview -->
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="5*" MinWidth="360" />
-        <ColumnDefinition Width="6" />
-        <ColumnDefinition Width="6*" MinWidth="360" />
+        <ColumnDefinition Width="5*" MinWidth="350" /><ColumnDefinition Width="6" /><ColumnDefinition Width="6*" MinWidth="350" />
       </Grid.ColumnDefinitions>
 
-      <DataGrid x:Name="Grid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="116" Background="#151a22" RowBackground="#18202b"
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+                    Visibility="{Binding AdvancedMode, Converter={StaticResource InverseBoolVis}}">
+        <Border Style="{StaticResource Card}" Margin="14,6,5,14" Padding="20,18">
+          <StackPanel>
+            <TextBlock Text="Conversion report" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding PreflightSummary}" Foreground="#a9bdd4" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,14" />
+            <ItemsControl ItemsSource="{Binding PreflightItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#131c28" BorderBrush="#2b3a50" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,9">
+                    <StackPanel Orientation="Horizontal">
+                      <Border Width="25" Height="25" CornerRadius="13" Margin="0,0,11,0"
+                              Background="{Binding Severity, Converter={StaticResource SeverityBrush}}">
+                        <TextBlock Text="{Binding Symbol}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="White" FontWeight="Bold" FontSize="14" />
+                      </Border>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="#e7eef7" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Detail}" Foreground="#9baec4" TextWrapping="Wrap" LineHeight="18" Margin="0,4,0,0" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Background="#152b25" CornerRadius="5" Padding="11,9" Margin="0,5,0,0">
+              <TextBlock Foreground="#93c9ad" TextWrapping="Wrap" LineHeight="18"
+                         Text="Safe repairs are automatic. Your manual artwork is preserved, and nothing is written to the game until you choose Apply." />
+            </Border>
+          </StackPanel>
+        </Border>
+      </ScrollViewer>
+
+      <DataGrid x:Name="Grid" Grid.Column="0" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="116" Background="#111720" RowBackground="#18202b"
                 AlternatingRowBackground="#1b2430" Foreground="#d8dee9" BorderThickness="0" HorizontalGridLinesBrush="#243042"
                 SelectionMode="Single" AllowDrop="True" Drop="Grid_Drop" DragOver="Grid_DragOver" RowDetailsVisibilityMode="VisibleWhenSelected"
-                SelectionChanged="Grid_SelectionChanged">
+                SelectionChanged="Grid_SelectionChanged" Visibility="{Binding AdvancedMode, Converter={StaticResource BoolVis}}">
         <DataGrid.ColumnHeaderStyle>
           <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#1f2836" /><Setter Property="Foreground" Value="#aab4c3" /><Setter Property="Padding" Value="6,4" /></Style>
         </DataGrid.ColumnHeaderStyle>
@@ -103,62 +205,31 @@
             <DataGridTemplateColumn.CellTemplate><DataTemplate><Image Source="{Binding Thumb24, Converter={StaticResource Img}, ConverterParameter=224}" Width="108" Height="108" Stretch="Uniform" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Slot" Width="2*" IsReadOnly="True" SortMemberPath="Leaf">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <StackPanel VerticalAlignment="Center">
-                  <TextBlock Text="{Binding Leaf}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Slot}" />
-                  <TextBlock Foreground="#8c97a8" FontSize="11"><Run Text="{Binding Garment, Mode=OneWay}" /> · <Run Text="{Binding Role, Mode=OneWay}" /></TextBlock>
-                </StackPanel>
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{Binding Leaf}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Slot}" />
+              <TextBlock Foreground="#8c97a8" FontSize="11"><Run Text="{Binding Garment, Mode=OneWay}" /> · <Run Text="{Binding Role, Mode=OneWay}" /></TextBlock>
+            </StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="This slot is" Width="150" IsReadOnly="True" SortMemberPath="What">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding What}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#c9d6e6"
-                           ToolTip="What the game draws in this NHL 24 slot, for this team and garment." />
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding What}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#c9d6e6" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Source" Width="116" IsReadOnly="True">
             <DataGridTemplateColumn.CellTemplate><DataTemplate><Image Source="{Binding ThumbSource, Converter={StaticResource Img}, ConverterParameter=224}" Width="108" Height="108" Stretch="Uniform" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="NHL 27 texture or image (type, pick or drop)" Width="3*">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding SourceDisplay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
-            <DataGridTemplateColumn.CellEditingTemplate>
-              <DataTemplate>
-                <ComboBox IsEditable="True" VerticalAlignment="Center" Margin="0"
-                          ItemsSource="{Binding DataContext.Sources27, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                          Text="{Binding SourceText, UpdateSourceTrigger=LostFocus}" />
-              </DataTemplate>
-            </DataGridTemplateColumn.CellEditingTemplate>
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SourceDisplay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+            <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><ComboBox IsEditable="True" VerticalAlignment="Center" Margin="0"
+              ItemsSource="{Binding DataContext.Sources27, RelativeSource={RelativeSource AncestorType=DataGrid}}" Text="{Binding SourceText, UpdateSourceTrigger=LostFocus}" /></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Match" Width="64" SortMemberPath="Confidence" IsReadOnly="True">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <Border CornerRadius="3" Padding="4,1" VerticalAlignment="Center" HorizontalAlignment="Left"
-                        Background="{Binding Confidence, Converter={StaticResource ConfBrush}}" ToolTip="{Binding Reason}">
-                  <TextBlock Foreground="Black" FontSize="11">
-                    <Run Text="{Binding Confidence, StringFormat={}{0:P0}, Mode=OneWay}" />
-                  </TextBlock>
-                </Border>
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><Border CornerRadius="3" Padding="4,1" VerticalAlignment="Center" HorizontalAlignment="Left"
+              Background="{Binding Confidence, Converter={StaticResource ConfBrush}}" ToolTip="{Binding Reason}"><TextBlock Foreground="Black" FontSize="11"
+              Text="{Binding Confidence, StringFormat={}{0:P0}, Mode=OneWay}" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Alpha" Width="80">
             <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Alpha, TargetNullValue=image}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
-            <DataGridTemplateColumn.CellEditingTemplate>
-              <DataTemplate>
-                <ComboBox IsEditable="True" VerticalAlignment="Center" Text="{Binding Alpha, UpdateSourceTrigger=LostFocus, TargetNullValue=''}"
-                          ToolTip="auto = keep the game's fabric-region alpha (rule 11); nodimples = auto and 102→51; empty = use the image's alpha">
-                  <ComboBoxItem Content="auto" /><ComboBoxItem Content="nodimples" /><ComboBoxItem Content="" />
-                </ComboBox>
-              </DataTemplate>
-            </DataGridTemplateColumn.CellEditingTemplate>
+            <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><ComboBox IsEditable="True" VerticalAlignment="Center" Text="{Binding Alpha, UpdateSourceTrigger=LostFocus, TargetNullValue=''}">
+              <ComboBoxItem Content="auto" /><ComboBoxItem Content="nodimples" /><ComboBoxItem Content="" /></ComboBox></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
           </DataGridTemplateColumn>
           <DataGridCheckBoxColumn Header="Edited" Binding="{Binding Manual}" Width="52" />
           <DataGridTextColumn Header="Why" Binding="{Binding Reason}" Width="3*" IsReadOnly="True">
@@ -166,42 +237,41 @@
           </DataGridTextColumn>
         </DataGrid.Columns>
         <DataGrid.RowDetailsTemplate>
-          <DataTemplate>
-            <Border Background="#121820" Padding="118,6,6,6">
-              <StackPanel>
-                <TextBlock Foreground="#8c97a8" Text="{Binding Slot}" Margin="0,0,0,4" />
-                <ItemsControl ItemsSource="{Binding Layers}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <StackPanel Orientation="Horizontal" Margin="0,1" AllowDrop="True" Drop="Layer_Drop" Tag="{Binding}">
-                        <TextBlock Width="60" Foreground="#aab4c3"><Run Text="layer " /><Run Text="{Binding Layer, Mode=OneWay}" /></TextBlock>
-                        <ComboBox Width="420" IsEditable="True"
-                                  ItemsSource="{Binding DataContext.Sources27, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  Text="{Binding Source27, UpdateSourceTrigger=LostFocus}" />
-                        <TextBlock Margin="8,0" Foreground="#8c97a8" Text="{Binding FilePath, StringFormat='file: {0}'}" VerticalAlignment="Center" />
-                      </StackPanel>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Foreground="#6c7788" Text="Drop an image on a layer row to use it for that layer." Margin="0,4,0,0" />
+          <DataTemplate><Border Background="#121820" Padding="118,6,6,6"><StackPanel>
+            <TextBlock Foreground="#8c97a8" Text="{Binding Slot}" Margin="0,0,0,4" />
+            <ItemsControl ItemsSource="{Binding Layers}"><ItemsControl.ItemTemplate><DataTemplate>
+              <StackPanel Orientation="Horizontal" Margin="0,1" AllowDrop="True" Drop="Layer_Drop" Tag="{Binding}">
+                <TextBlock Width="60" Foreground="#aab4c3"><Run Text="layer " /><Run Text="{Binding Layer, Mode=OneWay}" /></TextBlock>
+                <ComboBox Width="420" IsEditable="True" ItemsSource="{Binding DataContext.Sources27, RelativeSource={RelativeSource AncestorType=DataGrid}}" Text="{Binding Source27, UpdateSourceTrigger=LostFocus}" />
+                <TextBlock Margin="8,0" Foreground="#8c97a8" Text="{Binding FilePath, StringFormat='file: {0}'}" VerticalAlignment="Center" />
               </StackPanel>
-            </Border>
-          </DataTemplate>
+            </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+            <TextBlock Foreground="#6c7788" Text="Drop an image on a layer row to use it for that layer." Margin="0,4,0,0" />
+          </StackPanel></Border></DataTemplate>
         </DataGrid.RowDetailsTemplate>
       </DataGrid>
 
       <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#273246" />
-
       <Grid Grid.Column="2">
-        <wv2:WebView2 x:Name="Viewer" DefaultBackgroundColor="#10141b" />
-        <TextBlock x:Name="ViewerError" Visibility="Collapsed" Foreground="#e88" TextWrapping="Wrap" Margin="20" />
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Border Background="#192230" BorderBrush="#2b3a50" BorderThickness="0,0,0,1" Padding="14,10">
+          <DockPanel>
+            <TextBlock Text="LIVE PREVIEW" DockPanel.Dock="Right" Foreground="#6f89a7" FontSize="10" FontWeight="SemiBold" />
+            <TextBlock Text="Game-material preview" FontWeight="SemiBold" Foreground="#dce7f3" />
+          </DockPanel>
+        </Border>
+        <Grid Grid.Row="1">
+          <wv2:WebView2 x:Name="Viewer" DefaultBackgroundColor="#10141b" />
+          <TextBlock x:Name="ViewerError" Visibility="Collapsed" Foreground="#e88" TextWrapping="Wrap" Margin="20" />
+        </Grid>
       </Grid>
     </Grid>
 
-    <Border Grid.Row="2" Background="#1b2230" Padding="10,5">
+    <Border Grid.Row="2" Background="#192230" BorderBrush="#2b3a50" BorderThickness="0,1,0,0" Padding="16,9">
       <DockPanel>
-        <ProgressBar DockPanel.Dock="Right" Width="120" Height="8" IsIndeterminate="{Binding Busy}" Visibility="Visible" />
-        <TextBlock Text="{Binding Status}" Foreground="#aab4c3" TextTrimming="CharacterEllipsis" />
+        <ProgressBar DockPanel.Dock="Right" Width="120" Height="7" IsIndeterminate="True" VerticalAlignment="Center"
+                     Visibility="{Binding Busy, Converter={StaticResource BoolVis}}" />
+        <TextBlock Text="{Binding Status}" Foreground="#a5b6ca" TextWrapping="Wrap" Margin="0,0,15,0" />
       </DockPanel>
     </Border>
   </Grid>
