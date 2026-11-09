@@ -1,7 +1,106 @@
 # Center Ice Modding Suite (CIMS) — HANDOFF
 
-Last updated: 2026-11-02. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
+Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
+
+## Session 2026-11-09: new uniforms finally load (Detroit 24/25 confirmed in game)
+
+New kits are installed by `FullKitInstall` (`tools/KitInstall`, and the app's uniform buttons through `NewUniformApply`). It clones the team's own home/away kit whole, overlays the converted art, and registers the names. The older donor path (`NewUniformAssetPlanner` + `BrandingCloneWriter`) never produced a working kit and is retired from installs.
+
+Three bugs kept every new kit from loading:
+
+1. **The table the game loads was never updated.** `BundleIndex.Records` assumed every TOC sits directly under `Gen4b`, so `levels/game/game.toc` (Base and Patch) resolved to a CAS path that does not exist and its bundle was skipped. That bundle holds a `player_team_brt` copy that stayed stock, with none of the new names, so the game fell back to the black NHL-shield kit (`jersey_adidas_frontend_home_*`). There are 911 copies of the table counting those two.
+2. **Bundle rows have two forms.** An A row is either a full path or a bare leaf with the folder in the second column. Cloning must rewrite both, or the row keeps pointing at the source kit. This hit every `_hq_asp`, branding-array and stamp row.
+3. **Two load crashes in the clone.** `EbxRiff.Rewrite` moved the strings stored after the root name (presets keep parameter names there) without fixing the pointers to them. And generated resource ids must be odd: the loader reads an even value in a resource reference as an already-resolved pointer, and every stock id is odd.
+
+Other points: Base and Patch copies of a texture can differ in layout and data, so art and chunk ids are per copy. Two teams need more layers than a stock slot holds and are refused rather than truncated: Arizona/Utah pants (2 art layers, slot has 1) and Nashville jersey (one copy has 5 layers, art has 6). `player_team_brt` must be registered in both versions; `tools/KitInstall` refuses the live game without `--allow-live`.
+
+## Session 2026-11-06 (later): guided, preflight-checked uniform conversion
+
+Convert 27 now opens in **Standard** mode: team/uniform selectors with friendly names, automatic NHL 27 source selection,
+**Check & convert**, a live preview, and a plain-English conversion report. **Advanced texture controls** restores the
+full matcher, per-layer editor, file drops, replacement folders, slot map, variant map, and stamping workflow.
+
+`ConversionPreflight` is shared by Check & convert and Add to mod, so export cannot bypass validation. It repairs automatic
+base/logo/normal choices, preserves manual overrides, reports unplaced sponsors as warnings, and blocks export for missing
+artwork, baked automatic base previews, mismatched automatic colour/normal pairs, or unplaced crests/shoulders. Base slots
+with no exact unbaked NHL 27 base now return to stock rather than silently using baked preview art. `PreflightReport` and
+its checks are UI-independent and covered by `ConversionPreflightTests`; the existing logo regression tests also cover the
+plain-preview fallback. The WPF application builds, but the redesigned page still needs an interactive visual pass.
+
+## Session 2026-11-06: Teams & lines editor (built and tested; not yet seen in game)
+
+The Puck Peak-style manual editor on top of `Suite.Rosters`, plus launcher integration. Committed with this handoff.
+
+**New — `src\Suite.Rosters\TeamEditor.cs`:** the teams/lines/strategies editing model over one T3DB roster database.
+- Reads teams (`exhibitionteams` city+team via the new `T3Db.GetString`), per-team roster rows with player names
+  (roster `playerindex` → `exhibitionplayers.playerid` → bio `game_id`; **bio `game_id` is an integer field**, only
+  names are strings), the 93 one-bit line-slot columns, and `exhibitionteamstrategies` (182 fields, grouped for the UI:
+  forecheck/pressure, lines, biases, PP, PK, 3-on-3, breakouts, EV units, offense/defense — first match wins).
+- All edits are `T3Db.SetInt` in place: jersey, captain (0/1/2), playerstyle, rosterstatus, any line slot
+  (`SetSlot` moves the bit off the previous holder and refuses a position mismatch: G/D/F vs the slot's role),
+  strategy fields. Layout rules hold by construction (nothing grows or moves).
+- `Verify()` checks what the game enforces: each slot held at most once, no two dressed core slots per player,
+  no unit doubled, dress shape changes vs load flagged (a team incomplete at load is not blamed), one captain /
+  ≤3 letters / letters on dressed players only, jersey numbers unique per team.
+- Tested: 9 new xUnit tests in `tests\Suite.Rosters.Tests\TeamEditorTests.cs` against the real stock `nhl_game.db`
+  and the live `RosterCustom0` (read-only) — all pass, including byte-identical no-edit round trips. Solution builds
+  0 warnings. (Pre-existing failure unrelated: `T3DbTests.Integers_match_the_dump…` — the `dbwork\nhl_game\before`
+  dump (531 teams) predates the `dbwork\stock` re-export (527); refresh the dump fixtures.)
+
+**New — app page `Pages\EditorPage.cs` ("Teams & lines"):** open a roster source → team list → Roster / Lines /
+Strategy tabs → Verify / Save. Sources: saved rosters found in the CIMS copy (read-only today, see below) and any
+`.db` file via "Open .db file…" (the stock export from the work folder is prelisted; its write-back creates
+`<file>.before-edit`). Save runs `Verify()`, refuses while the game runs, writes through a temp file, and keeps a
+backup (`save-backups\` for saves, `.before-edit` for files). Strings stay read-only (a length change would move
+the layout). Strategy values are shown as the game's numeric codes — the meta XML names fields but not menu words.
+
+**Launcher:** `NHL24PC-CIMS\tools\launcher.ps1` gains a third button under PLAY, "Rosters"/"Составы" (`btnStudio`),
+which starts `CenterIceModdingSuite.exe` from `<root>`, `<root>\tools\CenterIceModdingSuite\`, or the dev build.
+
+**FOUND, BLOCKS THE SAVE SOURCE — current savedata INDEX layout changed.** Every save written by the current
+emulator build (Profile0 320 B, Season0 320 B, BeAGM0 320 B, RosterCustom0 **384 B**, all Nov 2-6) uses a new INDEX:
+three named blocks `__SaveLoadFileInfo` (192 B), `__SaveLoadMetaData` (112 B), `__SaveloadVer` (80 B), each
+`name[32] + u64 count + …` — **not** the 80-byte `[name, size, start, end]` record list `SavedRoster` was built
+against (tested on the old `RosterConversion\backup\before-restore\RosterCustom2`). `SavedRoster.Find` throws on
+`RosterCustom0` (384 % 80 ≠ 0) and silently returns no saves, so both the sync page's "Write saved roster" and the
+new editor see no saves from the current game. The FileInfo block holds the real file name at +0x50 and u64
+offset-ish pairs near the end of DATA (0x1b1c75/0x1b1cd5/0x1b2727/0x1b289f in RosterCustom0) plus 0x10…-flagged
+values that look like block hashes; the DATA container itself (len+tag+payload blocks, LZ4 roster record) is
+unchanged. **Next step:** decode the new INDEX against old+new samples and update `SavedRoster` (keep read/write of
+the old layout for backwards compatibility; write must produce the layout the current emulator reads). Until then
+the editor works through "Open .db file…" and the sync path works on the five stock DBs as before.
+
+## Session 2026-11-06 (later): the Patch-merge — game tree restructure in progress
+
+User direction: fold the 1.60 update into the main data tree (copy `game\Patch` into `game\Data`, delete Patch)
+and run the game merged. **The restructure was being executed live on the machine while this was worked on**
+(by the user / another session): CAS files left Patch first, then the rest, then the whole `game` folder was
+replaced by `NHL24-merged\` at the project root (15 GB, Data carries the merged TOCs, a Patch folder still present
+at the time of writing). **Do not assume the old `game\Patch` layout in any code.**
+
+Suite changes for the merged layout (committed with this handoff):
+- `BundleIndex.CasPath` (and every private copy — `BundleChunks`, `TocChunkWriter`, `LegacyFiles`, `TextureResource`)
+  now resolves a patch-flagged chunk location to the Patch CAS when it exists and to the Data CAS otherwise.
+  Without this, all patch-flagged TOC entries dangle after the merge and nothing reads (proven: current
+  `LegacyFiles` failed with "No legacy file index lists…" on the merged tree; the scoreclock read passed with the
+  fallback). Layouts with a real Patch folder behave exactly as before.
+- New integration tests `tests\Suite.Rosters.Tests\MergedGameReadTests.cs`: read the meta XML, nhl_game.db and
+  scoreclock.gfx out of `Desktop\NHL24PC-CIMS\game` through the suite reader — they run only when that folder is
+  the merged tree (no Patch); green means the merged game parses end to end.
+- `tools\mods.ps1` (NHL24PC-CIMS): `$PatchDir` resolves `game-UPDATE\Patch\Gen4b` → `game\Patch\Gen4b` →
+  `game\Data\Gen4b` (was hardcoded to game-UPDATE and already broken on this install).
+
+Verification done: merged `Data\pkg_00\cas_01.cas` carries the 1.60 chunks the rus_blr mod hashes to (verified again
+against the final tree the folder was rebuilt as — the folder now comes from the D:\CIMS-test merged copy layout,
+where the update content sits in Data at different total CAS sizes); every Patch file matched its Data counterpart
+in size before the concurrent deletion; the meta, nhl_game.db and both scoreclock movies read clean through the
+suite reader on the final tree (`MergedGameReadTests`, green). The empty `Patch` folder is gone; the game folder is
+back at `Desktop\NHL24PC-CIMS\game`. **Only a game boot is still owed.** Notes: `snapshot.json` at the game root is
+the D:\CIMS-test copy's manifest, inert here (the suite keeps its own backups under LocalAppData); the suite's
+"stock baseline" pointer for this target predates the rebuild, so the next apply's backup is the new baseline.
+If the merged folder had kept another name, `common.ps1` `Update-GamePaths`, `ApplyTargetDir` and the launcher
+button would have needed repointing — moot at `game`.
 
 ## Codex continuation 2026-11-02: PLAYERS INSTALLED (15:55 local)
 
@@ -656,9 +755,10 @@ games; `data\texture_matches.json` (all matches with confidence, rule, manual fl
   viewport stays empty and the note says so).
   - Jersey/pant/sock colour uses the plain `_color` art (crest and branding are baked into it for the viewer); the
     `_base_color` map is sent separately as the fabric-region map so "Fabric regions" keeps working.
-  - Base slots get a **composited PNG** (plain `_color` RGB + `_base_color` alpha) written to
-    `%APPDATA%\CenterIceModdingSuite\images\composite\`, so a sponsor that only exists in the colour map (Utah's SME) is still
-    written and the fabric-region alpha survives.
+  - Base slots use the exact NHL 27 **`_base_color`** art with rule 11's NHL 24 fabric-region alpha. The plain `_color`
+    preview already contains crests and branding, so using it here duplicated the logos drawn by the branding arrays
+    (Utah's away crest). A sponsor with no array destination, such as Utah's SME/1Password art, must be added selectively
+    with **Stamp a logo**; manual stamps are preserved.
   - Helmet and gloves use the team's **NHL 27 palette** (`data\team_colors_27.tsv`, fallback `data\team_colors.tsv`), so
     Arizona→Utah dresses in Utah black/blue instead of Arizona red/green. Skates stay near-black.
   - Helmet sponsor (`helmetlogo_*_<n>_color`, e.g. meijer for Detroit) is drawn as two curved spherical caps high on the

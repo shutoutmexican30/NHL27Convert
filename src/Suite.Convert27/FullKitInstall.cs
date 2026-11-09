@@ -34,10 +34,24 @@ public sealed class FullKitInstall
     readonly Dictionary<Guid, byte[]> artByChunk = [];
     readonly Dictionary<string, HashSet<string>> artHashes = new(StringComparer.Ordinal);
     int bundleCount, ebxCount, resCount;
+    string? backupPath;
 
     FullKitInstall(Options options, SuiteSettings suiteSettings) { o = options; settings = suiteSettings; }
 
     public static int Run(Options options, SuiteSettings settings) => new FullKitInstall(options, settings).Execute();
+
+    /// <summary>Installs for the app: never throws, and reports the last status line and the backup that can undo it.</summary>
+    public static (bool Ok, string Message, string? Backup) Apply(Options options, SuiteSettings settings)
+    {
+        string last = "";
+        var install = new FullKitInstall(options with { Say = s => { last = s; options.Say(s); } }, settings);
+        try { return (install.Execute() == 0, last, install.backupPath); }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("new-uniform apply failure: " + ex);
+            return (false, ex.Message, null);
+        }
+    }
 
     static byte[] Dec(byte[] stored) { try { return ChunkBlocks.Parse(stored).Decode(); } catch (InvalidDataException) { return stored; } }
     static uint Djb(string s) { uint h = 5381; foreach (char c in s) h = (h * 33) ^ c; return h; }
@@ -134,6 +148,7 @@ public sealed class FullKitInstall
         }
 
         string backup = ApplyTarget.Backup(Game, o.BackupRoot);
+        backupPath = backup;
         o.Say("backup: " + backup);
         NewUniformTransaction.Run(backup,
             writeAssets: () =>
