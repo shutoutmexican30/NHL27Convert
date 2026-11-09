@@ -266,6 +266,71 @@ public sealed class FullKitInstall
         o.Say($"jersey name '{o.JerseyName}' on {keys.Count} kit(s)");
     }
 
+    static string ArrayGroup(string target) => target.Replace("_color_array", "", StringComparison.Ordinal).Replace("_normal_array", "", StringComparison.Ordinal);
+
+    /// <summary>
+    /// A logo's position on the kit is fixed by its array slot, and NHL 27 layer order can differ from the stock kit's. When a
+    /// converted layer is the same picture as a different stock slot (a sponsor patch kept between the games), it goes to
+    /// that slot, and the slot it would have used keeps its stock logo. Normal arrays follow their colour array.
+    /// </summary>
+    Dictionary<(string Group, int Have), (Dictionary<int, int> Moves, HashSet<int> KeepStock)> PlanLayerPlacement(NewUniformAddition a)
+    {
+        var plans = new Dictionary<(string, int), (Dictionary<int, int>, HashSet<int>)>();
+        foreach (var texture in a.Textures)
+        {
+            string target = texture.TargetSlot.Trim().Replace('\\', '/').TrimStart('/');
+            if (!target.EndsWith("_color_array", StringComparison.Ordinal) || texture.Artwork.Layers is not { Count: > 0 } layers) continue;
+            string source = texture.SourceSlot.Trim().Replace('\\', '/').TrimStart('/');
+            foreach (var slot in TextureSlots.ReadAll(Game, index, source))
+            {
+                int have = Ps4Codec.Slices(slot.Res.Header);
+                var stock = Ps4Codec.DecodeSlices(slot.Res, slot.Stock);
+                var art = layers.Where(kv => kv.Key < have).OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => ResolveArt(kv.Value));
+                var moves = new Dictionary<int, int>();
+                var claimed = new HashSet<int>();
+                foreach (var (layer, path) in art)
+                {
+                    var picture = ImageIO.Load(path);
+                    if (picture.Width != slot.Res.Width || picture.Height != slot.Res.Height)
+                        picture = ImageIO.ResizeSmooth(picture, slot.Res.Width, slot.Res.Height, o.Workers);
+                    int match = -1;
+                    double best = double.MaxValue;
+                    for (int candidate = 0; candidate < have; candidate++)
+                    {
+                        if (claimed.Contains(candidate)) continue;
+                        double score = PictureDifference(picture, stock[candidate]);
+                        if (score < best) { best = score; match = candidate; }
+                    }
+                    if (best < SamePictureLimit && match != layer) moves[layer] = match;
+                    claimed.Add(best < SamePictureLimit ? match : layer);
+                }
+                var keepStock = moves.Keys.Where(from => !moves.ContainsValue(from) && !art.Keys.Except(moves.Keys).Contains(from)).ToHashSet();
+                if (moves.Count == 0) continue;
+                plans[(ArrayGroup(target), have)] = (moves, keepStock);
+                o.Say($"{a.Team} {a.SourceKit} {target[(target.LastIndexOf('/') + 1)..]} ({have} layers): layer(s) "
+                    + string.Join(", ", moves.Select(m => $"{m.Key} to slot {m.Value}")) + " matched the stock art");
+            }
+        }
+        return plans;
+    }
+
+    const double SamePictureLimit = 8;
+
+    /// <summary>Mean colour difference where both pictures are drawn, heavily penalising areas only one of them covers.</summary>
+    static double PictureDifference(Rgba a, Rgba b)
+    {
+        if (a.Width != b.Width || a.Height != b.Height) return double.MaxValue;
+        long both = 0, onlyOne = 0, total = 0;
+        for (int i = 0; i < a.Pixels.Length; i += 4)
+        {
+            bool drawnA = a.Pixels[i + 3] > 16, drawnB = b.Pixels[i + 3] > 16;
+            if (drawnA && drawnB) { both++; total += Math.Abs(a.Pixels[i] - b.Pixels[i]) + Math.Abs(a.Pixels[i + 1] - b.Pixels[i + 1]) + Math.Abs(a.Pixels[i + 2] - b.Pixels[i + 2]); }
+            else if (drawnA || drawnB) onlyOne++;
+        }
+        if (both == 0) return double.MaxValue;
+        return total / (3.0 * both) + 400.0 * onlyOne / (both + onlyOne);
+    }
+
     /// <summary>Encodes every mapped texture into its same-team source slot layout; unused array layers are blanked.</summary>
     void PrepareArt(NewUniformAddition a)
     {
@@ -274,6 +339,7 @@ public sealed class FullKitInstall
         int codecThreads = o.Workers <= 0 ? 0 : Math.Max(1, o.Workers / jobs);
         int cacheHits = 0, encoded = 0;
         var prepared = new System.Collections.Concurrent.ConcurrentBag<(string Target, bool HasArtwork, List<(Guid Chunk, byte[] Raw, string Hash)> Copies)>();
+        var layerPlans = PlanLayerPlacement(a);
         Parallel.For(0, a.Textures.Count, new ParallelOptions { MaxDegreeOfParallelism = jobs }, i =>
         {
             var texture = a.Textures[i];
@@ -310,12 +376,18 @@ public sealed class FullKitInstall
                     copy = resolved with { Layers = resolved.Layers!.Where(kv => kv.Key < have).ToDictionary(kv => kv.Key, kv => kv.Value) };
                     o.Say($"LAYER CUT: {target}: copy has {have} layer(s); artwork layer(s) {have}-{need - 1} left out");
                 }
+                HashSet<int> keepStock = [];
+                if (copy.Layers is { Count: > 0 } && layerPlans.TryGetValue((ArrayGroup(target), have), out var layerPlan))
+                {
+                    copy = copy with { Layers = copy.Layers.ToDictionary(kv => layerPlan.Moves.GetValueOrDefault(kv.Key, kv.Key), kv => kv.Value) };
+                    keepStock = layerPlan.KeepStock;
+                }
                 string baseKey = TexturePayloadCache.Key(slot, copy, out var stockForAlpha);
                 bool blankUnused = blankable && copy.Layers is { Count: > 0 }
-                    && Enumerable.Range(0, have).Any(layer => !copy.Layers.ContainsKey(layer));
+                    && Enumerable.Range(0, have).Any(layer => !copy.Layers.ContainsKey(layer) && !keepStock.Contains(layer));
                 // Blanked output is not interchangeable with TextureSlots' preserve-unused-layers output, even when
                 // their source artwork is identical. Give it a separate content-addressed cache namespace.
-                string key = blankUnused ? Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(baseKey + ":full-kit-blank-v1"))) : baseKey;
+                string key = blankUnused ? Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(baseKey + ":full-kit-blank-v2:" + string.Join(",", keepStock.Order())))) : baseKey;
                 byte[]? raw = cache.Load(key);
                 if (raw is not null) Interlocked.Increment(ref cacheHits);
                 else
@@ -327,7 +399,7 @@ public sealed class FullKitInstall
                         var pixels = new byte[slot.Res.Width * slot.Res.Height * 4];
                         if (normal) for (int p = 0; p < pixels.Length; p += 4) { pixels[p] = 128; pixels[p + 1] = 128; pixels[p + 2] = 255; }
                         var blank = new Rgba(slot.Res.Width, slot.Res.Height, pixels);
-                        var unused = Enumerable.Range(0, have).Where(layer => !copy.Layers.ContainsKey(layer)).ToDictionary(layer => layer, _ => blank);
+                        var unused = Enumerable.Range(0, have).Where(layer => !copy.Layers.ContainsKey(layer) && !keepStock.Contains(layer)).ToDictionary(layer => layer, _ => blank);
                         raw = Ps4Codec.Build(slot.Res, raw, unused, codecThreads);
                     }
                     cache.Store(key, raw, keepPayload: true);
