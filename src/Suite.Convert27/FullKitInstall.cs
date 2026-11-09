@@ -288,6 +288,7 @@ public sealed class FullKitInstall
                 var art = layers.Where(kv => kv.Key < have).OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => ResolveArt(kv.Value));
                 var moves = new Dictionary<int, int>();
                 var claimed = new HashSet<int>();
+                var unmatched = new List<int>();
                 foreach (var (layer, path) in art)
                 {
                     var picture = ImageIO.Load(path);
@@ -301,8 +302,20 @@ public sealed class FullKitInstall
                         double score = PictureDifference(picture, stock[candidate]);
                         if (score < best) { best = score; match = candidate; }
                     }
-                    if (best < SamePictureLimit && match != layer) moves[layer] = match;
-                    claimed.Add(best < SamePictureLimit ? match : layer);
+                    if (best < SamePictureLimit)
+                    {
+                        claimed.Add(match);
+                        if (match != layer) moves[layer] = match;
+                    }
+                    else unmatched.Add(layer);
+                }
+                // Everything else keeps its own slot, or the first free one if a matched logo took it.
+                foreach (int layer in unmatched.Where(l => !claimed.Contains(l)).ToList()) { claimed.Add(layer); unmatched.Remove(layer); }
+                foreach (int layer in unmatched)
+                {
+                    int free = Enumerable.Range(0, have).First(slotIndex => !claimed.Contains(slotIndex));
+                    claimed.Add(free);
+                    moves[layer] = free;
                 }
                 var keepStock = moves.Keys.Where(from => !moves.ContainsValue(from) && !art.Keys.Except(moves.Keys).Contains(from)).ToHashSet();
                 if (moves.Count == 0) continue;
