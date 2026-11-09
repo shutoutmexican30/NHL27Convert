@@ -397,7 +397,7 @@ public sealed class FullKitInstall
                 var tex = TextureRes.Parse(raw);
                 if (raw.Length < 116 || BinaryPrimitives.ReadUInt32LittleEndian(raw.AsSpan(112)) != Djb(r.Name))
                     throw new InvalidDataException("Name hash is not at offset 112: " + r.Name);
-                if (!chunkMap.TryGetValue(tex.ChunkGuid, out var newChunk)) chunkMap[tex.ChunkGuid] = newChunk = Stable("chunk:" + mapped);
+                if (!chunkMap.TryGetValue(tex.ChunkGuid, out var newChunk)) chunkMap[tex.ChunkGuid] = newChunk = Stable("chunk:" + mapped + ":" + tex.ChunkGuid);
                 newChunk.TryWriteBytes(raw.AsSpan(32, 16));
                 BinaryPrimitives.WriteUInt32LittleEndian(raw.AsSpan(112), Djb(mapped));
                 var encoded = EncodeLike(stored, raw);

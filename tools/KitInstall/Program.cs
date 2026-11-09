@@ -9,7 +9,7 @@ using Suite.Core.Frostbite;
 string? Opt(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
 void Say(string s) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {s}");
 
-const string TestRoot = @"C:\dev\NHL27Convert\Debugging\v32-recovery\";
+const string TestRoot = @"D:\CIMS-test\";
 string target = Path.GetFullPath(Opt("--target") ?? throw new ArgumentException("--target is required")).TrimEnd(Path.DirectorySeparatorChar);
 bool apply = WriteGate.Allowed(args);
 bool isTestCopy = target.StartsWith(TestRoot, StringComparison.OrdinalIgnoreCase);

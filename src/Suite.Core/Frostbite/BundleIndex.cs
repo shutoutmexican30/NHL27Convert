@@ -48,9 +48,18 @@ public sealed class BundleIndex
         const int H = TocFile.HeaderSize;
         if (b.Length < H + 64 || b[1] != 0xD1 || b[2] != 0xCE) return list;
         uint F(int i) => BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(H + 4 * i));
+    /// <summary>The install folder above a TOC. TOCs can sit below Gen4b (levels/game/game.toc), so walk up to it.</summary>
+    static string GameFolderOf(string toc)
+    {
+        for (var dir = Path.GetDirectoryName(toc); dir is not null; dir = Path.GetDirectoryName(dir))
+            if (Path.GetFileName(dir).Equals("Gen4b", StringComparison.OrdinalIgnoreCase))
+                return Path.GetDirectoryName(Path.GetDirectoryName(dir))!;
+        return Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(toc)))!;
+    }
+
         long table = H + F(1), count = F(2);
         if (count == 0 || table + count * 16 > b.Length) return list;
-        var game = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(toc)))!;
+        var game = GameFolderOf(toc);
         for (int i = 0; i < count; i++)
         {
             long rec = H + (long)BinaryPrimitives.ReadUInt64BigEndian(b.AsSpan((int)table + 16 * i + 8));
