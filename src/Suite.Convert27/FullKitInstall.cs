@@ -48,7 +48,7 @@ public sealed class FullKitInstall
         b[8] = (byte)((b[8] & 0x3F) | 0x80);
         return new Guid(b);
     }
-    static ulong StableRid(string name) => BinaryPrimitives.ReadUInt64LittleEndian(SHA1.HashData(Encoding.ASCII.GetBytes("NHL27Convert:rid:" + name)));
+    static ulong StableRid(string name) => BinaryPrimitives.ReadUInt64LittleEndian(SHA1.HashData(Encoding.ASCII.GetBytes("NHL27Convert:rid:" + name))) | 1; // The loader reads an even value as an already-resolved pointer; every stock id is odd.
     static byte[] EncodeLike(byte[] old, byte[] raw)
     {
         ChunkBlocks parsed;
