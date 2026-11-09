@@ -15,7 +15,7 @@ namespace Suite.Convert27;
 /// </summary>
 public sealed class FullKitInstall
 {
-    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0);
+    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0, bool RestoreAfterVerify = false);
 
     readonly Options o;
     readonly SuiteSettings settings;
@@ -24,6 +24,7 @@ public sealed class FullKitInstall
     Dictionary<string, byte[]> tocFiles = null!;
     Dictionary<string, TocArchive> archives = null!;
     Dictionary<(string, ulong), TocArchive.Bundle> bundleNames = null!;
+    Dictionary<(string Toc, int RecordAt), List<BundleIndex.Location>> bundleRecords = null!;
     HashSet<ulong> usedRids = null!;
     Lazy<Dictionary<Guid, List<BundleIndex.Location>>> globalChunks = null!;
 
@@ -81,6 +82,11 @@ public sealed class FullKitInstall
     {
         Oodle.Ensure(settings);
         if (o.Apply && ApplyTarget.RunningGame() is { } running) { o.Say("REFUSED: " + running + " is running."); return 1; }
+        if (o.Apply && ApplyTarget.Problems(Game) is { Count: > 0 } problems)
+        {
+            o.Say("REFUSED: " + string.Join("; ", problems));
+            return 1;
+        }
         var legacy = new LegacyFiles(Game, settings);
         string metaPath = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "meta-cache")), "nhl_game-meta.xml");
         File.WriteAllBytes(metaPath, legacy.Read("gamemodes/database/t3db/nhl_game-meta.xml"));
@@ -109,6 +115,9 @@ public sealed class FullKitInstall
         archives = tocFiles.ToDictionary(kv => kv.Key, kv => TocArchive.Parse(kv.Value), StringComparer.OrdinalIgnoreCase);
         bundleNames = [];
         foreach (var (toc, archive) in archives) foreach (var b in archive.Bundles) bundleNames[(toc, b.RecordOffset)] = b;
+        bundleRecords = [];
+        foreach (var (toc, bytes) in tocFiles)
+            foreach (var record in BundleIndex.Records(toc, bytes)) bundleRecords[(toc, record.RecordAt)] = record.Entries;
         usedRids = index.ResByName.Values.SelectMany(v => v).Select(r => r.Rid).ToHashSet();
         globalChunks = new(LoadGlobalChunks);
 
@@ -117,6 +126,9 @@ public sealed class FullKitInstall
         {
             foreach (var a in additionPlan.Additions) { PrepareArt(a); CloneKit(a, null); artByChunk.Clear(); o.Say($"planned {a.Team} {a.SourceKit} -> variant {a.TargetVariant}"); }
             ReportRegistry(kits);
+            foreach (var (cas, bytes) in appended.OrderByDescending(kv => new FileInfo(kv.Key).Length + kv.Value).Take(5))
+                o.Say($"projected {Path.GetRelativePath(Game, cas)}: {(new FileInfo(cas).Length + bytes) / 1048576.0:F0} MB of 4096 MB (+{bytes / 1048576.0:F0} MB)");
+            o.Say($"total payload {appended.Values.Sum() / 1048576.0:F0} MB across {appended.Count} CAS files; over the limit: {appended.Count(kv => new FileInfo(kv.Key).Length + kv.Value > uint.MaxValue)}");
             o.Say($"DRY RUN: {additionPlan.Additions.Count} kits, {bundleCount} bundles, {ebxCount} EBX, {resCount} RES. Nothing was written.");
             return 0;
         }
@@ -140,7 +152,7 @@ public sealed class FullKitInstall
             {
                 foreach (string line in new LegacyFiles(Game, settings).Replace(databases)) o.Say("DB: " + line);
             },
-            readBack: () => ReadBack(additionPlan.Additions, kits, databases),
+            readBack: () => ReadBack(additionPlan, kits, databases, sources, metaPath),
             restoreAndVerify: () =>
             {
                 ApplyTarget.RestoreFromBackup(Game, backup);
@@ -148,6 +160,13 @@ public sealed class FullKitInstall
                 if (left.Count > 0) throw new InvalidOperationException("Rollback differences: " + string.Join("; ", left.Take(10)));
             });
         o.Say($"INSTALLED AND READ BACK: {additionPlan.Additions.Count} kits, {bundleCount} bundles, {ebxCount} EBX, {resCount} RES. Backup: {backup}");
+        if (o.RestoreAfterVerify)
+        {
+            ApplyTarget.RestoreFromBackup(Game, backup);
+            var left = ApplyTarget.Compare(Game, backup);
+            if (left.Count > 0) throw new InvalidOperationException("Post-verification restore differences: " + string.Join("; ", left.Take(10)));
+            o.Say("ISOLATED WRITE, READ-BACK AND RESTORE PASSED: no install differences remain.");
+        }
         return 0;
     }
 
@@ -163,7 +182,11 @@ public sealed class FullKitInstall
             int added = 0;
             foreach (var a in plan.Additions)
             {
-                int sourceVariant = a.SourceKit == "away" ? 1 : 0;
+                string sourceFolder = a.SourcePrefix.Trim().Replace('\\', '/').TrimEnd('/').Split('/')[^1];
+                int sourceVariant = Array.IndexOf(TextureName.Numbers, sourceFolder);
+                // Ordinary home/away uniforms inherit the existing variant=-1 equipment fallbacks. Do not clone
+                // dozens of default rows. Only a genuinely variant-specific source kit carries its explicit rows forward.
+                if (sourceVariant <= 1) continue;
                 var rows = Enumerable.Range(0, t.InUse).Where(r => db.GetInt(t, r, "team") == a.TeamId && db.GetInt(t, r, "variant") == sourceVariant).ToList();
                 if (t.InUse + rows.Count > t.Slots) throw new InvalidDataException($"{name}: no spare equipment rows for {a.Team}.");
                 foreach (int r in Enumerable.Reverse(rows))
@@ -186,8 +209,14 @@ public sealed class FullKitInstall
     /// <summary>Encodes every mapped texture into its same-team source slot layout; unused array layers are blanked.</summary>
     void PrepareArt(NewUniformAddition a)
     {
-        foreach (var texture in a.Textures)
+        var cache = new TexturePayloadCache();
+        int jobs = Math.Clamp(o.Workers / 6, 1, 4);
+        int codecThreads = o.Workers <= 0 ? 0 : Math.Max(1, o.Workers / jobs);
+        int cacheHits = 0, encoded = 0;
+        var prepared = new System.Collections.Concurrent.ConcurrentBag<(string Target, bool HasArtwork, List<(Guid Chunk, byte[] Raw, string Hash)> Copies)>();
+        Parallel.For(0, a.Textures.Count, new ParallelOptions { MaxDegreeOfParallelism = jobs }, i =>
         {
+            var texture = a.Textures[i];
             string source = texture.SourceSlot.Trim().Replace('\\', '/').TrimStart('/');
             string target = texture.TargetSlot.Trim().Replace('\\', '/').TrimStart('/');
             var art = texture.Artwork;
@@ -197,38 +226,65 @@ public sealed class FullKitInstall
                 Source = ResolveArt(art.Source),
                 Layers = art.Layers?.ToDictionary(kv => kv.Key, kv => ResolveArt(kv.Value)),
             };
-            if (resolved.Source.Length == 0 && resolved.Layers is not { Count: > 0 }) continue;
+            if (resolved.Source.Length == 0 && resolved.Layers is not { Count: > 0 })
+            {
+                prepared.Add((target, false, []));
+                return;
+            }
             // An update can carry the same texture again with a different layout, and the game may read either copy.
             var slots = TextureSlots.ReadAll(Game, index, source);
             int need = resolved.Layers is { Count: > 0 } ? resolved.Layers.Keys.Max() + 1 : 1;
-            if (slots.All(sl => Ps4Codec.Slices(sl.Res.Header) < need)) throw new InvalidDataException(
-                $"{a.Team} {a.SourceKit}: {source} has {slots.Max(sl => Ps4Codec.Slices(sl.Res.Header))} layer(s), the artwork needs {need}. This kit needs a deeper array first.");
+            int shallowest = slots.Min(sl => Ps4Codec.Slices(sl.Res.Header));
+            if (shallowest < need) throw new InvalidDataException(
+                $"{a.Team} {a.SourceKit}: {source} has a copy with only {shallowest} layer(s), but the artwork needs {need}. "
+                + "No layer will be dropped: choose a source kit whose every copy has the required slots.");
             string lower = target.ToLowerInvariant();
             bool blankable = lower.EndsWith("_color_array", StringComparison.Ordinal) || lower.EndsWith("_normal_array", StringComparison.Ordinal);
-            var hashes = artHashes[target] = new HashSet<string>(StringComparer.Ordinal);
+            var copies = new List<(Guid Chunk, byte[] Raw, string Hash)>();
             foreach (var slot in slots)
             {
                 int have = Ps4Codec.Slices(slot.Res.Header);
                 var copy = resolved;
-                if (have < need)
+                string baseKey = TexturePayloadCache.Key(slot, copy, out var stockForAlpha);
+                bool blankUnused = blankable && copy.Layers is { Count: > 0 }
+                    && Enumerable.Range(0, have).Any(layer => !copy.Layers.ContainsKey(layer));
+                // Blanked output is not interchangeable with TextureSlots' preserve-unused-layers output, even when
+                // their source artwork is identical. Give it a separate content-addressed cache namespace.
+                string key = blankUnused ? Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(baseKey + ":full-kit-blank-v1"))) : baseKey;
+                byte[]? raw = cache.Load(key);
+                if (raw is not null) Interlocked.Increment(ref cacheHits);
+                else
                 {
-                    copy = resolved with { Layers = resolved.Layers!.Where(kv => kv.Key < have).ToDictionary(kv => kv.Key, kv => kv.Value) };
-                    o.Say($"note: {target}: one copy has {have} layer(s), artwork layer(s) {have}-{need - 1} do not fit that copy");
+                    raw = TextureSlots.Build(slot, copy, codecThreads, stockForAlpha);
+                    if (blankUnused)
+                    {
+                        bool normal = lower.EndsWith("_normal_array", StringComparison.Ordinal);
+                        var pixels = new byte[slot.Res.Width * slot.Res.Height * 4];
+                        if (normal) for (int p = 0; p < pixels.Length; p += 4) { pixels[p] = 128; pixels[p + 1] = 128; pixels[p + 2] = 255; }
+                        var blank = new Rgba(slot.Res.Width, slot.Res.Height, pixels);
+                        var unused = Enumerable.Range(0, have).Where(layer => !copy.Layers.ContainsKey(layer)).ToDictionary(layer => layer, _ => blank);
+                        raw = Ps4Codec.Build(slot.Res, raw, unused, codecThreads);
+                    }
+                    cache.Store(key, raw, keepPayload: true);
+                    Interlocked.Increment(ref encoded);
                 }
-                byte[] raw = TextureSlots.Build(slot, copy, o.Workers);
-                if (blankable && copy.Layers is { Count: > 0 })
-                {
-                    bool normal = lower.EndsWith("_normal_array", StringComparison.Ordinal);
-                    var pixels = new byte[slot.Res.Width * slot.Res.Height * 4];
-                    if (normal) for (int i = 0; i < pixels.Length; i += 4) { pixels[i] = 128; pixels[i + 1] = 128; pixels[i + 2] = 255; }
-                    var blank = new Rgba(slot.Res.Width, slot.Res.Height, pixels);
-                    var unused = Enumerable.Range(0, have).Where(l => !copy.Layers.ContainsKey(l)).ToDictionary(l => l, _ => blank);
-                    if (unused.Count > 0) raw = Ps4Codec.Build(slot.Res, raw, unused, o.Workers);
-                }
-                artByChunk[slot.Chunk] = raw;
-                hashes.Add(Convert.ToHexString(SHA256.HashData(raw)));
+                copies.Add((slot.Chunk, raw, Convert.ToHexString(SHA256.HashData(raw))));
+            }
+            prepared.Add((target, true, copies));
+        });
+        cache.Save();
+        foreach (var result in prepared)
+        {
+            if (!result.HasArtwork) continue;
+            artHashes[result.Target] = result.Copies.Select(c => c.Hash).ToHashSet(StringComparer.Ordinal);
+            foreach (var copy in result.Copies)
+            {
+                if (artByChunk.TryGetValue(copy.Chunk, out var existing) && !existing.AsSpan().SequenceEqual(copy.Raw))
+                    throw new InvalidDataException($"Two source textures require different data in shared chunk {copy.Chunk}.");
+                artByChunk[copy.Chunk] = copy.Raw;
             }
         }
+        o.Say($"prepared {a.Team} {a.SourceKit}: {cacheHits} verified cache hits, {encoded} encoded ({jobs} jobs, {codecThreads} codec threads)");
     }
 
     Dictionary<Guid, List<BundleIndex.Location>> LoadGlobalChunks()
@@ -298,7 +354,7 @@ public sealed class FullKitInstall
             string newName = source.Name.Replace(pre, tgt, StringComparison.Ordinal).Replace(idFrom, idTo, StringComparison.Ordinal);
             if (archives[b.Toc].FindBundle(newName) is not null) throw new InvalidDataException("Bundle already exists: " + newName);
             var m = BundleManifest.Parse(BundleIndex.ReadBytes(b.Manifest));
-            var records = BundleIndex.Records(b.Toc, tocFiles[b.Toc]).Single(r => r.RecordAt == b.RecordAt).Entries;
+            var records = bundleRecords[(b.Toc, b.RecordAt)];
             if (records.Count != 1 + m.Ebx.Count + m.Res.Count + m.Chunks.Count) throw new InvalidDataException("Entry count mismatch: " + source.Name);
             var pairs = new List<(int, string, string)>();
             var chunks = new List<(Guid, string, string)>();
@@ -382,7 +438,11 @@ public sealed class FullKitInstall
         foreach (var (name, _) in kitEbx)
             if (!plans.Any(p => BundleManifest.Parse(p.Manifest).Ebx.Any(e => e.Name == Map(name))))
                 throw new InvalidDataException("Asset is not in any cloned bundle: " + name);
-        if (where is null) return;
+        if (where is null)
+        {
+            foreach (var w in writes) appended[w.Cas] = appended.GetValueOrDefault(w.Cas) + w.Bytes.Length;
+            return;
+        }
 
         foreach (var group in writes.GroupBy(w => w.Cas, StringComparer.OrdinalIgnoreCase))
         {
@@ -451,44 +511,70 @@ public sealed class FullKitInstall
     {
         var fresh = BundleIndex.Build(Game, o.Say);
         var copies = fresh.ResByName[PlayerTeamRegistry.ResourceName];
-        var built = new Dictionary<string, (byte[] Stored, PlayerTeamRegistry.Result Result)>();
-        string Hash(byte[] x) => Convert.ToHexString(SHA1.HashData(x));
-        foreach (var g in copies.GroupBy(r => Hash(BundleIndex.ReadBytes(r.Data))))
+        var storedCopies = new Dictionary<(string Cas, uint Offset), byte[]>();
+        byte[] Stored(BundleIndex.Res r)
         {
-            var result = PlayerTeamRegistry.Register(Dec(BundleIndex.ReadBytes(g.First().Data)), g.First().Meta, kits);
+            var key = (r.Data.Cas, r.Data.Offset);
+            if (!storedCopies.TryGetValue(key, out var bytes)) storedCopies[key] = bytes = BundleIndex.ReadBytes(r.Data);
+            return bytes;
+        }
+        string Hash(byte[] x) => Convert.ToHexString(SHA1.HashData(x));
+        string Version(BundleIndex.Res r) => Hash(Stored(r));
+        var built = new Dictionary<string, (byte[] Stored, PlayerTeamRegistry.Result Result)>();
+        foreach (var g in copies.GroupBy(Version))
+        {
+            var result = PlayerTeamRegistry.Register(Dec(Stored(g.First())), g.First().Meta, kits);
             var stored = ChunkBlocks.EncodeBlocks(result.Raw);
             if (!Dec(stored).AsSpan().SequenceEqual(result.Raw)) throw new InvalidDataException("player_team_brt did not encode back.");
             built[g.Key] = (stored, result);
             o.Say($"registry version ({g.Count()} copies): +{result.Assets} assets, +{result.Bundles} bundles");
         }
-        var patched = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        var locations = new Dictionary<(string, string), (uint Offset, uint Size)>();
-        foreach (var r in copies)
+
+        // Hundreds of bundles share the same registry payload and often the same manifest. Build each distinct output
+        // once, then append each CAS with one open handle. Every TOC reference still gets its own verified pointer.
+        var registryLocations = new Dictionary<(string Version, string Cas), (uint Offset, uint Size)>();
+        foreach (var g in copies.GroupBy(r => (Version: Version(r), r.Data.Cas)))
         {
-            string key = Hash(BundleIndex.ReadBytes(r.Data));
-            var b = built[key];
-            if (!locations.ContainsKey((key, r.Data.Cas)))
-            {
-                using var fs = new FileStream(r.Data.Cas, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 20);
-                locations[(key, r.Data.Cas)] = (checked((uint)fs.Position), (uint)b.Stored.Length);
-                fs.Write(b.Stored);
-                fs.Flush(true);
-            }
-            var at = locations[(key, r.Data.Cas)];
-            var m = BundleManifest.Parse(BundleIndex.ReadBytes(r.Bundle.Manifest));
+            var b = built[g.Key.Version];
+            using var fs = new FileStream(g.Key.Cas, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 20);
+            uint offset = checked((uint)fs.Position);
+            fs.Write(b.Stored);
+            fs.Flush(true);
+            registryLocations[g.Key] = (offset, (uint)b.Stored.Length);
+        }
+
+        var manifests = new Dictionary<(string Version, string Cas, uint Offset), byte[]>();
+        foreach (var g in copies.GroupBy(r => (Version: Version(r), r.Bundle.Manifest.Cas, r.Bundle.Manifest.Offset)))
+        {
+            var b = built[g.Key.Version];
+            var m = BundleManifest.Parse(BundleIndex.ReadBytes(g.First().Bundle.Manifest));
             int i = m.Res.FindIndex(x => x.Name == PlayerTeamRegistry.ResourceName);
             if (i < 0) throw new InvalidDataException("The table is missing from a bundle manifest.");
             m.Res[i] = m.Res[i] with { OriginalSize = checked((uint)b.Result.Raw.Length), Sha1 = SHA1.HashData(b.Stored), Meta = b.Result.Meta };
-            byte[] manifest = m.Build();
-            uint manifestOffset;
-            using (var fs = new FileStream(r.Bundle.Manifest.Cas, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 16))
+            manifests[g.Key] = m.Build();
+        }
+        var manifestLocations = new Dictionary<(string Version, string Cas, uint Offset), (uint Offset, uint Size)>();
+        foreach (var g in manifests.GroupBy(kv => kv.Key.Cas, StringComparer.OrdinalIgnoreCase))
+        {
+            using var fs = new FileStream(g.Key, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 20);
+            foreach (var (key, bytes) in g)
             {
-                manifestOffset = checked((uint)fs.Position);
-                fs.Write(manifest);
+                uint offset = checked((uint)fs.Position);
+                fs.Write(bytes);
+                manifestLocations[key] = (offset, (uint)bytes.Length);
             }
+            fs.Flush(true);
+        }
+
+        var patched = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in copies)
+        {
+            string version = Version(r);
+            var data = registryLocations[(version, r.Data.Cas)];
+            var manifest = manifestLocations[(version, r.Bundle.Manifest.Cas, r.Bundle.Manifest.Offset)];
             if (!patched.TryGetValue(r.Data.Toc, out var toc)) patched[r.Data.Toc] = toc = File.ReadAllBytes(r.Data.Toc);
-            Pair(toc, r.Data.PairAt, at.Offset, at.Size);
-            Pair(toc, r.Bundle.Manifest.PairAt, manifestOffset, (uint)manifest.Length);
+            Pair(toc, r.Data.PairAt, data.Offset, data.Size);
+            Pair(toc, r.Bundle.Manifest.PairAt, manifest.Offset, manifest.Size);
         }
         foreach (var (path, bytes) in patched)
         {
@@ -500,41 +586,150 @@ public sealed class FullKitInstall
         }
     }
 
-    void ReadBack(IReadOnlyList<NewUniformAddition> additions, IReadOnlyList<KitRegistration> kits, Dictionary<string, byte[]> databases)
+    void ReadBack(NewUniformAdditionPlan plan, IReadOnlyList<KitRegistration> kits, Dictionary<string, byte[]> databases,
+        IReadOnlyDictionary<string, byte[]> sources, string metaPath)
     {
         var check = new LegacyFiles(Game, settings);
         foreach (var (name, bytes) in databases)
             if (!check.Read(name).AsSpan().SequenceEqual(bytes)) throw new InvalidDataException("Database read-back differs: " + name);
 
+        // Verify row counts independently of the generated database bytes: two Detroit jersey rows per DB and no
+        // default equipment copies. Variant-specific alternate equipment, if ever requested, is counted explicitly.
+        int databaseRows = 0, equipmentRows = 0;
+        foreach (string name in plan.JerseyRows.ChangedDatabases)
+        {
+            var before = T3Db.Load((byte[])sources[name].Clone(), metaPath);
+            var after = T3Db.Load((byte[])databases[RosterSyncRun.LegacyName(name)].Clone(), metaPath);
+            int expectedJerseys = plan.JerseyRows.Rows.Count(r => r.Database == name && !r.AlreadyExists);
+            int actualJerseys = after.Tables[JerseyRowPlanner.TableName].InUse - before.Tables[JerseyRowPlanner.TableName].InUse;
+            if (actualJerseys != expectedJerseys) throw new InvalidDataException(
+                $"{name}: expected {expectedJerseys} new jersey rows, found {actualJerseys}.");
+            var beforeEquipment = before.Tables["stockteamequipmenttable"];
+            int expectedEquipment = 0;
+            foreach (var a in plan.Additions)
+            {
+                string folder = a.SourcePrefix.Trim().Replace('\\', '/').TrimEnd('/').Split('/')[^1];
+                int sourceVariant = Array.IndexOf(TextureName.Numbers, folder);
+                if (sourceVariant <= 1) continue;
+                expectedEquipment += Enumerable.Range(0, beforeEquipment.InUse).Count(r =>
+                    before.GetInt(beforeEquipment, r, "team") == a.TeamId && before.GetInt(beforeEquipment, r, "variant") == sourceVariant);
+            }
+            int actualEquipment = after.Tables["stockteamequipmenttable"].InUse - beforeEquipment.InUse;
+            if (actualEquipment != expectedEquipment) throw new InvalidDataException(
+                $"{name}: expected {expectedEquipment} new equipment rows, found {actualEquipment}.");
+            databaseRows += actualJerseys;
+            equipmentRows += actualEquipment;
+        }
+
         var fresh = BundleIndex.Build(Game, o.Say);
-        var bundles = BundleIndex.Tocs(Game).SelectMany(t => { try { return TocArchive.Parse(File.ReadAllBytes(t)).Bundles.Select(b => b.Name); } catch (InvalidDataException) { return []; } })
-            .ToHashSet(StringComparer.Ordinal);
+        var freshArchives = fresh.Bundles.Select(b => b.Toc).Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(t => t, t => TocArchive.Parse(File.ReadAllBytes(t)), StringComparer.OrdinalIgnoreCase);
+        string FreshName(BundleIndex.Bundle b) => freshArchives[b.Toc].Bundles.Single(x =>
+            x.RecordOffset == (ulong)(b.RecordAt - TocFile.HeaderSize)).Name;
+        string FreshKey(BundleIndex.Bundle b) => b.Toc + "\n" + FreshName(b);
+        var bundles = freshArchives.Values.SelectMany(a => a.Bundles.Select(b => b.Name)).ToHashSet(StringComparer.Ordinal);
+
+        byte[] FreshFullChunk(Guid id, long size)
+        {
+            foreach (var c in fresh.ChunksById.GetValueOrDefault(id) ?? [])
+            {
+                if (c.LogicalOffset != 0 || c.LogicalSize != size) continue;
+                byte[] raw = Dec(BundleIndex.ReadBytes(c.Data));
+                if (raw.Length == size) return raw;
+            }
+            foreach (var (toc, archive) in freshArchives)
+            {
+                if (archive.FindChunk(id) is not { } c) continue;
+                string cas = BundleIndex.CasPath(Game, (c.LocationWord & 0x10000) != 0,
+                    (int)((c.LocationWord >> 8) & 0xFF), (int)(c.LocationWord & 0xFF));
+                byte[] raw = Dec(BundleIndex.ReadBytes(new BundleIndex.Location(toc, 0, cas, c.Offset, c.Size)));
+                if (raw.Length == size) return raw;
+            }
+            throw new InvalidDataException("No complete cloned chunk found for " + id);
+        }
+
         int assets = 0;
-        foreach (var a in additions)
+        foreach (var a in plan.Additions)
         {
             string pre = a.SourcePrefix.TrimEnd('/') + "/", tgt = a.TargetPrefix.TrimEnd('/') + "/";
             string idFrom = KitRegistration.Identity(pre), idTo = KitRegistration.Identity(tgt);
             string Map(string n) => tgt + n[pre.Length..].Replace(idFrom, idTo, StringComparison.Ordinal);
-            foreach (var name in index.EbxByName.Keys.Where(n => n.StartsWith(pre, StringComparison.Ordinal)))
+            string MapBundle(string n) => n.Replace(pre, tgt, StringComparison.Ordinal).Replace(idFrom, idTo, StringComparison.Ordinal);
+            string SourceKey(BundleIndex.Bundle b) => b.Toc + "\n" + MapBundle(NameOf(b).Name);
+            var sourceEbx = index.EbxByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
+            var sourceRes = index.ResByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
+            var guids = new Dictionary<Guid, Guid>();
+            foreach (var e in sourceEbx)
+                guids[EbxRiff.Parse(Dec(BundleIndex.ReadBytes(e.Data))).FileGuid] = Stable("ebx:" + Map(e.Name));
+            var rids = sourceRes.GroupBy(r => r.Rid).ToDictionary(g => g.Key, g => StableRid(Map(g.First().Name)));
+
+            foreach (var source in sourceEbx)
             {
-                if (!fresh.EbxByName.TryGetValue(Map(name), out var copies)) throw new InvalidDataException("Missing EBX after install: " + Map(name));
-                foreach (var e in copies)
-                    if (EbxRiff.Parse(Dec(BundleIndex.ReadBytes(e.Data))).Name != Map(name)) throw new InvalidDataException("EBX name stamp wrong: " + Map(name));
+                string mapped = Map(source.Name);
+                if (!fresh.EbxByName.TryGetValue(mapped, out var copies)) throw new InvalidDataException("Missing EBX after install: " + mapped);
+                string key = SourceKey(source.Bundle);
+                var target = copies.SingleOrDefault(e => FreshKey(e.Bundle) == key)
+                    ?? throw new InvalidDataException($"EBX bundle copy missing: {mapped} from {key}");
+                byte[] sourceRaw = Dec(BundleIndex.ReadBytes(source.Data));
+                byte[] stored = BundleIndex.ReadBytes(target.Data), raw = Dec(stored);
+                var before = EbxRiff.Parse(sourceRaw);
+                var after = EbxRiff.Parse(raw);
+                if (after.Name != mapped || after.FileGuid != Stable("ebx:" + mapped))
+                    throw new InvalidDataException("EBX identity is wrong: " + mapped);
+                var expectedImports = before.ImportedFileGuids.Select(id => guids.GetValueOrDefault(id, id)).ToArray();
+                if (!after.ImportedFileGuids.SequenceEqual(expectedImports))
+                    throw new InvalidDataException("EBX imports still point into the source kit: " + mapped);
+                foreach (var (oldRid, newRid) in rids)
+                {
+                    if (sourceRaw.AsSpan().IndexOf(BitConverter.GetBytes(oldRid)) < 0) continue;
+                    if (raw.AsSpan().IndexOf(BitConverter.GetBytes(newRid)) < 0 || raw.AsSpan().IndexOf(BitConverter.GetBytes(oldRid)) >= 0)
+                        throw new InvalidDataException("EBX resource id was not remapped: " + mapped);
+                }
+                var manifest = BundleManifest.Parse(BundleIndex.ReadBytes(target.Bundle.Manifest));
+                var entry = manifest.Ebx.Single(e => e.Name == mapped);
+                if (entry.OriginalSize != raw.Length || !entry.Sha1.AsSpan().SequenceEqual(SHA1.HashData(stored)))
+                    throw new InvalidDataException("EBX manifest does not match its payload: " + mapped);
                 assets++;
             }
-            foreach (var name in index.ResByName.Keys.Where(n => n.StartsWith(pre, StringComparison.Ordinal)))
+
+            foreach (var source in sourceRes)
             {
-                if (!fresh.ResByName.ContainsKey(Map(name))) throw new InvalidDataException("Missing RES after install: " + Map(name));
-                foreach (var r in fresh.ResByName[Map(name)])
-                    if (BinaryPrimitives.ReadUInt32LittleEndian(Dec(BundleIndex.ReadBytes(r.Data)).AsSpan(112)) != Djb(Map(name)))
-                        throw new InvalidDataException("RES name hash wrong: " + Map(name));
+                string mapped = Map(source.Name);
+                if (!fresh.ResByName.TryGetValue(mapped, out var copies)) throw new InvalidDataException("Missing RES after install: " + mapped);
+                string key = SourceKey(source.Bundle);
+                var target = copies.SingleOrDefault(r => FreshKey(r.Bundle) == key)
+                    ?? throw new InvalidDataException($"RES bundle copy missing: {mapped} from {key}");
+                byte[] sourceRaw = Dec(BundleIndex.ReadBytes(source.Data));
+                byte[] stored = BundleIndex.ReadBytes(target.Data), raw = Dec(stored);
+                if (raw.Length < 116 || BinaryPrimitives.ReadUInt32LittleEndian(raw.AsSpan(112)) != Djb(mapped))
+                    throw new InvalidDataException("RES name hash is wrong: " + mapped);
+                ulong expectedRid = StableRid(mapped);
+                if (target.Rid != expectedRid || target.Rid == source.Rid)
+                    throw new InvalidDataException("RES resource id is wrong: " + mapped);
+                var before = TextureRes.Parse(sourceRaw);
+                var after = TextureRes.Parse(raw);
+                if (after.ChunkGuid == before.ChunkGuid) throw new InvalidDataException("Texture still uses the source chunk: " + mapped);
+                var manifest = BundleManifest.Parse(BundleIndex.ReadBytes(target.Bundle.Manifest));
+                var entry = manifest.Res.Single(r => r.Name == mapped);
+                if (entry.Rid != expectedRid || entry.OriginalSize != raw.Length || !entry.Sha1.AsSpan().SequenceEqual(SHA1.HashData(stored)))
+                    throw new InvalidDataException("RES manifest does not match its payload: " + mapped);
+                if (!manifest.Chunks.Any(c => c.Id == after.ChunkGuid)
+                    || manifest.ChunkMeta.AsSpan().IndexOf(BitConverter.GetBytes(Djb(mapped))) < 0)
+                    throw new InvalidDataException("Cloned chunk or chunk-metadata name hash is missing: " + mapped);
+
+                long size = after.PayloadSize * Ps4Codec.Slices(after.Header);
+                byte[] targetFull = FreshFullChunk(after.ChunkGuid, size);
+                if (artHashes.TryGetValue(mapped, out var expectedArt))
+                {
+                    if (!expectedArt.Contains(Convert.ToHexString(SHA256.HashData(targetFull))))
+                        throw new InvalidDataException("Converted texture bytes differ: " + mapped);
+                }
+                else
+                {
+                    byte[] sourceFull = Dec(FullChunk(before.ChunkGuid, before.PayloadSize * Ps4Codec.Slices(before.Header)));
+                    if (!targetFull.AsSpan().SequenceEqual(sourceFull)) throw new InvalidDataException("Stock texture bytes changed during cloning: " + mapped);
+                }
                 assets++;
-            }
-            foreach (var texture in a.Textures)
-            {
-                string target = texture.TargetSlot.Trim().Replace('\\', '/').TrimStart('/');
-                if (artHashes.TryGetValue(target, out var hashes) && TextureSlots.ReadAll(Game, fresh, target).Any(sl => !hashes.Contains(Convert.ToHexString(SHA256.HashData(sl.Stock)))))
-                    throw new InvalidDataException("Artwork read-back differs: " + target);
             }
         }
         int registered = 0;
@@ -546,7 +741,8 @@ public sealed class FullKitInstall
             {
                 var source = PlayerTeamRegistry.Rows(b, kit.SourceFolder.TrimEnd('/'));
                 var target = PlayerTeamRegistry.Rows(b, kit.TargetFolder.TrimEnd('/'));
-                if (source.Count != target.Count) throw new InvalidDataException($"{kit.TargetFolder}: {target.Count} rows, source has {source.Count}.");
+                if (source.Count != target.Count || target.Count == 0)
+                    throw new InvalidDataException($"{kit.TargetFolder}: {target.Count} rows, source has {source.Count}.");
                 foreach (var row in target)
                 {
                     if (!PlayerTeamRegistry.Contains(b, row.Leaf) || !PlayerTeamRegistry.Contains(b, row.Folder + "/" + row.Leaf))
@@ -557,6 +753,7 @@ public sealed class FullKitInstall
                 }
             }
         }
-        o.Say($"read-back ok: {assets} assets, {registered} registered rows (both table versions), databases identical");
+        o.Say($"read-back ok: {assets} asset copies, {registered} registered rows (both table versions), "
+            + $"{databaseRows} jersey rows, {equipmentRows} equipment rows; resource identities and texture bytes verified");
     }
 }

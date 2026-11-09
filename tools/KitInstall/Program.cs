@@ -1,4 +1,5 @@
-// KitInstall --target <game> --mod <mod.json> [--teams a,b] [--art-dir <folder>] [--backups <folder>] [--restore-first <backup>] [--apply] [--allow-live]
+// KitInstall --target <game> --mod <mod.json> [--teams a,b] [--kits home,away] [--art-dir <folder>]
+//   [--backups <folder>] [--restore-first <backup>] [--compare-only] [--verify-restore] [--workers N] [--apply] [--allow-live]
 // Whole-kit uniform install: same-team clone + converted art + player_team_brt registration + jersey and equipment rows.
 // Without --apply nothing is written. The original game folder needs --allow-live as well.
 using Suite.Convert27;
@@ -8,17 +9,32 @@ using Suite.Core.Frostbite;
 string? Opt(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
 void Say(string s) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {s}");
 
-const string TestRoot = @"D:\CIMS-test\";
+const string TestRoot = @"C:\dev\NHL27Convert\Debugging\v32-recovery\";
 string target = Path.GetFullPath(Opt("--target") ?? throw new ArgumentException("--target is required")).TrimEnd(Path.DirectorySeparatorChar);
-var mod = ModFile.Load(Opt("--mod") ?? throw new ArgumentException("--mod is required")) ?? throw new InvalidDataException("The mod could not be loaded.");
 bool apply = WriteGate.Allowed(args);
 bool isTestCopy = target.StartsWith(TestRoot, StringComparison.OrdinalIgnoreCase);
 if (apply && !isTestCopy && !args.Contains("--allow-live")) { Say("REFUSED: this is not the test copy. Pass --allow-live only after the kits are confirmed in game."); return 1; }
+if (args.Contains("--verify-restore") && (!apply || !isTestCopy)) { Say("REFUSED: --verify-restore requires --apply and the isolated test copy."); return 1; }
 
+if (args.Contains("--compare-only"))
+{
+    string comparisonBackup = Opt("--restore-first") ?? throw new ArgumentException("--compare-only requires --restore-first <backup>.");
+    var differences = ApplyTarget.Compare(target, comparisonBackup);
+    foreach (string difference in differences) Say(difference);
+    Say($"COMPARE ONLY: {differences.Count} difference(s) from {comparisonBackup}. Nothing was written.");
+    return differences.Count == 0 ? 0 : 2;
+}
+
+var mod = ModFile.Load(Opt("--mod") ?? throw new ArgumentException("--mod is required")) ?? throw new InvalidDataException("The mod could not be loaded.");
 if (Opt("--teams") is { } teams)
 {
     var wanted = teams.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
     mod.Additions = (mod.Additions ?? []).Where(a => wanted.Contains(a.Team)).ToList();
+}
+if (Opt("--kits") is { } kits)
+{
+    var wanted = kits.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    mod.Additions = (mod.Additions ?? []).Where(a => wanted.Contains(a.SourceKit)).ToList();
 }
 if (mod.Additions is not { Count: > 0 }) { Say("No uniforms selected."); return 1; }
 Say($"{mod.Additions.Count} uniform(s): {string.Join(", ", mod.Additions.Select(a => $"{a.Team} {a.SourceKit}->{a.TargetVariant}"))}");
@@ -37,4 +53,7 @@ if (Opt("--restore-first") is { } clean)
 
 var settings = SuiteSettings.Load();
 string art = Opt("--art-dir") ?? @"C:\dev\NHL27Convert\Debugging\new-uniform-integration\cache\nhl27png";
-return FullKitInstall.Run(new FullKitInstall.Options(target, mod, art, Opt("--backups") ?? (isTestCopy ? TestRoot + "backups" : null), apply, Say, Environment.ProcessorCount), settings);
+int workers = Opt("--workers") is { } value ? int.Parse(value) : Math.Min(8, Environment.ProcessorCount);
+return FullKitInstall.Run(new FullKitInstall.Options(target, mod, art,
+    Opt("--backups") ?? (isTestCopy ? TestRoot + "fullkit-backups" : null), apply, Say, workers,
+    RestoreAfterVerify: args.Contains("--verify-restore")), settings);
