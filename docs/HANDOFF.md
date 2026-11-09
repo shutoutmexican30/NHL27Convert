@@ -3,17 +3,43 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
-## Session 2026-11-09: new uniforms finally load (Detroit 24/25 confirmed in game)
+## New uniforms 2026-11-09
 
-New kits are installed by `FullKitInstall` (`tools/KitInstall`, and the app's uniform buttons through `NewUniformApply`). It clones the team's own home/away kit whole, overlays the converted art, and registers the names. The older donor path (`NewUniformAssetPlanner` + `BrandingCloneWriter`) never produced a working kit and is retired from installs.
+Detroit 24/25 are confirmed working in game on the test copy. Full write-up: `docs\NEW_UNIFORM_HANDOFF_2026-11-09.md`. New kits are installed by `FullKitInstall` (`tools\KitInstall`, and the app's uniform buttons through `NewUniformApply`). The older donor path is retired from installs.
 
-Three bugs kept every new kit from loading:
+**The six causes and fixes**
 
-1. **The table the game loads was never updated.** `BundleIndex.Records` assumed every TOC sits directly under `Gen4b`, so `levels/game/game.toc` (Base and Patch) resolved to a CAS path that does not exist and its bundle was skipped. That bundle holds a `player_team_brt` copy that stayed stock, with none of the new names, so the game fell back to the black NHL-shield kit (`jersey_adidas_frontend_home_*`). There are 911 copies of the table counting those two.
-2. **Bundle rows have two forms.** An A row is either a full path or a bare leaf with the folder in the second column. Cloning must rewrite both, or the row keeps pointing at the source kit. This hit every `_hq_asp`, branding-array and stamp row.
-3. **Two load crashes in the clone.** `EbxRiff.Rewrite` moved the strings stored after the root name (presets keep parameter names there) without fixing the pointers to them. And generated resource ids must be odd: the loader reads an even value in a resource reference as an already-resolved pointer, and every stock id is odd.
+| # | Problem | Fix |
+|---|---|---|
+| 1 | `BundleIndex` skipped `levels/game/game.toc`, so the `player_team_brt` copy the game loads stayed stock | Walk up to `Gen4b` to find the game folder; all 911 copies are registered |
+| 2 | Bare-name bundle rows kept the source kit's folder in their second column | `PlayerTeamRegistry` rewrites both row forms to the kit's own folder |
+| 3 | Lengthening an EBX name moved the text after it without fixing pointers, crashing the `_hq_asp` presets | `EbxRiff.Rewrite` corrects and checks those pointers |
+| 4 | Generated resource IDs were sometimes even; the loader reads even values as pointers | IDs are always odd, like every stock ID |
+| 5 | New variants had no name, because `locstring` 6 reads the key `VINTAGE_<style>_<art>_<variant>` | `LanguageStrings` adds those keys; "Jersey name" box on the uniform page |
+| 6 | Logos filled array slots in order, so Detroit's sponsor landed in the back-hem tag's slot | A logo matching a different stock slot goes there; the slot it left keeps its stock logo |
 
-Other points: Base and Patch copies of a texture can differ in layout and data, so art and chunk ids are per copy. Two teams need more layers than a stock slot holds and are refused rather than truncated: Arizona/Utah pants (2 art layers, slot has 1) and Nashville jersey (one copy has 5 layers, art has 6). `player_team_brt` must be registered in both versions; `tools/KitInstall` refuses the live game without `--allow-live`.
+**Full-kit checklist (one ID everywhere)**
+
+1. Clone every bundle of the same team's source kit, in the same Patch/Base layers, with new GUIDs, odd resource IDs, name hashes and per-copy chunk IDs.
+2. Fix EBX pointers when a name changes length.
+3. Overlay the converted art on each copy of each texture, in the slot that shows it.
+4. Register every kit name in both versions of `player_team_brt`, in every copy, including `levels/game/game.toc`.
+5. Add the `stockteamjerseys` rows in `nhl_game` and `initial_experience`, with variant = fevariant and `locstring` 6.
+6. Add the `VINTAGE_<style>_<art>_<variant>` name to the language table.
+7. Read back everything from a fresh index, under one backup that rolls back on any failure.
+
+**Limits**
+
+- Arizona/Utah pants drop the second logo layer, and Nashville's jersey drops one layer in its 5-layer copy (owner approved; needs `--cut-extra-layers`).
+- The English language table has 37 free rows after the 64 kits.
+- Variant words stop at `thirtynine`, and each CAS file must stay under 4 GB.
+- The jersey name is English only.
+
+**Next steps**
+
+1. Boot-check the 64-kit batch on the test copy, then apply to live from the clean live restore point, with a fresh backup.
+2. Build the "Sponsor patch" tool on the uniform page: keep, stock, replace or clear, for any uniform.
+3. Add NHL 27 kits that NHL 24 doesn't have.
 
 ## Session 2026-11-06 (later): guided, preflight-checked uniform conversion
 
