@@ -97,12 +97,27 @@ public static class ConversionPreflight
         {
             var label = entry.Layers27.FirstOrDefault(l => l.Layer == layer);
             if (label is null) continue;
-            if (label.Role is "sponsor" or "crest" or "shoulder" or "shield" or "brand")
-                yield return new(PreflightSeverity.Repaired, $"A {label.Role} slot will be added",
-                    $"{entry.Garment}, NHL 27 layer {layer}: the stock kit has no {label.Role} position, so Add to game gives the new " +
-                    $"kit one ({(label.Role == "shoulder" ? "mirroring its other shoulder" : "at the usual stock position")}). " +
-                    "Change it in the slot map if this logo should go somewhere else.");
+            // Shoulders follow the Shoulder patches choice (see InspectShoulders); a repeated picture is one logo.
+            if (label.Role is "sponsor" or "crest" or "shield" or "brand")
+            {
+                string name = SlotNames.Name(label, entry.Garment);
+                yield return new(PreflightSeverity.Repaired, $"{name}: a slot will be added",
+                    $"{(entry.Garment == "branding_pant" ? "Pants" : "Jersey")}: the stock kit has no {name.ToLowerInvariant()} position, " +
+                    "so Add to game gives the new kit one at the usual stock position. Change it in the slot map if this logo should go somewhere else.");
+            }
         }
+    }
+
+    /// <summary>States the jersey's shoulder patches, so the check shows what Add to game will write.</summary>
+    public static PreflightItem InspectShoulders(SlotMapEntry jersey)
+    {
+        int art = jersey.Layers27.Count(l => l.Role == "shoulder");
+        string label = ShoulderPatches.Label(jersey.Shoulders);
+        return new(PreflightSeverity.Ready, "Shoulder patches: " + label,
+            jersey.Shoulders is null
+                ? $"Following the NHL 27 jersey ({(art == 0 ? "no shoulder logo" : art == 1 ? "one shoulder logo" : "shoulder logos; a repeated picture counts once")}). Change it with Shoulder patches."
+                : jersey.Shoulders == ShoulderPatches.None ? "No shoulder patches will be drawn."
+                : "Only the chosen side(s) get the patch; any other shoulder slot is switched off.");
     }
 
     static bool Missing(SourceKind kind, string? source27, string? file,

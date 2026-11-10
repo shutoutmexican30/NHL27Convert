@@ -75,6 +75,9 @@
                     ToolTip="Choose the NHL 24 uniform to replace. Advanced mode also accepts a typed asset folder.">
             <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource FolderName}}" /></DataTemplate></ComboBox.ItemTemplate>
           </ComboBox>
+          <TextBlock Style="{StaticResource Caption}" Text="Shoulder patches" Margin="10,0,4,0" />
+          <ComboBox Width="210" ItemsSource="{Binding ShoulderOptions}" SelectedItem="{Binding ShoulderOption, Mode=TwoWay}"
+                    ToolTip="Which shoulders get the team patch, from the player's point of view. 'As the NHL 27 jersey' follows the converted art." />
           <CheckBox x:Name="AllTeams" Content="All teams" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#d8e2ee"
                     ToolTip="Add every team's mapped home and away uniforms instead of only the one selected." />
         </WrapPanel>

@@ -13,14 +13,17 @@ public sealed class SlotMapWindow : Window
     readonly SlotMapStore _store;
     readonly List<(SlotMapEntry Entry, Func<int, string?> Png24, Func<int, string?> Png27)> _items;
     readonly PathToImageConverter _img = new();
+    readonly Func<SlotMapEntry, IReadOnlyList<string>?> _physical;
     static readonly Brush Text = new SolidColorBrush(Color.FromRgb(0xe6, 0xeb, 0xf2));
     static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8));
 
     public bool Changed { get; private set; }
 
-    public SlotMapWindow(SlotMapStore store, List<(SlotMapEntry Entry, Func<int, string?> Png24, Func<int, string?> Png27)> items)
+    public SlotMapWindow(SlotMapStore store, List<(SlotMapEntry Entry, Func<int, string?> Png24, Func<int, string?> Png27)> items,
+        Func<SlotMapEntry, IReadOnlyList<string>?>? physical = null)
     {
         _store = store;
+        _physical = physical ?? (_ => null);
         _items = items;
         Title = "Slot map — branding layers by role";
         Width = 1050; Height = 780;
@@ -51,9 +54,11 @@ public sealed class SlotMapWindow : Window
     FrameworkElement Section(SlotMapEntry e, Func<int, string?> png24, Func<int, string?> png27)
     {
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
-        panel.Children.Add(new TextBlock { Text = $"{e.Garment}   ·   NHL 24 {Short(e.Folder24)}  ←  NHL 27 {Short(e.Folder27)}", FontSize = 14, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
-        var options27 = new List<object> { "keep NHL 24" };
-        options27.AddRange(e.Layers27.OrderBy(l => l.Layer).Select(l => (object)$"{l.Layer}: {l.Role}{(l.Detail is null ? "" : " " + l.Detail)}"));
+        string garmentName = e.Garment == "branding_pant" ? "Pants logos" : e.Garment == "branding_jersey" ? "Jersey logos" : e.Garment;
+        panel.Children.Add(new TextBlock { Text = $"{garmentName}   ·   NHL 24 {Short(e.Folder24)}  ←  NHL 27 {Short(e.Folder27)}", FontSize = 14, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
+        var physical = _physical(e);
+        // Each NHL 27 choice shows its picture and plain name, never a bare layer number.
+        var choices27 = e.Layers27.OrderBy(l => l.Layer).Select(l => (Png: png27(l.Layer), Name: SlotNames.Name(l, e.Garment))).ToList();
         foreach (var link in e.Links.OrderBy(l => l.Nhl24))
         {
             var label24 = e.Layers24.FirstOrDefault(l => l.Layer == link.Nhl24);
@@ -61,8 +66,10 @@ public sealed class SlotMapWindow : Window
             row.Children.Add(Thumb(png24(link.Nhl24)));
             row.Children.Add(new TextBlock
             {
-                Text = $"NHL 24 layer {link.Nhl24}" + (label24?.Placement is { } place ? $"\n{place}" : ""),
-                Width = 110, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0),
+                Text = physical is not null && link.Nhl24 < physical.Count ? physical[link.Nhl24]
+                    : label24 is null ? "Slot" : SlotNames.Name(label24, e.Garment),
+                ToolTip = label24?.Placement, TextWrapping = TextWrapping.Wrap,
+                Width = 150, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0),
             });
             bool isTag = label24?.Role == SlotRoles.EpwRole;
             bool isAdidas = label24 is not null && ManufacturerBranding.IsAdidas(label24);
@@ -84,7 +91,9 @@ public sealed class SlotMapWindow : Window
             };
             row.Children.Add(role);
             row.Children.Add(new TextBlock { Text = "  ←  ", VerticalAlignment = VerticalAlignment.Center, Foreground = Muted });
-            var pick = new ComboBox { ItemsSource = options27, Width = 180, VerticalAlignment = VerticalAlignment.Center };
+            var options27 = new List<object> { "keep NHL 24" };
+            options27.AddRange(choices27.Select(c => (object)Choice(c.Png, c.Name)));
+            var pick = new ComboBox { ItemsSource = options27, Width = 230, VerticalAlignment = VerticalAlignment.Center };
             pick.SelectedIndex = link.Nhl27 is { } n ? 1 + e.Layers27.OrderBy(l => l.Layer).ToList().FindIndex(l => l.Layer == n) : 0;
             var thumb27 = Thumb(link.Nhl27 is { } m ? png27(m) : null);
             var previous = pick.SelectedIndex;
@@ -127,11 +136,20 @@ public sealed class SlotMapWindow : Window
             foreach (var x in extras)
             {
                 row.Children.Add(Thumb(png27(x.Layer)));
-                row.Children.Add(new TextBlock { Text = $" {x.Layer}: {x.Role}  ", Foreground = Muted, VerticalAlignment = VerticalAlignment.Center });
+                row.Children.Add(new TextBlock { Text = $" {SlotNames.Name(x, e.Garment)}  ", Foreground = Muted, VerticalAlignment = VerticalAlignment.Center });
             }
             panel.Children.Add(row);
         }
         return panel;
+    }
+
+    /// <summary>A combo-box entry: small picture and plain name.</summary>
+    FrameworkElement Choice(string? png, string name)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new Border { Width = 26, Height = 26, Background = new SolidColorBrush(Color.FromRgb(0x2a, 0x31, 0x3d)), Child = Image(png) });
+        row.Children.Add(new TextBlock { Text = "  " + name, VerticalAlignment = VerticalAlignment.Center });
+        return row;
     }
 
     Border Thumb(string? path) => new()

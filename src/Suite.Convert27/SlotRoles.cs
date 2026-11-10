@@ -37,6 +37,8 @@ public sealed class SlotMapEntry
     [JsonPropertyName("links")] public List<LayerLink> Links { get; set; } = [];
     /// <summary>NHL 27 layers with no NHL 24 slot (e.g. a second sponsor).</summary>
     [JsonPropertyName("noSlot27")] public List<int> NoSlot27 { get; set; } = [];
+    /// <summary>Jersey only: which shoulders get a patch, from the player's point of view (none, right, left, both). Null = as the NHL 27 art.</summary>
+    [JsonPropertyName("shoulders")] public string? Shoulders { get; set; }
 }
 
 /// <summary>

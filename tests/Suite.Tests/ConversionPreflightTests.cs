@@ -93,7 +93,7 @@ public class ConversionPreflightTests
         Assert.Equal(2, items.Count);
         // Add to game now adds the missing position instead of dropping the logo or blocking the export.
         Assert.All(items, i => Assert.Equal(PreflightSeverity.Repaired, i.Severity));
-        Assert.Contains(items, i => i.Title.Contains("crest") && i.Detail.Contains("slot map"));
-        Assert.Contains(items, i => i.Title.Contains("sponsor"));
+        Assert.Contains(items, i => i.Title.StartsWith("Crest") && i.Detail.Contains("slot map"));
+        Assert.Contains(items, i => i.Title.StartsWith("Sponsor"));
     }
 }

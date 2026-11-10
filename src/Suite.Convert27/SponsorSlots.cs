@@ -151,7 +151,7 @@ public static class SponsorSlots
     }
 
     /// <summary>The stamp's layout in each bundle that carries it (Base and Patch can differ).</summary>
-    static List<UniformHotspotLayout> Copies(BundleIndex index, string stamp) =>
+    internal static List<UniformHotspotLayout> Copies(BundleIndex index, string stamp) =>
         (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt))
             .Select(b => UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, stamp, b), stamp)).ToList();
 

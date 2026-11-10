@@ -111,9 +111,14 @@ public sealed class FullKitInstall
         index = BundleIndex.Build(Game, o.Say);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var mods = RegisteredKitSource.Normalize(o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms."), index, o.Say);
-        mods = SponsorSlots.AddMissing(mods, index, o.Say);
-        int overrides = MatcherOverrides.Apply(mods, SlotMapStore.Load(), o.Say);
+        // Order matters: the user's matcher decisions first, then one layer per real NHL 27 logo, then any slot still missing.
+        var slotMap = SlotMapStore.Load();
+        int overrides = MatcherOverrides.Apply(mods, slotMap, o.Say);
         if (overrides > 0) o.Say($"{overrides} manual matcher decision(s) applied");
+        DuplicateLogoLayers.Apply(mods, o.Say);
+        ShoulderPatches.FitArt(mods, slotMap, o.Say);
+        mods = SponsorSlots.AddMissing(mods, index, o.Say);
+        ShoulderPatches.PlaceSides(mods, slotMap, index, o.Say);
         foreach (var a in mods)
         {
             ManufacturerBranding.EnsureCoefficientArrays(a);

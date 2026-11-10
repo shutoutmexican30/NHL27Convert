@@ -94,6 +94,7 @@ public sealed class Convert27ViewModel : Observable
         set
         {
             if (!Set(ref _folder24, value?.Trim().TrimEnd('/'))) return;
+            Raise(nameof(ShoulderOption));
             PreflightItems.Clear();
             PreflightSummary = "Uniform changed. Select Check & convert to validate it.";
             _ = OpenFolderAsync();
@@ -108,6 +109,7 @@ public sealed class Convert27ViewModel : Observable
         {
             if (!Set(ref _folder27, value?.Trim().TrimEnd('/'))) return;
             Raise(nameof(SourceSummary));
+            Raise(nameof(ShoulderOption));
             Sources27.Clear();
             if (_folder27 is not null && Catalog27?.ByFolder.TryGetValue(_folder27, out var list) == true)
                 foreach (var t in list.OrderBy(t => t.Name, StringComparer.Ordinal)) Sources27.Add(t.Name);
@@ -741,6 +743,56 @@ public sealed class Convert27ViewModel : Observable
         return reset;
     }
 
+    public IReadOnlyList<string> ShoulderOptions { get; } =
+        [ShoulderPatches.Label(null), .. ShoulderPatches.Choices.Select(c => ShoulderPatches.Label(c))];
+
+    /// <summary>The selected uniform's Shoulder patches choice, saved in its jersey slot-map entry.</summary>
+    public string ShoulderOption
+    {
+        get => ShoulderPatches.Label(JerseyEntry(create: false)?.Shoulders);
+        set
+        {
+            if (_folder24 is null || _folder27 is null) return;
+            string? choice = ShoulderPatches.Choices.FirstOrDefault(c => ShoulderPatches.Label(c) == value);
+            var entry = JerseyEntry(create: true)!;
+            if (entry.Shoulders == choice) return;
+            entry.Shoulders = choice;
+            SlotMaps.Save();
+            Raise();
+            PreflightItems.Clear();
+            PreflightSummary = "Shoulder patches changed. Select Check to validate it.";
+        }
+    }
+
+    SlotMapEntry? JerseyEntry(bool create)
+    {
+        if (_folder24 is null || _folder27 is null) return null;
+        var entry = SlotMaps.Find(_folder24, _folder27, "branding_jersey");
+        if (entry is null && create)
+            SlotMaps.Entries.Add(entry = new SlotMapEntry { Folder24 = _folder24, Folder27 = _folder27, Garment = "branding_jersey" });
+        return entry;
+    }
+
+    static Suite.Core.Frostbite.BundleIndex? _gameLayouts;
+    static string? _gameLayoutsDir;
+
+    /// <summary>Plain names of the stock slots of one slot-map entry's array, read from the game's jersey stamp.</summary>
+    public async Task<Func<SlotMapEntry, IReadOnlyList<string>?>> PhysicalSlotNamesAsync()
+    {
+        string game = Settings.Nhl24GameDir;
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game)) return _ => null;
+        if (_gameLayouts is null || _gameLayoutsDir != game)
+        {
+            Status = "Reading the game's jersey layouts…";
+            _gameLayouts = await Task.Run(() => Suite.Core.Frostbite.BundleIndex.Build(game));
+            _gameLayoutsDir = game;
+            Status = "Slot map ready";
+        }
+        var index = _gameLayouts;
+        return entry => Rows.FirstOrDefault(r => r.IsArray && r.Name.Garment == entry.Garment && r.Name.Role == "color") is { } array
+            ? SlotNames.Physical(index, array.Slot) : null;
+    }
+
     /// <summary>The slot-map entries of the current folder pair, with image lookups for both games' layers.</summary>
     public List<(SlotMapEntry Entry, Func<int, string?> Png24, Func<int, string?> Png27)> SlotMapItems()
     {
@@ -934,6 +986,7 @@ public sealed class Convert27ViewModel : Observable
             items.AddRange(ConversionPreflight.InspectRows(folder.Rows,
                 n => File.Exists(TextureImages.Nhl27Png(n)), File.Exists));
             foreach (var entry in entries) items.AddRange(ConversionPreflight.InspectUnplacedLogos(entry));
+            if (entries.FirstOrDefault(e => e.Garment == "branding_jersey") is { } jersey) items.Add(ConversionPreflight.InspectShoulders(jersey));
         }
         var report = new PreflightReport(items);
         if (report.CanExport && report.WarningCount == 0)
