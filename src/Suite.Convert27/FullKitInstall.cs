@@ -111,6 +111,7 @@ public sealed class FullKitInstall
         index = BundleIndex.Build(Game, o.Say);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var mods = RegisteredKitSource.Normalize(o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms."), index, o.Say);
+        mods = SponsorSlots.AddMissing(mods, index, o.Say);
         foreach (var a in mods)
         {
             ManufacturerBranding.EnsureCoefficientArrays(a);

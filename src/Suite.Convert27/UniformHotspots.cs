@@ -31,29 +31,66 @@ public static class UniformHotspots
     /// <summary>Returns physical slot roles in array order. Unknown, garment-specific names must be explicitly mapped.</summary>
     public static IReadOnlyList<string> Roles(ReadOnlySpan<byte> ebx)
     {
-        var slots = Read(ebx);
+        var slots = Capture(ebx, "").Branding;
         int count = slots.Count == 0 ? 0 : slots.Max(s => s.Id) - FirstBrandingId + 1;
         var roles = Enumerable.Repeat("blank", count).ToArray();
         foreach (var slot in slots)
         {
-            if (slot.Role.Length == 0) throw new InvalidDataException(
+            string role = slot.Role.Length > 0 ? slot.Role : PositionRole(slot);
+            if (role.Length == 0) throw new InvalidDataException(
                 $"Hotspot id {slot.Id} has unknown physical meaning '{slot.Name}'; an explicit role review is required.");
-            roles[slot.Id - FirstBrandingId] = slot.Role;
+            roles[slot.Id - FirstBrandingId] = role;
         }
         return roles;
     }
 
+    /// <summary>
+    /// The role of a hotspot whose name says nothing (Toronto and Seattle number theirs), from where it sits on the jersey
+    /// texture: tags at the hem, shoulders turned sideways, and the front logos by size and height. Empty when unclear.
+    /// </summary>
+    public static string PositionRole(UniformHotspotPlacement slot)
+    {
+        if (!double.TryParse(slot.Rotation, System.Globalization.CultureInfo.InvariantCulture, out double r)
+            || !double.TryParse(slot.ScaleX, System.Globalization.CultureInfo.InvariantCulture, out double sx)
+            || !double.TryParse(slot.TranslateX, System.Globalization.CultureInfo.InvariantCulture, out double tx)
+            || !double.TryParse(slot.TranslateY, System.Globalization.CultureInfo.InvariantCulture, out double ty)) return "";
+        r = ((r % 360) + 360) % 360;
+        bool sideways = Math.Abs(r - 90) < 20 || Math.Abs(r - 270) < 20;
+        bool upsideDown = Math.Abs(r - 180) < 20;
+        if (ty > 0.9) return "epw_tag";
+        if (sideways && Math.Abs(tx - 0.5) > 0.06) return "shoulder";
+        if (sx >= 0.12) return "crest";
+        if (upsideDown && Math.Abs(tx - 0.5) > 0.03 && ty > 0.3 && ty < 0.5) return "sponsor";
+        if (upsideDown && Math.Abs(tx - 0.5) <= 0.03 && ty > 0.38 && ty < 0.48) return "shield";
+        if (!upsideDown && !sideways && Math.Abs(tx - 0.5) <= 0.03 && ty > 0.5 && ty < 0.65) return "brand";
+        return "";
+    }
+
     public static string Role(string name) => name switch
     {
-        "mainlogo" or "front_logo" => "crest",
-        "collar_nhl" or "back_nhl" => "shield",
+        "mainlogo" or "front_logo" or "main" or "main_logo" => "crest",
+        "collar_nhl" or "back_nhl" or "nhl" or "nhl_collar" => "shield",
         "team_logo" or "logo_team" => "crest",
-        "back_adidas" => "brand",
-        "right_shoulder" or "left_shoulder" => "shoulder",
+        "back_adidas" or "adidas" or "adidas_back" => "brand",
+        "right_shoulder" or "left_shoulder" or "r_shoulder" or "l_shoulder" => "shoulder",
         "sponsor" => "sponsor",
-        "adidas primegreen" or "bottomlogo" => "epw_tag",
-        _ => "",
+        "adidas primegreen" or "bottomlogo" or "primegreen" or "adidas_tag" => "epw_tag",
+        _ => NormalizedRole(name),
     };
+
+    /// <summary>Spelling variants seen in stock stamps (maintlogo, collornhl, backaddiaslogo, leftshoulderlogo, ...).</summary>
+    static string NormalizedRole(string name)
+    {
+        string n = new string(name.ToLowerInvariant().Where(char.IsLetter).ToArray());
+        if (n.Length == 0) return "";
+        if (n.Contains("shoulder")) return "shoulder";
+        if (n.Contains("sponsor")) return "sponsor";
+        if (n.Contains("primegreen") || n.Contains("primagreen") || n.Contains("endplastic") || n == "bottom" || n.EndsWith("tag")) return "epw_tag";
+        if (n.Contains("nhl") && (n.Contains("collar") || n.Contains("collor") || n.Contains("back") || n == "nhl")) return "shield";
+        if ((n.Contains("adidas") || n.Contains("addias")) && (n.Contains("back") || n == "adidas" || n.EndsWith("logo"))) return "brand";
+        if (n.StartsWith("main") || n.Contains("teamlogo") || n.Contains("frontlogo")) return "crest";
+        return "";
+    }
 
     /// <summary>Captures all physical coordinates, not just names. Unknown names still need a reviewed override.</summary>
     public static UniformHotspotLayout Capture(ReadOnlySpan<byte> ebx, string sourceSlot)
