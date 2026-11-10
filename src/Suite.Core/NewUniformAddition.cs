@@ -10,6 +10,8 @@ public sealed class NewUniformTexture
     public List<string>? RequiredRoles { get; set; }
     /// <summary>Physical NHL 24 donor-slot roles. This is separate from RequiredRoles because array indexes can move.</summary>
     public List<string>? DonorRoles { get; set; }
+    /// <summary>Output layers the user pinned to a physical slot in the matcher; they win over role placement.</summary>
+    public Dictionary<int, int>? PinnedSlots { get; set; }
 }
 
 /// <summary>One engine-facing branding hotspot in a uniform's stamp_jersey or stamp_pant definition.</summary>

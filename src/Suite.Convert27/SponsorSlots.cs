@@ -15,7 +15,7 @@ public static class SponsorSlots
     /// <summary>The layout with a sponsor placement appended after the last branding hotspot.</summary>
     public static UniformHotspotLayout WithSponsor(UniformHotspotLayout stock, UniformHotspotPlacement position)
     {
-        var branding = stock.Branding.OrderBy(slot => slot.Id).Select(Copy).ToList();
+        var branding = WithRoles(stock).Branding;
         if (branding.Any(slot => slot.Role == Role)) throw new InvalidDataException($"{stock.SourceSlot} already has a sponsor slot.");
         var added = Copy(position);
         added.Id = branding.Count == 0 ? UniformHotspots.FirstBrandingId : branding.Max(slot => slot.Id) + 1;
@@ -39,8 +39,8 @@ public static class SponsorSlots
                 || leaf.EndsWith("_blueprint", StringComparison.Ordinal) || !name.Contains("/league/nhl/", StringComparison.Ordinal)) continue;
             try
             {
-                var layout = UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, name), name);
-                positions.AddRange(layout.Branding.Where(slot => slot.Role == Role && slot.Enabled));
+                foreach (var layout in Copies(index, name))
+                    positions.AddRange(layout.Branding.Where(slot => slot.Role == Role && slot.Enabled));
             }
             catch (InvalidDataException) { }
         }
@@ -63,9 +63,17 @@ public static class SponsorSlots
             if (sponsorLayer < 0 || texture.Artwork.Layers is not { } layers || !layers.ContainsKey(sponsorLayer)) continue;
             string stamp = UniformPhysicalLayouts.StampForArray(source);
             if (addition.HotspotLayouts.Any(l => l.SourceSlot == stamp) || !index.EbxByName.ContainsKey(stamp)) continue;
-            var stock = UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, stamp), stamp);
+            var copies = Copies(index, stamp);
+            // A copy that already has a sponsor position (Detroit's Patch copy) is handled by growing the shorter copy.
+            if (copies.Any(c => c.Branding.Any(slot => slot.Role == Role))) continue;
+            if (copies.Skip(1).Any(c => !UniformPhysicalLayouts.SameLayout(c, copies[0])))
+            {
+                say?.Invoke($"{addition.Team} {addition.SourceKit}: sponsor not placed; the stamp copies differ and need a review");
+                continue;
+            }
+            var stock = copies[0];
             IReadOnlyList<string> roles;
-            try { roles = UniformHotspots.Roles(stock); }
+            try { roles = UniformHotspots.Roles(WithRoles(stock)); }
             catch (InvalidDataException ex)
             {
                 say?.Invoke($"{addition.Team} {addition.SourceKit}: sponsor not placed; the stock layout needs a review ({ex.Message})");
@@ -78,6 +86,19 @@ public static class SponsorSlots
             say?.Invoke($"{addition.Team} {addition.SourceKit}: added sponsor slot {roles.Count} to the jersey");
         }
         return additions;
+    }
+
+    /// <summary>The stamp's layout in each bundle that carries it (Base and Patch can differ).</summary>
+    static List<UniformHotspotLayout> Copies(BundleIndex index, string stamp) =>
+        (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt))
+            .Select(b => UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, stamp, b), stamp)).ToList();
+
+    /// <summary>A copy in which numbered or misspelled stock slots keep their names but take their role from their position.</summary>
+    public static UniformHotspotLayout WithRoles(UniformHotspotLayout stock)
+    {
+        var branding = stock.Branding.OrderBy(slot => slot.Id).Select(Copy).ToList();
+        foreach (var slot in branding.Where(slot => slot.Role.Length == 0)) slot.Role = UniformHotspots.PositionRole(slot);
+        return new UniformHotspotLayout { SourceSlot = stock.SourceSlot, Branding = branding };
     }
 
     static UniformHotspotPlacement Copy(UniformHotspotPlacement p) => new()

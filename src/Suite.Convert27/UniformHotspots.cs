@@ -110,7 +110,8 @@ public static class UniformHotspots
                 TranslateX = node.GetAttribute("tx"),
                 TranslateY = node.GetAttribute("ty"),
                 Enabled = node.GetAttribute("enable") == "1.0",
-            }).OrderBy(slot => slot.Id).ToList(),
+            }).Select(slot => { if (slot.Role.Length == 0) slot.Role = PositionRole(slot); return slot; })
+            .OrderBy(slot => slot.Id).ToList(),
         };
     }
 
@@ -156,7 +157,17 @@ public static class UniformHotspots
         if (xml.Any(c => c > 0x7F)) throw new InvalidDataException("Hotspot metadata must remain printable ASCII.");
         byte[] encoded = Encoding.ASCII.GetBytes(xml);
         byte[] output;
-        if (encoded.Length > xmlLength)
+        var parsed = EbxRiff.Parse(source);
+        int count = BitConverter.ToInt32(source.Slice(xmlAt - 4, 4));
+        if (encoded.Length > xmlLength && xmlAt < source.IndexOf(Encoding.ASCII.GetBytes(parsed.Name + "\0")) && count >= xmlLength && count - xmlLength <= 8)
+        {
+            // Stock stamps keep this XML in a byte array before the asset name: grow the array, keeping its trailing bytes.
+            var content = new byte[encoded.Length + (count - xmlLength)];
+            encoded.CopyTo(content, 0);
+            source.Slice(xmlAt + xmlLength, count - xmlLength).CopyTo(content.AsSpan(encoded.Length));
+            output = parsed.ReplaceArray(xmlAt, content);
+        }
+        else if (encoded.Length > xmlLength)
         {
             // Compact legacy stamps may need a second physical logo where none existed. Grow only the XML region
             // and repair every EBX pointer/offset that crosses it; never borrow another team's whole stamp.

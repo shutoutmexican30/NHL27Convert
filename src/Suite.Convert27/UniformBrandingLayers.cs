@@ -61,7 +61,7 @@ public static class UniformBrandingLayers
 
     /// <summary>Matches source-role occurrences to physical donor slots. Missing visible positions are a hard error.</summary>
     public static UniformLayerPlacement PlanRoles(IReadOnlyList<string> sourceRoles, IReadOnlyList<string> donorRoles,
-        IReadOnlySet<int>? blankSources = null)
+        IReadOnlySet<int>? blankSources = null, IReadOnlyDictionary<int, int>? pinned = null)
     {
         if (sourceRoles.Count == 0 || sourceRoles.Any(string.IsNullOrWhiteSpace))
             throw new InvalidDataException("Every converted artwork layer needs an ordered source role.");
@@ -74,11 +74,23 @@ public static class UniformBrandingLayers
         if (skipped.Any(layer => layer < 0 || layer >= sourceRoles.Count))
             throw new InvalidDataException("A transparent source layer is outside the converted role map.");
         skipped.UnionWith(Enumerable.Range(0, sourceRoles.Count).Where(layer => sourceRoles[layer] == "blank"));
-        var needed = sourceRoles.Select((role, layer) => (role, layer)).Where(x => !skipped.Contains(x.layer))
-            .GroupBy(x => x.role).ToDictionary(g => g.Key, g => new Queue<int>(g.Select(x => x.layer)), StringComparer.Ordinal);
         var moves = new Dictionary<int, int>();
+        var taken = new HashSet<int>();
+        // The user's manual matcher links win: those layers go exactly where they were pinned.
+        foreach (var (source, destination) in pinned ?? new Dictionary<int, int>())
+        {
+            if (source < 0 || source >= sourceRoles.Count || skipped.Contains(source)) continue;
+            if (destination < 0 || destination >= donorRoles.Count)
+                throw new InvalidDataException($"Pinned layer {source} points at slot {destination}, which the layout does not have.");
+            if (!taken.Add(destination)) throw new InvalidDataException($"Two layers are pinned to slot {destination}.");
+            if (source != destination) moves[source] = destination;
+        }
+        var pinnedSources = (pinned ?? new Dictionary<int, int>()).Keys.ToHashSet();
+        var needed = sourceRoles.Select((role, layer) => (role, layer)).Where(x => !skipped.Contains(x.layer) && !pinnedSources.Contains(x.layer))
+            .GroupBy(x => x.role).ToDictionary(g => g.Key, g => new Queue<int>(g.Select(x => x.layer)), StringComparer.Ordinal);
         for (int destination = 0; destination < donorRoles.Count; destination++)
         {
+            if (taken.Contains(destination)) continue;
             if (!needed.TryGetValue(donorRoles[destination], out var queue) || queue.Count == 0) continue;
             int source = queue.Dequeue();
             if (source != destination) moves[source] = destination;
@@ -117,7 +129,7 @@ public static class UniformBrandingLayers
                 else if (source[layer] == "blank" && visible)
                     throw new InvalidDataException($"{texture.SourceSlot}: layer {layer} is marked blank but contains visible artwork.");
             }
-            return PlanRoles(source, donor, blanks);
+            return PlanRoles(source, donor, blanks, texture.PinnedSlots);
         }
         return Plan(artwork, stock, capacity);
     }

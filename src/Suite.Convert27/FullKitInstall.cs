@@ -112,6 +112,8 @@ public sealed class FullKitInstall
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var mods = RegisteredKitSource.Normalize(o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms."), index, o.Say);
         mods = SponsorSlots.AddMissing(mods, index, o.Say);
+        int overrides = MatcherOverrides.Apply(mods, SlotMapStore.Load(), o.Say);
+        if (overrides > 0) o.Say($"{overrides} manual matcher decision(s) applied");
         foreach (var a in mods)
         {
             ManufacturerBranding.EnsureCoefficientArrays(a);
@@ -362,6 +364,11 @@ public sealed class FullKitInstall
             int need = Math.Max(resolved.Layers is { Count: > 0 } ? resolved.Layers.Keys.Max() + 1 : 1,
                 Math.Max(texture.RequiredRoles?.Count ?? 0, texture.DonorRoles?.Count ?? 0));
             string lower = target.ToLowerInvariant();
+            // An added hotspot (a sponsor slot) makes the layout longer than the artwork: every array must reach it.
+            string sourceLeaf = source[(source.LastIndexOf('/') + 1)..];
+            if (sourceLeaf.StartsWith("branding_", StringComparison.Ordinal) && sourceLeaf.EndsWith("_array", StringComparison.Ordinal)
+                && a.HotspotLayouts.SingleOrDefault(l => l.SourceSlot == UniformPhysicalLayouts.StampForArray(source)) is { } addedLayout)
+                need = Math.Max(need, addedLayout.Branding.Count);
             string arrayRole = lower.EndsWith("_color_array", StringComparison.Ordinal) ? "color"
                 : lower.EndsWith("_normal_array", StringComparison.Ordinal) ? "normal"
                 : lower.EndsWith("_coeff_array", StringComparison.Ordinal) ? "coeff" : "";

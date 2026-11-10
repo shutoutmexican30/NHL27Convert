@@ -81,13 +81,93 @@ public sealed class EbxRiff
         var typeInfoOffsets = Table();
         int arraysAt = p; uint arrays = Count();
         int boxedAt = p; uint boxed = Count();
+        int stringsAt = p;
         uint stringsOffset = Count();
         long nameAt = dataStart + (long)stringsOffset;
         if (nameAt < dataStart || nameAt >= ebxdEnd) throw new InvalidDataException("Root-name string is outside EBXD.");
         int zero = Array.IndexOf(b, (byte)0, (int)nameAt, ebxdEnd - (int)nameAt);
         if (zero < 0) throw new InvalidDataException("Root-name string is not terminated inside EBXD.");
         return new EbxRiff(b, 16, ebxdEnd, efix, fileGuidAt, (int)nameAt, zero - (int)nameAt, imports, dataStart, pointerOffsets,
-            [dataOffsets, pointerOffsets, resourceOffsets, importOffsets, typeInfoOffsets], [(arraysAt, arrays), (boxedAt, boxed)]);
+            [dataOffsets, pointerOffsets, resourceOffsets, importOffsets, typeInfoOffsets], [(arraysAt, arrays), (boxedAt, boxed)])
+            { _stringsOffsetAt = stringsAt, _efixEnd = efixEnd };
+    }
+
+    int _stringsOffsetAt, _efixEnd;
+
+    /// <summary>
+    /// Replaces the contents of one byte array stored in EBXD (a stamp keeps its hotspot XML in one), growing or shrinking
+    /// it. The array's count, its EBXX descriptor, and every pointer, offset and section that lies after it move with it;
+    /// the next section keeps its 16-byte alignment. Identity, imports and all other bytes are checked unchanged.
+    /// </summary>
+    public byte[] ReplaceArray(int dataAt, ReadOnlySpan<byte> content)
+    {
+        int arrayOffset = dataAt - _dataStart;
+        if (dataAt < _dataStart + 4 || dataAt >= _ebxdEnd) throw new ArgumentOutOfRangeException(nameof(dataAt), "The array is outside EBXD.");
+        int oldCount = BitConverter.ToInt32(_bytes, dataAt - 4);
+        int ebxx = _bytes.AsSpan(_efixEnd).IndexOf("EBXX"u8);
+        if (ebxx < 0) throw new InvalidDataException("The asset has no EBXX array table.");
+        ebxx += _efixEnd;
+        int descriptors = BitConverter.ToInt32(_bytes, ebxx + 8);
+        int descriptorAt = -1;
+        for (int i = 0; i < descriptors; i++)
+        {
+            int at = ebxx + 16 + i * 16;
+            if (BitConverter.ToInt32(_bytes, at) == arrayOffset && BitConverter.ToInt32(_bytes, at + 4) == oldCount) descriptorAt = at;
+        }
+        if (descriptorAt < 0) throw new InvalidDataException("No EBXX descriptor matches the array's offset and count.");
+        // The next section starts at the first 16-byte boundary (from the data start) after the array.
+        int oldEnd = _dataStart + Align(arrayOffset + oldCount, 16);
+        int newEnd = _dataStart + Align(arrayOffset + content.Length, 16);
+        int delta = newEnd - oldEnd;
+        if (oldEnd > _ebxdEnd) throw new InvalidDataException("The array runs past EBXD.");
+        int newEbxdEnd = _ebxdEnd + delta, newEfix = Align(newEbxdEnd, 2), efixShift = newEfix - _efixAt;
+        var output = new byte[_bytes.Length + delta + (newEfix - newEbxdEnd) - (_efixAt - _ebxdEnd)];
+        _bytes.AsSpan(0, dataAt).CopyTo(output);
+        content.CopyTo(output.AsSpan(dataAt));
+        _bytes.AsSpan(oldEnd, _ebxdEnd - oldEnd).CopyTo(output.AsSpan(newEnd));
+        _bytes.AsSpan(_efixAt).CopyTo(output.AsSpan(newEfix));
+        void W(int at, int value) => BitConverter.TryWriteBytes(output.AsSpan(at), value);
+        W(dataAt - 4, content.Length);
+        W(_ebxdSizeAt, newEbxdEnd - 20);
+        W(4, output.Length - 8);
+        int Moved(int position) => position >= oldEnd ? position + delta : position;
+        for (int i = 0; i < _pointerOffsets.Count; i++)
+        {
+            int field = _dataStart + BitConverter.ToInt32(_bytes, _pointerOffsets.At + i * 4);
+            long value = BitConverter.ToInt64(_bytes, field);
+            if (value == 0) continue;
+            long target = field + value;
+            if (target > dataAt && target < oldEnd) throw new InvalidDataException("A pointer enters the array being replaced.");
+            int newField = Moved(field);
+            long newTarget = target >= oldEnd ? target + delta : target;
+            BitConverter.TryWriteBytes(output.AsSpan(newField), newTarget - newField);
+        }
+        int oldEndOffset = oldEnd - _dataStart;
+        foreach (var (at, count) in _offsetTables)
+            for (int i = 0; i < count; i++)
+            {
+                int offset = BitConverter.ToInt32(_bytes, at + i * 4);
+                if (offset >= oldEndOffset) W(at + i * 4 + efixShift, offset + delta);
+            }
+        foreach (var at in _sectionOffsets.Select(s => s.At).Append(_stringsOffsetAt))
+        {
+            int value = BitConverter.ToInt32(_bytes, at);
+            if (value >= oldEndOffset) W(at + efixShift, value + delta);
+        }
+        for (int i = 0; i < descriptors; i++)
+        {
+            int at = ebxx + 16 + i * 16;
+            int offset = BitConverter.ToInt32(_bytes, at);
+            if (at == descriptorAt) W(at + efixShift, offset);
+            else if (offset >= oldEndOffset) W(at + efixShift, offset + delta);
+        }
+        W(descriptorAt + efixShift + 4, content.Length);
+        var check = Parse(output);
+        if (check.Name != Name || check.FileGuid != FileGuid || !check.ImportedFileGuids.SequenceEqual(ImportedFileGuids))
+            throw new InvalidOperationException("Array replacement changed the asset's identity or imports.");
+        if (!output.AsSpan(newEnd, newEbxdEnd - newEnd).SequenceEqual(_bytes.AsSpan(oldEnd, _ebxdEnd - oldEnd)))
+            throw new InvalidOperationException("Array replacement changed the data after the array.");
+        return output;
     }
 
     /// <summary>Clone with a new root path, file GUID and remapped imports. All object data and type information stay intact.</summary>
