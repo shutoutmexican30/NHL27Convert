@@ -71,6 +71,10 @@ def main():
     folders24 = set(open(f24, encoding="utf-8").read().split())
     folders27 = set(open(f27, encoding="utf-8").read().split())
     a, b = side(n24_csv, folders24), side(n27_csv, folders27)
+    # Current NHL team IDs are 0-31. Never silently ship a partial season map (team 0 was once omitted).
+    missing = [str(i) for i in range(32) if str(i) not in a or str(i) not in b]
+    if missing:
+        raise SystemExit(f"Refusing to write an incomplete variant map; missing current NHL team IDs: {', '.join(missing)}")
     teams = []
     for idx in sorted(set(a) | set(b), key=int):
         if idx not in a or idx not in b:

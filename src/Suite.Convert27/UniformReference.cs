@@ -173,6 +173,52 @@ public static class UniformReference
         ImageIO.SavePng(new Rgba(width, H, px), path);
     }
 
+    /// <summary>
+    /// A browsable season contact sheet. Full team drawings stay visible at a useful size, and any matcher comparison
+    /// images created by <see cref="CheckAsync"/> appear beneath their team. All paths are local relative filenames.
+    /// </summary>
+    public static string ContactSheetHtml(string season, IReadOnlyList<Drawing> drawings, Func<Drawing, IEnumerable<string>> comparisons)
+    {
+        static string H(string value) => System.Net.WebUtility.HtmlEncode(value);
+        var html = new StringBuilder();
+        html.AppendLine("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">")
+            .AppendLine($"<title>NHL uniforms {H(season)} — visual review</title><style>")
+            .AppendLine(":root{color-scheme:dark;font:15px/1.45 system-ui,sans-serif}body{margin:0;background:#101820;color:#edf3f7}header{position:sticky;top:0;z-index:2;padding:18px 24px;background:#101820f2;border-bottom:1px solid #344452}h1{margin:0 0 6px;font-size:25px}p{margin:5px 0;color:#aebdca}a{color:#7fc8ff}#filter{box-sizing:border-box;width:min(440px,100%);padding:10px 12px;margin-top:10px;border:1px solid #506474;border-radius:7px;background:#192630;color:white;font:inherit}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:18px;padding:22px}.card{min-width:0;padding:14px;background:#1a2731;border:1px solid #354955;border-radius:10px}.card h2{margin:0 0 8px;font-size:19px}.card>img{display:block;width:100%;height:auto;background:#aab0b4;border-radius:5px}.comparisons{margin-top:12px}.comparisons summary{cursor:pointer;color:#b9d9eb}.comparisons img{width:100%;height:auto;margin-top:9px;border-radius:5px}.source{font-size:13px}footer{padding:0 24px 25px;color:#aebdca}</style></head><body>")
+            .AppendLine($"<header><h1>NHL uniforms {H(season)} — visual review</h1><p>Reference drawings: <a href=\"{Site}/{H(season)}/{H(season)}.html\">nhluniforms.com</a>. Personal reference only; never used as game textures.</p><p><a href=\"report.txt\">Open the detailed palette and mapping report</a></p><input id=\"filter\" type=\"search\" placeholder=\"Filter teams…\" aria-label=\"Filter teams\"></header><main>");
+        foreach (var drawing in drawings.OrderBy(d => d.Team))
+        {
+            string team = drawing.Team switch
+            {
+                "Ducks" => "Anaheim Ducks", "Bruins" => "Boston Bruins", "Sabres" => "Buffalo Sabres",
+                "Flames" => "Calgary Flames", "Hurricanes" => "Carolina Hurricanes", "Blackhawks" => "Chicago Blackhawks",
+                "Avalanche" => "Colorado Avalanche", "BlueJackets" => "Columbus Blue Jackets", "Stars" => "Dallas Stars",
+                "RedWings" => "Detroit Red Wings", "Oilers" => "Edmonton Oilers", "Panthers" => "Florida Panthers",
+                "Kings" => "Los Angeles Kings", "Wild" => "Minnesota Wild", "Canadiens" => "Montreal Canadiens",
+                "Predators" => "Nashville Predators", "Devils" => "New Jersey Devils", "Islanders" => "New York Islanders",
+                "Rangers" => "New York Rangers", "Senators" => "Ottawa Senators", "Flyers" => "Philadelphia Flyers",
+                "Penguins" => "Pittsburgh Penguins", "Blues" => "St. Louis Blues", "Sharks" => "San Jose Sharks",
+                "Kraken" => "Seattle Kraken", "Lightning" => "Tampa Bay Lightning", "MapleLeafs" => "Toronto Maple Leafs",
+                "Mammoth" => "Utah Mammoth", "Canucks" => "Vancouver Canucks", "GoldenKnights" => "Vegas Golden Knights",
+                "Capitals" => "Washington Capitals", "Jets" => "Winnipeg Jets", _ => Nickname(drawing.Team),
+            };
+            html.AppendLine($"<section class=\"card\" data-team=\"{H(team.ToLowerInvariant())}\"><h2>{H(team)}</h2>")
+                .AppendLine($"<a href=\"{H(drawing.Url)}\"><img loading=\"lazy\" src=\"{H(Path.GetFileName(drawing.Png))}\" alt=\"{H(team)} reference uniforms\"></a>")
+                .AppendLine($"<div class=\"source\"><a href=\"{H(drawing.Url)}\">Source drawing</a></div>");
+            var looks = comparisons(drawing).ToList();
+            if (looks.Count > 0)
+            {
+                html.AppendLine($"<details class=\"comparisons\"><summary>Matcher comparisons ({looks.Count})</summary>");
+                foreach (var look in looks)
+                    html.AppendLine($"<a href=\"{H(Path.GetFileName(look))}\"><img loading=\"lazy\" src=\"{H(Path.GetFileName(look))}\" alt=\"{H(team)} matcher comparison\"></a>");
+                html.AppendLine("</details>");
+            }
+            html.AppendLine("</section>");
+        }
+        html.AppendLine("</main><footer>Compare crest, shoulder marks, sponsor placement, colours and striping. Palette scores are hints; visual review decides. In-game appearance still requires a game check.</footer>")
+            .AppendLine("<script>document.getElementById('filter').addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase();document.querySelectorAll('.card').forEach(c=>c.hidden=!c.dataset.team.includes(q));});</script></body></html>");
+        return html.ToString();
+    }
+
     public static string Hex(IEnumerable<Swatch> p) => string.Join(" ", p.Select(s => $"{s.Rgb:X6} {s.Share:P0}"));
 
     static long Rgb(Rgba img, int x, int y)
@@ -323,6 +369,8 @@ public static class UniformReference
         }
         var report = Path.Combine(Dir(season), "report.txt");
         File.WriteAllLines(report, lines, new UTF8Encoding(false));
+        var contact = ContactSheetHtml(season, now, d => Directory.EnumerateFiles(Dir(season), $"look_{d.Team}_*.png").Order());
+        File.WriteAllText(Path.Combine(Dir(season), "contact-sheet.html"), contact, new UTF8Encoding(false));
         var summary = $"{now.Count} teams on nhluniforms.com {season}: {changed} with a kit changed or added since {Previous(season)}, " +
                       $"{checkedTeams} checked against NHL 27, {flagged} to look at (LOOK in the report, each with a side-by-side picture).";
         return (report, summary);

@@ -171,6 +171,7 @@ public static class NewUniformExport
             var (color, normal) = CompleteArray(catalog, slotMaps, folder, array, png);
             textures.Add(color);
             textures.Add(normal);
+            textures.Add(ManufacturerBranding.CoefficientFor(color));
             if (array.Garment == "branding_jersey") jerseyArrays++;
         }
         if (jerseyArrays == 0) throw new InvalidDataException($"{folder.Folder24}: no jersey branding array was matched; the Fanatics set cannot be verified.");

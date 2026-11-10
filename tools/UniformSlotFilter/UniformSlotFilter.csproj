@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Filters a saved NHL 27 uniform mod down to role-matched branding-array layers that NHL 24 can hold. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\..\src\Suite.Convert27\Suite.Convert27.csproj" />
+  </ItemGroup>
+</Project>

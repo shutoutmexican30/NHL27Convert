@@ -119,7 +119,8 @@ public sealed class EbxRiff
         patched.AsSpan(_efixAt).CopyTo(output.AsSpan(newEfix));
         BitConverter.TryWriteBytes(output.AsSpan(_ebxdSizeAt), (uint)(newEbxdEnd - 20));
         BitConverter.TryWriteBytes(output.AsSpan(4), (uint)(output.Length - 8));
-        if (delta != 0) FixOffsets(patched, output, delta, newEfix - _efixAt);
+        if (delta != 0) FixOffsets(patched, output, delta, newEfix - _efixAt,
+            _nameAt + _nameLength, _nameAt - _dataStart, rejectInterior: false);
 
         var check = Parse(output);
         if (check.Name != newName || check.FileGuid != newFileGuid) throw new InvalidOperationException("Rewritten EBX did not read back.");
@@ -127,13 +128,45 @@ public sealed class EbxRiff
     }
 
     /// <summary>
-    /// A longer or shorter root name moves everything stored after it (material presets keep their parameter names there).
-    /// Self-relative pointers and EFIX offsets that cross the name are corrected, and each pointer is checked against the original.
+    /// Replaces an unreferenced string/XML region after the root name and repairs every EBX offset that crosses it.
+    /// This permits a reviewed hotspot layout to outgrow a legacy stamp without changing its identity or object data.
     /// </summary>
-    void FixOffsets(byte[] before, byte[] output, int delta, int efixShift)
+    public byte[] ReplaceEmbedded(int at, int length, ReadOnlySpan<byte> replacement)
     {
         int nameEnd = _nameAt + _nameLength;
-        int Moved(int position) => position > nameEnd ? position + delta : position;
+        if (at <= nameEnd || length < 1 || at + length > _ebxdEnd)
+            throw new ArgumentOutOfRangeException(nameof(at), "Embedded content must be a nonempty region after the root name inside EBXD.");
+        for (int i = 0; i < _pointerOffsets.Count; i++)
+        {
+            int field = _dataStart + BitConverter.ToInt32(_bytes, _pointerOffsets.At + i * 4);
+            long target = field + BitConverter.ToInt64(_bytes, field);
+            if ((field >= at && field < at + length) || (target > at && target < at + length))
+                throw new InvalidDataException("An EBX pointer enters the embedded content being replaced; its relocation needs explicit review.");
+        }
+        var patched = (byte[])_bytes.Clone();
+        int delta = replacement.Length - length;
+        int newEbxdEnd = _ebxdEnd + delta;
+        int newEfix = Align(newEbxdEnd, 2);
+        var output = new byte[patched.Length + delta + newEfix - newEbxdEnd - (_efixAt - _ebxdEnd)];
+        patched.AsSpan(0, at).CopyTo(output);
+        replacement.CopyTo(output.AsSpan(at));
+        patched.AsSpan(at + length, _ebxdEnd - at - length).CopyTo(output.AsSpan(at + replacement.Length));
+        patched.AsSpan(_efixAt).CopyTo(output.AsSpan(newEfix));
+        BitConverter.TryWriteBytes(output.AsSpan(_ebxdSizeAt), (uint)(newEbxdEnd - 20));
+        BitConverter.TryWriteBytes(output.AsSpan(4), (uint)(output.Length - 8));
+        if (delta != 0) FixOffsets(patched, output, delta, newEfix - _efixAt,
+            at + length - 1, at - _dataStart, rejectInterior: true);
+        var check = Parse(output);
+        if (check.Name != Name || check.FileGuid != FileGuid || !check.ImportedFileGuids.SequenceEqual(ImportedFileGuids))
+            throw new InvalidOperationException("Embedded EBX replacement changed its identity or imports.");
+        return output;
+    }
+
+    /// <summary>Moves self-relative pointers and EFIX offsets that cross replaced root-name or embedded content.</summary>
+    void FixOffsets(byte[] before, byte[] output, int delta, int efixShift,
+        int contentEnd, int contentOffset, bool rejectInterior)
+    {
+        int Moved(int position) => position > contentEnd ? position + delta : position;
         for (int i = 0; i < _pointerOffsets.Count; i++)
         {
             int field = _dataStart + BitConverter.ToInt32(before, _pointerOffsets.At + i * 4);
@@ -141,21 +174,26 @@ public sealed class EbxRiff
             if (value == 0) continue;
             long target = field + value;
             int newField = Moved(field);
-            long newTarget = target > nameEnd ? target + delta : target;
+            long newTarget = target > contentEnd ? target + delta : target;
             BitConverter.TryWriteBytes(output.AsSpan(newField), newTarget - newField);
-            if (target > nameEnd && target < _ebxdEnd && CString(before, (int)target) != CString(output, (int)newTarget))
+            if (target > contentEnd && target < _ebxdEnd && CString(before, (int)target) != CString(output, (int)newTarget))
                 throw new InvalidOperationException($"Rewritten EBX pointer no longer reaches its string: {CString(before, (int)target)}");
         }
-        int nameOffset = _nameAt - _dataStart;
         foreach (var (at, count) in _offsetTables)
             for (int i = 0; i < count; i++)
             {
                 int entry = at + i * 4;
                 int offset = BitConverter.ToInt32(before, entry);
-                if (offset > nameOffset) BitConverter.TryWriteBytes(output.AsSpan(entry + efixShift), offset + delta);
+                if (offset > contentOffset) BitConverter.TryWriteBytes(output.AsSpan(entry + efixShift), offset + delta);
+                else if (rejectInterior && offset >= contentOffset)
+                    throw new InvalidDataException("An EBX offset table enters the embedded content being replaced.");
             }
         foreach (var (at, value) in _sectionOffsets)
-            if (value > nameOffset) BitConverter.TryWriteBytes(output.AsSpan(at + efixShift), (uint)(value + delta));
+        {
+            if (value > contentOffset) BitConverter.TryWriteBytes(output.AsSpan(at + efixShift), (uint)(value + delta));
+            else if (rejectInterior && value >= contentOffset)
+                throw new InvalidDataException("An EBX section offset enters the embedded content being replaced.");
+        }
     }
 
     static string CString(byte[] bytes, int at)

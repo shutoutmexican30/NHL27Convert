@@ -15,6 +15,28 @@ public static class TextureSlots
     public static Slot Read(string game, BundleIndex index, string name)
     {
         var res = index.ResByName.GetValueOrDefault(name)?.FirstOrDefault() ?? throw new InvalidOperationException($"No texture named {name} in this game.");
+        return Read(game, index, res, name);
+    }
+
+    /// <summary>
+    /// Every copy of a texture slot. An update can carry the same texture again with its own chunk (Detroit away's
+    /// branding array is in Data AND in Patch, each a different chunk of a different size), and the game reads the
+    /// base Data copy for such pairs — so a write must land in every copy, not only the first found.
+    /// </summary>
+    public static List<Slot> ReadAll(string game, BundleIndex index, string name)
+    {
+        var entries = index.ResByName.GetValueOrDefault(name) ?? throw new InvalidOperationException($"No texture named {name} in this game.");
+        var slots = new List<Slot>();
+        foreach (var res in entries)
+        {
+            var slot = Read(game, index, res, name);
+            if (!slots.Any(s => s.Chunk == slot.Chunk)) slots.Add(slot);
+        }
+        return slots;
+    }
+
+    static Slot Read(string game, BundleIndex index, BundleIndex.Res res, string name)
+    {
         var stored = BundleIndex.ReadBytes(res.Data);
         byte[] header; try { header = ChunkBlocks.Parse(stored).Decode(); } catch { header = stored; }
         var tr = TextureRes.Parse(header);
@@ -32,28 +54,40 @@ public static class TextureSlots
     }
 
     /// <summary>The new chunk for one replacement (pure; no game writes).</summary>
-    public static byte[] Build(Slot slot, TextureReplacement r)
+    public static byte[] Build(Slot slot, TextureReplacement r, int workers = 0, IReadOnlyList<Rgba>? stockForAlpha = null)
     {
         var images = new Dictionary<int, Rgba>();
-        if (!string.IsNullOrEmpty(r.Source)) images[0] = ImageIO.Load(r.Source);
-        foreach (var (layer, path) in r.Layers ?? []) images[layer] = ImageIO.Load(path);
+        static Rgba Load(string path) => path.StartsWith("coeff:", StringComparison.Ordinal)
+            ? LogoCoefficient.FromColor(ImageIO.Load(path["coeff:".Length..])) : ImageIO.Load(path);
+        if (!string.IsNullOrEmpty(r.Source)) images[0] = Load(r.Source);
+        foreach (var (layer, path) in r.Layers ?? []) images[layer] = Load(path);
         if (r.Alpha is not null)
         {
-            var stock = Ps4Codec.DecodeSlices(slot.Res, slot.Stock);
+            var stock = stockForAlpha ?? Ps4Codec.DecodeSlices(slot.Res, slot.Stock);
             foreach (var k in images.Keys.ToList())
             {
-                var img = images[k].Width == slot.Res.Width && images[k].Height == slot.Res.Height ? images[k] : ImageIO.ResizeSmooth(images[k], slot.Res.Width, slot.Res.Height);
+                var img = images[k].Width == slot.Res.Width && images[k].Height == slot.Res.Height ? images[k] : ImageIO.ResizeSmooth(images[k], slot.Res.Width, slot.Res.Height, workers);
                 var px = (byte[])img.Pixels.Clone();
                 for (int i = 3; i < px.Length; i += 4) px[i] = stock[k].Pixels[i];
                 images[k] = new Rgba(img.Width, img.Height, px);
             }
         }
-        return Ps4Codec.Build(slot.Res, slot.Stock, images);
+        return Ps4Codec.Build(slot.Res, slot.Stock, images, workers);
     }
 
     /// <summary>Writes the replacements into <paramref name="game"/>. Returns (ok, message, backup).</summary>
-    public static (bool Ok, string Message, string? Backup) Apply(string game, IReadOnlyList<TextureReplacement> replacements, Action<string>? progress = null)
+    public static (bool Ok, string Message, string? Backup) Apply(string game, IReadOnlyList<TextureReplacement> replacements,
+        Action<string>? progress = null, int workers = 0)
     {
+        var total = System.Diagnostics.Stopwatch.StartNew();
+        var stage = System.Diagnostics.Stopwatch.StartNew();
+        void Timed(string label)
+        {
+            var text = $"{label} in {stage.Elapsed:mm\\:ss}";
+            progress?.Invoke(text + "...");
+            SuiteLog.Write("texture apply timing: " + text);
+            stage.Restart();
+        }
         if (ApplyTarget.RunningGame() is { } running) return (false, running + " is running. Close the game first.", null);
         var problems = ApplyTarget.Problems(game);
         if (problems.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", problems), null);
@@ -61,29 +95,40 @@ public static class TextureSlots
         if (refused.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", refused), null);
         progress?.Invoke("Reading the game's bundles...");
         var index = BundleIndex.Build(game);
-        var jobs = new List<(string Name, Guid Chunk, byte[] Data)>();
-        foreach (var r in replacements.GroupBy(r => r.Slot).Select(g => g.Last()))
+        Timed("Bundles read");
+        var cache = new TexturePayloadCache();
+        var prepared = TexturePreparer.Prepare(game, index, replacements, workers, cache, progress);
+        cache.Save();
+        var jobs = prepared.Jobs;
+        Timed($"Preparation finished ({prepared.Encoded} encoded, {prepared.CacheHits} cached, {prepared.UpToDate} already current)");
+        var conflicts = jobs.GroupBy(j => j.Chunk).Where(g =>
         {
-            progress?.Invoke($"Encoding {r.Slot.Split('/')[^1]}...");
-            var slot = Read(game, index, r.Slot);
-            jobs.Add((r.Slot, slot.Chunk, Build(slot, r)));
-        }
+            var first = g.First().Data;
+            return g.Any(j => j.Data.Length != first.Length || !j.Data.AsSpan().SequenceEqual(first));
+        }).ToList();
+        if (conflicts.Count > 0)
+            throw new InvalidOperationException("Conflicting data for chunk(s): " + string.Join("; ", conflicts.Select(c =>
+                $"{c.Key} from {string.Join(", ", c.Select(j => j.Name).Distinct())}")));
+        if (jobs.Count == 0)
+            return (true, $"Everything already matches: {prepared.UpToDate} chunk copies verified current. No game files changed. Total: {total.Elapsed:mm\\:ss}.", null);
         progress?.Invoke("Backing up TOCs and CAS lengths...");
         var backup = ApplyTarget.Backup(game);
+        Timed("Backup completed");
         try
         {
-            foreach (var (name, id, data) in jobs)
-            {
-                progress?.Invoke($"Writing {name.Split('/')[^1]}...");
-                foreach (var line in ChunkReplace.Replace(game, index, id, data)) SuiteLog.Write("texture apply: " + line);
-                index = BundleIndex.Build(game);
-            }
+            progress?.Invoke($"Writing {jobs.Count} chunk copies...");
+            foreach (var line in ChunkReplace.ReplaceMany(game, index, jobs.Select(j => (j.Chunk, j.Data)).ToList(), workers))
+                SuiteLog.Write("texture apply: " + line);
+            Timed("CAS and TOC writes completed");
             progress?.Invoke("Reading them back...");
-            foreach (var (name, id, data) in jobs)
-                foreach (var rb in ChunkReplace.ReadAll(game, index, id))
-                    if (rb.LogicalOffset + (long)rb.Raw.Length > data.Length || !rb.Raw.AsSpan().SequenceEqual(data.AsSpan((int)rb.LogicalOffset, rb.Raw.Length)))
-                        throw new InvalidOperationException($"Read-back differs: {name} via {rb.Where}.");
-            return (true, $"{jobs.Count} texture(s) written and read back identical. Backup: {backup}", backup);
+            index = BundleIndex.Build(game);
+            foreach (var job in jobs)
+                foreach (var rb in ChunkReplace.ReadAll(game, index, job.Chunk))
+                    if (rb.LogicalOffset + (long)rb.Raw.Length > job.Data.Length || !rb.Raw.AsSpan().SequenceEqual(job.Data.AsSpan((int)rb.LogicalOffset, rb.Raw.Length)))
+                        throw new InvalidOperationException($"Read-back differs: {job.Name} via {rb.Where}.");
+            Timed("Read-back verification completed");
+            return (true, $"{jobs.Select(j => j.Name).Distinct().Count()} texture(s) written ({jobs.Count} chunk copies) and read back identical; " +
+                $"{prepared.UpToDate} already current. Total: {total.Elapsed:mm\\:ss}. Backup: {backup}", backup);
         }
         catch (Exception ex)
         {

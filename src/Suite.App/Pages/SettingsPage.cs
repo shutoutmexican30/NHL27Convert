@@ -23,10 +23,21 @@ public sealed class SettingsPage : ScrollViewer
         Content = root;
 
         root.Children.Add(Heading("Settings"));
+        root.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x12, 0x28, 0x43)), BorderBrush = new SolidColorBrush(Color.FromRgb(0x2b, 0x4b, 0x70)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14, 10, 14, 10), Margin = new Thickness(0, 8, 0, 4),
+            Child = new TextBlock
+            {
+                Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), TextWrapping = TextWrapping.Wrap, LineHeight = 20,
+                Text = "NHL 24 builds are managed from the selector at the top of the main window. Selecting a build switches both its read source and its Apply destination, preventing cross-build writes.",
+            },
+        });
         var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        foreach (var p in typeof(SuiteSettings).GetProperties().Where(p => p.CanWrite))
+        string[] buildManaged = [nameof(SuiteSettings.GameBuilds), nameof(SuiteSettings.ActiveGameBuildId), nameof(SuiteSettings.Nhl24GameDir), nameof(SuiteSettings.ApplyTargetDir)];
+        foreach (var p in typeof(SuiteSettings).GetProperties().Where(p => p.CanWrite && !buildManaged.Contains(p.Name)))
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var label = new TextBlock { Text = p.Name, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 10, 4) };

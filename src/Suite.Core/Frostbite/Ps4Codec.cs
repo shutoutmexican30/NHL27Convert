@@ -30,12 +30,12 @@ public static class Ps4Codec
         _ => DecodeBc3(tiled, width, height),
     };
 
-    public static byte[] Encode(Kind kind, Rgba img) => kind switch
+    public static byte[] Encode(Kind kind, Rgba img, int workers = 0) => kind switch
     {
-        Kind.Bc1 => Bc1.EncodeTiled(img),
-        Kind.Bc5 => Bc5.EncodeTiled(img),
+        Kind.Bc1 => Bc1.EncodeTiled(img, workers),
+        Kind.Bc5 => Bc5.EncodeTiled(img, workers),
         Kind.Bc7 => Bc7.EncodeTiled(img),
-        _ => Bc3.EncodeTiled(img),
+        _ => Bc3.EncodeTiled(img, workers),
     };
 
     static Rgba DecodeBc3(byte[] tiled, int width, int height)
@@ -69,7 +69,7 @@ public static class Ps4Codec
     /// A new chunk: the given slices replaced by full mip chains built from their images (resized to the slot), every
     /// other slice copied byte for byte from <paramref name="stock"/>. Same length as stock.
     /// </summary>
-    public static byte[] Build(TextureRes res, byte[] stock, IReadOnlyDictionary<int, Rgba> slices)
+    public static byte[] Build(TextureRes res, byte[] stock, IReadOnlyDictionary<int, Rgba> slices, int workers = 0)
     {
         var kind = Of(res.Header, res.BlockBytes);
         int count = Slices(res.Header);
@@ -78,15 +78,42 @@ public static class Ps4Codec
         foreach (var (slice, image) in slices)
         {
             if (slice < 0 || slice >= count) throw new ArgumentOutOfRangeException(nameof(slices), $"layer {slice} does not exist (the slot has {count}).");
-            var img = image.Width == res.Width && image.Height == res.Height ? image : ImageIO.ResizeSmooth(image, res.Width, res.Height);
+            var img = image.Width == res.Width && image.Height == res.Height ? image : ImageIO.ResizeSmooth(image, res.Width, res.Height, workers);
             for (int i = 0; i < res.MipCount; i++)
             {
-                var mip = Encode(kind, img);
+                var mip = Encode(kind, img, workers);
                 if (mip.Length != res.MipSizes[i]) throw new InvalidDataException($"mip {i}: {mip.Length} bytes, the slot has {res.MipSizes[i]}");
                 mip.CopyTo(output, Offset(res, count, slice, i));
-                if (i + 1 < res.MipCount) img = TextureChunk.Halve(img);
+                if (i + 1 < res.MipCount) img = TextureChunk.Halve(img, workers);
             }
         }
         return output;
+    }
+
+    /// <summary>
+    /// Builds a deeper array from a structural donor while retaining the team's existing compressed slices byte for byte.
+    /// Only the added slices are encoded from team artwork. The donor's pixels never supply a preserved team layer.
+    /// </summary>
+    public static byte[] BuildExpandedArray(TextureRes donor, byte[] donorStock, TextureRes team, byte[] teamStock,
+        IReadOnlyDictionary<int, Rgba> addedSlices, int workers = 0)
+    {
+        if (donor.Width != team.Width || donor.Height != team.Height || donor.BlockBytes != team.BlockBytes
+            || donor.MipCount != team.MipCount || !donor.MipSizes.SequenceEqual(team.MipSizes))
+            throw new InvalidDataException("Array expansion requires identical dimensions, format and mip layout; choose another structural donor.");
+        int oldCount = Slices(team.Header), newCount = Slices(donor.Header);
+        if (newCount <= oldCount) throw new InvalidDataException($"Donor has {newCount} layers, team already has {oldCount}.");
+        if (teamStock.Length != team.PayloadSize * oldCount || donorStock.Length != donor.PayloadSize * newCount)
+            throw new InvalidDataException("An array chunk does not match its resource header.");
+        foreach (int layer in Enumerable.Range(oldCount, newCount - oldCount))
+            if (!addedSlices.ContainsKey(layer)) throw new InvalidDataException($"Added array layer {layer} has no team artwork.");
+        if (addedSlices.Keys.Any(k => k < oldCount || k >= newCount))
+            throw new InvalidDataException("Expansion can replace only newly added layers; existing team layers must be preserved.");
+
+        var output = (byte[])donorStock.Clone();
+        for (int slice = 0; slice < oldCount; slice++)
+            for (int mip = 0; mip < team.MipCount; mip++)
+                teamStock.AsSpan(Offset(team, oldCount, slice, mip), team.MipSizes[mip])
+                    .CopyTo(output.AsSpan(Offset(donor, newCount, slice, mip), donor.MipSizes[mip]));
+        return Build(donor, output, addedSlices, workers);
     }
 }

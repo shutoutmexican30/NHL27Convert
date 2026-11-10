@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>NewUniformVerify</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Convert27\Suite.Convert27.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\data\logo_refs.json" Link="data\logo_refs.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

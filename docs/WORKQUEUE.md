@@ -34,7 +34,27 @@ Last updated: 2026-11-02.
 | No EBX reader | texture `.res` lookup without FMT, LT tunable values, licensed head `id -> asset` map | an EBX reader (the keystone - see the texture section) |
 | Worker cannot parse textures at all | **the production texture-mod apply path**, the NHL 24 side of the logo inventory, Carolina-style blank caches | a Worker whose FrostySdk matches FMT 2026.3, or the suite's own writer for texture mods |
 
-**Open but actionable without those**: nothing material - the remaining items are tests and polish, not threads.
+## Open but actionable without those**: nothing material - the remaining items are tests and polish, not threads.
+
+**Open from the editor session (2026-11-06), in order:**
+
+- [ ] **Boot-test the merged game.** The 1.60 update is being folded into the main data tree (`game\Patch` →
+      `game\Data`, Patch deleted; live restructure to `NHL24-merged\` was in progress when written). Suite CAS-path
+      fallback + mods.ps1 resolution are done and the CAS layer is hash-verified; the TOC/initfs layer still needs
+      a hash pass against a suite backup snapshot and one game boot. If the merged folder stays named
+      `NHL24-merged`, repoint `common.ps1`/`ApplyTargetDir`.
+- [ ] **Decode the current savedata INDEX and update `SavedRoster`.** All saves written by the current emulator build
+      use three named blocks (`__SaveLoadFileInfo` 192 B, `__SaveLoadMetaData` 112 B, `__SaveloadVer` 80 B), not the
+      80-byte record list `SavedRoster` parses; `Find` silently returns nothing, so no saved roster is listed by the
+      sync page or the new Teams & lines editor. DATA container and LZ4 roster record are unchanged. Details and the
+      partial block decode: `docs\HANDOFF.md` (2026-11-06 section). Writes must stay backwards-compatible with the old
+      layout until the emulator no longer reads it.
+- [ ] Strategy menu words: the meta XML names the 182 strategy fields but not the menu labels; map the words from the
+      game's Strategy menu (differential probe: change one setting in game, save a roster, diff) and turn the numeric
+      combos into labeled ones.
+- [ ] Editor write-through for the five stock DBs (today: saved rosters + .db files; stock DBs go through the sync
+      page's mod path).
+
 
 
 ## 0. The Worker cannot apply textures at all (2026-11-02, reproduced)

@@ -52,11 +52,10 @@ public static class TextureResource
                 int n = (int)BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan((int)rec + 12));
                 if (n < 2 || n > 512 || rec + 36 + 8 * n > b.Length) continue;
                 uint loc = BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan((int)rec + 32));
-                var cas = CasPath(((loc >> 16) & 0xFF) != 0, (int)((loc >> 8) & 0xFF), (int)(loc & 0xFF));
+                var casPath = CasPath(gameDir, ((loc >> 16) & 0xFF) != 0, (int)((loc >> 8) & 0xFF), (int)(loc & 0xFF));
                 uint mo = BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan((int)rec + 36));
                 uint ms = BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan((int)rec + 40));
                 if (ms < 40 || ms > 1 << 22) continue;
-                var casPath = Path.Combine(gameDir, cas);
                 if (!File.Exists(casPath)) continue;
 
                 byte[] m;
@@ -95,7 +94,7 @@ public static class TextureResource
                     uint off = BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(at));
                     uint size = BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(at + 4));
                     if (size == 0 || size > 1 << 20) continue;
-                    found[key] = new Found(toc, cas, off, size, []);
+                    found[key] = new Found(toc, Path.GetRelativePath(gameDir, casPath), off, size, []);
                 }
             }
         }
@@ -111,16 +110,7 @@ public static class TextureResource
         return null;
     }
 
-    static IEnumerable<string> Tocs(string gameDir)
-    {
-        foreach (var root in new[] { "Patch", "Data" })
-        {
-            var dir = Path.Combine(gameDir, root);
-            if (!Directory.Exists(dir)) continue;
-            foreach (var f in Directory.EnumerateFiles(dir, "*.toc", SearchOption.AllDirectories)) yield return f;
-        }
-    }
+    static IEnumerable<string> Tocs(string gameDir) => BundleIndex.Tocs(gameDir);
 
-    static string CasPath(bool patch, int catalog, int cas) => Path.Combine(patch ? "Patch" : "Data", "Gen4b",
-        "superbundlelayout", $"nhl_installpackage_{catalog:D2}", $"cas_{cas:D2}.cas");
+    static string CasPath(string gameDir, bool patch, int catalog, int cas) => BundleIndex.CasPath(gameDir, patch, catalog, cas);
 }

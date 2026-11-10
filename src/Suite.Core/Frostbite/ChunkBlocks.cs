@@ -55,16 +55,19 @@ public sealed class ChunkBlocks
     /// textures (Boston home normal: 21 x 262,144 + 1 x 92,160 = 22 blocks). One block cannot exceed the 20-bit stored
     /// size field, so a single block would be refused.
     /// </summary>
-    public static byte[] EncodeBlocks(byte[] raw, int blockRawSize = 262144)
+    public static byte[] EncodeBlocks(byte[] raw, int blockRawSize = 262144, int workers = 0)
     {
         if (blockRawSize is < 4096 or > 0xFFFFF) throw new ArgumentOutOfRangeException(nameof(blockRawSize));
-        using var ms = new MemoryStream();
-        for (int at = 0; at < raw.Length; at += blockRawSize)
+        int count = (raw.Length + blockRawSize - 1) / blockRawSize;
+        var blocks = new byte[count][];
+        CpuParallel.For(0, count, workers, i =>
         {
+            int at = i * blockRawSize;
             int n = Math.Min(blockRawSize, raw.Length - at);
-            var block = EncodeBlock(raw.AsSpan(at, n));
-            ms.Write(block, 0, block.Length);
-        }
+            blocks[i] = EncodeBlock(raw.AsSpan(at, n));
+        });
+        using var ms = new MemoryStream();
+        foreach (var block in blocks) ms.Write(block, 0, block.Length);
         return ms.ToArray();
     }
 

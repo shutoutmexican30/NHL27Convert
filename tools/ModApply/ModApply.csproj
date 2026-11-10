@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Headless apply of a saved mod (or a filtered subset of it) with the same writer the app uses:
+       backup first, every chunk copy written, read-back after. Refuses to run while the game is open. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
+  </ItemGroup>
+</Project>

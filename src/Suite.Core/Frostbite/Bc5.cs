@@ -43,11 +43,11 @@ public static class Bc5
     }
 
     /// <summary>Encode RGBA into tiled BC5; only red and green are stored. Size is exactly width*height bytes.</summary>
-    public static byte[] EncodeTiled(Rgba img)
+    public static byte[] EncodeTiled(Rgba img, int workers = 0)
     {
         int bw = (img.Width + 3) / 4, bh = (img.Height + 3) / 4, pw = (bw + 7) / 8 * 8, ph = (bh + 7) / 8 * 8;
         var tiled = new byte[pw * ph * 16];
-        Parallel.For(0, bh, by =>
+        CpuParallel.For(0, bh, workers, by =>
         {
             Span<byte> block = stackalloc byte[64];
             for (int bx = 0; bx < bw; bx++)

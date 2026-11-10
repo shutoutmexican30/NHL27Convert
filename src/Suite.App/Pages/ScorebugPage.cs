@@ -588,7 +588,7 @@ public sealed class ScorebugPage : Grid
     async Task ReadGameAsync()
     {
         var game = _settings.ApplyTargetDir;
-        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game)) { _inGame.Text = "No game folder: set ApplyTargetDir in Settings."; return; }
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game)) { _inGame.Text = "No Apply destination: configure the NHL 24 build selector."; return; }
         _inGame.Text = "Reading what the game folder has...";
         try
         {

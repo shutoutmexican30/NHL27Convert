@@ -1,4 +1,5 @@
-// JerseyRows --target <game copy> [--apply]
+// JerseyRows --target <game copy> [--apply]          add the NHL 27 extra-kit rows (default dry run)
+// JerseyRows --target <game copy> --remove [--apply] remove those added rows again (default dry run)
 // NHL 24 ships adidas kit folders that no stockteamjerseys row points at, so the game never offers them; the Convert 27
 // matcher puts NHL 27 alternates into some of them (variant_map.json extraKits, replaces24), where nobody would see
 // them.  For every such folder this adds a jersey row (style 2 = adidas, variant = the folder's number) to each database
@@ -56,17 +57,28 @@ long? Light(string folder27, string kit)
 
 var main = dbs["nhl_game"];
 var report = new List<string>();
-int added = 0;
+bool remove = args.Contains("--remove");
+int changed = 0;
 foreach (var name in dbNames)
 {
     var d = dbs[name];
     var t = d.Tables["stockteamjerseys"];
     foreach (var w in wanted)
     {
-        if (Find(d, t, w.Team, w.Variant) >= 0) continue;
-        // This team's rows: the block the new row joins (the table is grouped by team).
+        // This team's rows: one block in the table. Rows this tool adds always join at the end of it.
         var block = Enumerable.Range(0, t.InUse).Where(r => d.GetInt(t, r, "teamid") == w.Team).ToList();
         if (block.Count == 0 || block.Last() - block.First() + 1 != block.Count) throw new InvalidOperationException($"{name}: team {w.Team}'s jersey rows are not one block");
+        int row = Find(d, t, w.Team, w.Variant);
+        if (remove)
+        {
+            if (row < 0) continue;
+            if (row != block.Last()) { report.Add($"{name}: {w.Name} '{words[w.Variant]}': row is not the team's last row, not an added row; left alone"); continue; }
+            t = d.DeleteRecord(t, row);
+            report.Add($"{name}: {w.Name} '{words[w.Variant]}' (NHL 27 '{w.Kit27}'): row removed");
+            changed++;
+            continue;
+        }
+        if (row >= 0) continue;
         var adidas = block.Where(r => d.GetInt(t, r, "style") == 2).ToList();
         int template = adidas.Where(r => d.GetInt(t, r, "variant") == 2).DefaultIfEmpty(adidas.LastOrDefault(r => d.GetInt(t, r, "isdefault") == 0, -1)).First();
         if (template < 0) { report.Add($"{name}: {w.Name} '{words[w.Variant]}': no adidas alternate row to copy, skipped"); continue; }
@@ -93,7 +105,7 @@ foreach (var name in dbNames)
             report.Add($"{name}: {w.Name} '{words[w.Variant]}' (NHL 27 '{w.Kit27}'): new row, a copy of its variant {templateVariant} row, " +
                 $"jerseyindex {jerseyIndex}, orderid {orderId}, {(d.GetInt(t, at, "islightcolor") == 1 ? "light" : "dark")}{(light is null ? " (as the template)" : "")}");
         }
-        added++;
+        changed++;
     }
 }
 foreach (var l in report) Say(l);
@@ -106,7 +118,7 @@ foreach (var (name, d) in dbs)
     Say($"{name}: stockteamjerseys {check.Tables["stockteamjerseys"].InUse} rows");
     if (!saved.AsSpan().SequenceEqual(raw[name])) output[RosterSyncRun.LegacyName(name)] = saved;
 }
-Say($"{added} jersey row(s) to add");
+Say($"{changed} jersey row(s) to {(remove ? "remove" : "add")}");
 if (!WriteGate.Allowed(args) || output.Count == 0) { Say(output.Count == 0 ? "nothing to write" : "dry run (pass --apply with --target to write)"); return 0; }
 
 if (ApplyTarget.RunningGame() is { } running) { Say("REFUSED: " + running + " is running"); return 1; }

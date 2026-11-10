@@ -119,7 +119,7 @@ public sealed class TextureChunk
     }
 
     /// <summary>Encodes a full mip chain from one image (BC1 or BC5 by block size): level 0 as given, each level below box-downsampled by two.</summary>
-    public static List<byte[]> EncodeChain(TextureRes res, Rgba image)
+    public static List<byte[]> EncodeChain(TextureRes res, Rgba image, int workers = 0)
     {
         if (image.Width != res.Width || image.Height != res.Height)
             throw new InvalidDataException($"image is {image.Width}x{image.Height}, the slot needs {res.Width}x{res.Height}");
@@ -127,18 +127,18 @@ public sealed class TextureChunk
         var current = image;
         for (int i = 0; i < res.MipCount; i++)
         {
-            mips.Add(res.BlockBytes == 8 ? Bc1.EncodeTiled(current) : Bc5.EncodeTiled(current));
-            if (i + 1 < res.MipCount) current = Halve(current);
+            mips.Add(res.BlockBytes == 8 ? Bc1.EncodeTiled(current, workers) : Bc5.EncodeTiled(current, workers));
+            if (i + 1 < res.MipCount) current = Halve(current, workers);
         }
         return mips;
     }
 
     /// <summary>Box filter to half size, always at least 1x1.</summary>
-    public static Rgba Halve(Rgba src)
+    public static Rgba Halve(Rgba src, int workers = 0)
     {
         int w = Math.Max(1, src.Width / 2), h = Math.Max(1, src.Height / 2);
         var px = new byte[w * h * 4];
-        Parallel.For(0, h, y =>
+        CpuParallel.For(0, h, workers, y =>
         {
             for (int x = 0; x < w; x++)
             {

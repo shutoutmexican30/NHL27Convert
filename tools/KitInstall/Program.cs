@@ -1,5 +1,6 @@
 // KitInstall --target <game> --mod <mod.json> [--teams a,b] [--kits home,away] [--art-dir <folder>]
 //   [--backups <folder>] [--restore-first <backup>] [--compare-only] [--verify-restore] [--workers N] [--apply] [--allow-live]
+//   [--equipment-source <csv-folder>] (defaults to the packaged data/nhl27-equipment directory)
 // Whole-kit uniform install: same-team clone + converted art + player_team_brt registration + jersey and equipment rows.
 // Without --apply nothing is written. The original game folder needs --allow-live as well.
 using Suite.Convert27;
@@ -58,4 +59,5 @@ return FullKitInstall.Run(new FullKitInstall.Options(target, mod, art,
     Opt("--backups") ?? (isTestCopy ? TestRoot + "fullkit-backups" : null), apply, Say, workers,
     CutExtraLayers: args.Contains("--cut-extra-layers"),
     JerseyName: Opt("--jersey-name") ?? FullKitInstall.DefaultJerseyName,
-    RestoreAfterVerify: args.Contains("--verify-restore")), settings);
+    RestoreAfterVerify: args.Contains("--verify-restore"),
+    EquipmentSource: Opt("--equipment-source")), settings);

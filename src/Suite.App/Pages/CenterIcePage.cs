@@ -11,6 +11,8 @@ namespace Suite.App.Pages;
 /// Center ice: pick a slot, fetch that arena's rink from TheFaceoff.net on click, convert it to the slot's own layout
 /// (blue circle kept, ice white keyed out, red-line gap cut) and preview it over nothing but the stock slot, then write it
 /// with a backup and a read-back. The write goes to the test copy unless the user picks the game folder.
+/// Every conversion is validated against the Centerlogo_Template.psd geometry (<see cref="CenterIceTemplate"/>), and
+/// "Verify all vs template" renders every team's NHL 27 art over the template guides as one contact sheet.
 ///
 /// Nothing is fetched until the button is pressed, and the credit line is always shown (site terms: personal use).
 /// </summary>
@@ -34,6 +36,7 @@ public sealed class CenterIcePage : Grid
     readonly Button _file = new() { Content = "From file…", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(8, 0, 0, 0) };
     readonly Button _nhl27 = new() { Content = "From NHL 27", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(8, 0, 0, 0) };
     readonly Button _apply = new() { Content = "Apply to this game", Padding = new Thickness(14, 5, 14, 5), IsEnabled = false, Margin = new Thickness(0, 0, 12, 0) };
+    readonly Button _verifyAll = new() { Content = "Verify all vs template", Padding = new Thickness(14, 5, 14, 5) };
 
     BundleIndex? _index;
     string? _indexGame;
@@ -86,16 +89,20 @@ public sealed class CenterIcePage : Grid
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
         actions.Children.Add(_apply);
+        actions.Children.Add(_verifyAll);
         panel.Children.Add(actions);
 
         _fetch.Click += async (_, _) => await FetchAsync();
         _file.Click += (_, _) => FromFile();
         _nhl27.Click += async (_, _) => await FromNhl27Async();
         _apply.Click += async (_, _) => await ApplyAsync();
+        _verifyAll.Click += async (_, _) => await VerifyAllAsync();
         panel.Children.Add(new TextBlock
         {
             Text = "Slot = the arena id: Utah is 22 (NHL 27's art is 30), All-Star logos are 30 and 31, Vegas 32, Seattle 33. " +
-                   "The stock preview tells you which arena a slot belongs to.",
+                   "The stock preview tells you which arena a slot belongs to. " +
+                   "Every result is checked against the Centerlogo_Template.psd circle and red-line gap; " +
+                   "“Verify all vs template” renders all 32 teams over those guides as one sheet.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 14, 0, 0),
             Foreground = new SolidColorBrush(Color.FromRgb(0x6f, 0x80, 0x92)), FontSize = 12,
         });
@@ -134,7 +141,7 @@ public sealed class CenterIcePage : Grid
         // stayed selected after that folder was deleted, so every read and fetch failed.)
         if (!string.IsNullOrWhiteSpace(_settings.ApplyTargetDir) && Directory.Exists(_settings.ApplyTargetDir))
             _target.Items.Add(new Target("Game folder  —  " + _settings.ApplyTargetDir, _settings.ApplyTargetDir));
-        if (_target.Items.Count == 0) _target.Items.Add(new Target("(no game folder found — set ApplyTargetDir in Settings)", ""));
+        if (_target.Items.Count == 0) _target.Items.Add(new Target("(no Apply destination — configure the NHL 24 build selector)", ""));
         _target.SelectedIndex = 0;
     }
 
@@ -165,6 +172,14 @@ public sealed class CenterIcePage : Grid
         return _index = BundleIndex.Build(game);
     }
 
+    /// <summary>The template check every conversion goes through before it may be applied.</summary>
+    CenterIceTemplate.Report Check(Rgba converted)
+    {
+        var report = CenterIceTemplate.Validate(converted);
+        SuiteLog.Write("center ice slot " + Slot + " template check: " + report.Summary);
+        return report;
+    }
+
     async Task FetchAsync()
     {
         if (string.IsNullOrWhiteSpace(_link.Text)) { Say("Paste the arena's TheFaceoff.net link into the Link box first."); return; }
@@ -181,7 +196,7 @@ public sealed class CenterIcePage : Grid
             _result.Source = Show(_converted);
             _apply.IsEnabled = true;
             Say($"Fetched {Path.GetFileName(file)} ({_rink.Width}x{_rink.Height}); relaid out to {_converted.Width}x{_converted.Height}. " +
-                "Check the preview, then apply.");
+                "Template check: " + Check(_converted).Summary + " Check the preview, then apply.");
         }
         catch (Exception ex) { Say("Fetch failed: " + ex.Message); _apply.IsEnabled = false; }
         finally { _fetch.IsEnabled = true; }
@@ -203,7 +218,8 @@ public sealed class CenterIcePage : Grid
             _converted = CenterIceImage.CutRedLine(decal ? ImageIO.ResizeSmooth(_rink, _stockSlot.Image.Width, _stockSlot.Image.Height) : CenterIceImage.ToSlot(_rink, _stockSlot.Image));
             _result.Source = Show(_converted);
             _apply.IsEnabled = true;
-            Say($"{Path.GetFileName(dlg.FileName)}: {(decal ? "transparent decal, used as it is" : "rink picture, ice keyed out and relaid out")}. Check the preview, then apply.");
+            Say($"{Path.GetFileName(dlg.FileName)}: {(decal ? "transparent decal, used as it is" : "rink picture, ice keyed out and relaid out")}. " +
+                "Template check: " + Check(_converted).Summary + " Check the preview, then apply.");
         }
         catch (Exception ex) { Say("Could not use that file: " + ex.Message); _apply.IsEnabled = false; }
     }
@@ -226,10 +242,72 @@ public sealed class CenterIcePage : Grid
             _converted = CenterIceImage.CutRedLine(ImageIO.ResizeSmooth(_rink, _stockSlot.Image.Width, _stockSlot.Image.Height));
             _result.Source = Show(_converted);
             _apply.IsEnabled = true;
-            Say($"NHL 27 slot {CenterIceSlots.Nhl27Slot(Slot)} (same layout as NHL 24; red-line strip cut). Check the preview, then apply.");
+            Say($"NHL 27 slot {CenterIceSlots.Nhl27Slot(Slot)} (same layout as NHL 24; red-line strip cut). " +
+                "Template check: " + Check(_converted).Summary + " Check the preview, then apply.");
         }
         catch (Exception ex) { Say("NHL 27 art failed: " + ex.Message); _apply.IsEnabled = false; }
         finally { _nhl27.IsEnabled = true; }
+    }
+
+    /// <summary>
+    /// Batch check: every team's NHL 27 center ice, converted exactly as "From NHL 27" does, validated against the
+    /// template and rendered over its guides. Writes slot-N.png per team, report.txt and a sheet.html contact sheet
+    /// to %LOCALAPPDATA%\CenterIceModdingSuite\centerice-verify. Read-only: nothing is written to the game.
+    /// </summary>
+    async Task VerifyAllAsync()
+    {
+        var game = Game;
+        if (game.Length == 0) { Say("Choose a game folder first."); return; }
+        try
+        {
+            _verifyAll.IsEnabled = false;
+            Say("Reading the game's bundles...");
+            var index = await Task.Run(() => Index(game));
+            // 32 NHL teams: slots 0-29 plus Vegas 32 and Seattle 33; 30/31 are All-Star logos.
+            var slots = CenterIceTemplate.TeamSlots();
+            var nhl27 = await IndexStore.GetAsync(IndexStore.Nhl27, _settings);
+            var wanted = new List<Suite.Convert27.Nhl27Texture>();
+            foreach (var slot in slots)
+            {
+                var name = CenterIceSlots.Name(CenterIceSlots.Nhl27Slot(slot));
+                var entry = nhl27.Entries.FirstOrDefault(e => e.Path == name);
+                if (entry is not null) wanted.Add(new Suite.Convert27.Nhl27Texture(entry));
+            }
+            Say("Decoding NHL 27 center-ice art...");
+            var pngs = await new Suite.Convert27.TextureImages(_settings).Nhl27Async(wanted,
+                p => Dispatcher.BeginInvoke(() => _status.Text = p));
+            string dir = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "centerice-verify"));
+            var reportLines = new List<string>();
+            int passed = 0;
+            foreach (var slot in slots)
+            {
+                try
+                {
+                    Say($"Checking slot {slot} against the template...");
+                    var name = CenterIceSlots.Name(CenterIceSlots.Nhl27Slot(slot));
+                    if (!pngs.TryGetValue(name, out var png)) { reportLines.Add($"slot {slot}: no NHL 27 art decoded"); continue; }
+                    var stock = await Task.Run(() => CenterIceSlots.Read(game, index, slot));
+                    var decal = CenterIceImage.CutRedLine(ImageIO.ResizeSmooth(ImageIO.Load(png), stock.Image.Width, stock.Image.Height));
+                    var report = CenterIceTemplate.Validate(decal);
+                    ImageIO.SavePng(CenterIceTemplate.VerificationCell(decal), Path.Combine(dir, $"slot-{slot}.png"));
+                    if (report.Ok) passed++;
+                    string line = $"slot {slot} (NHL 27 slot {CenterIceSlots.Nhl27Slot(slot)}): {report.Summary}";
+                    reportLines.Add(line);
+                    SuiteLog.Write("center ice verify: " + line);
+                }
+                catch (Exception ex)
+                {
+                    reportLines.Add($"slot {slot}: ERROR {ex.Message}");
+                    SuiteLog.Write($"center ice verify slot {slot} failed: {ex.Message}");
+                }
+            }
+            File.WriteAllLines(Path.Combine(dir, "report.txt"), reportLines);
+            CenterIceTemplate.WriteSheet(dir, slots, reportLines);
+            Say($"{passed}/{slots.Length} slots match the template circle. The rest are only flagged for a look — " +
+                $"teams whose art has no blue circle are skipped, not failed. Nothing was written to the game. Sheet: {Path.Combine(dir, "sheet.html")}");
+        }
+        catch (Exception ex) { Say("Verify all failed: " + ex.Message); }
+        finally { _verifyAll.IsEnabled = true; }
     }
 
     async Task ApplyAsync()

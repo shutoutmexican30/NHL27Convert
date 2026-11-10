@@ -15,6 +15,7 @@ public static unsafe class Oodle
 
     static DecompressFn? _decompress;
     static CompressFn? _compress;
+    static readonly object InitLock = new();
     public static string? LoadedFrom { get; private set; }
 
     const int Kraken = 8, LevelOptimal2 = 6;
@@ -40,12 +41,16 @@ public static unsafe class Oodle
 
     public static void Ensure(SuiteSettings? s = null)
     {
-        if (_decompress is not null) return;
-        var path = Candidates(s).FirstOrDefault() ?? throw new FileNotFoundException("oo2core_9_win64.dll not found (it ships with FMT).");
-        var lib = NativeLibrary.Load(path);
-        _decompress = Marshal.GetDelegateForFunctionPointer<DecompressFn>(NativeLibrary.GetExport(lib, "OodleLZ_Decompress"));
-        _compress = Marshal.GetDelegateForFunctionPointer<CompressFn>(NativeLibrary.GetExport(lib, "OodleLZ_Compress"));
-        LoadedFrom = path;
+        if (_decompress is not null && _compress is not null) return;
+        lock (InitLock)
+        {
+            if (_decompress is not null && _compress is not null) return;
+            var path = Candidates(s).FirstOrDefault() ?? throw new FileNotFoundException("oo2core_9_win64.dll not found (it ships with FMT).");
+            var lib = NativeLibrary.Load(path);
+            _decompress = Marshal.GetDelegateForFunctionPointer<DecompressFn>(NativeLibrary.GetExport(lib, "OodleLZ_Decompress"));
+            _compress = Marshal.GetDelegateForFunctionPointer<CompressFn>(NativeLibrary.GetExport(lib, "OodleLZ_Compress"));
+            LoadedFrom = path;
+        }
     }
 
     public static byte[] Decompress(ReadOnlySpan<byte> src, int rawSize)

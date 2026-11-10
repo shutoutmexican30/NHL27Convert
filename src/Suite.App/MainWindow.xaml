@@ -27,6 +27,7 @@
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="centerice" Content="Center ice" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="textures" Content="Textures &amp; logos" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="teams" Content="Teams &amp; roster" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="editor" Content="Teams &amp; lines" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="scorebug" Content="Scorebug" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="gameplay" Content="Gameplay tweakables" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="sounds" Content="Sounds" Checked="Nav_Checked" />
@@ -44,15 +45,27 @@
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <Border Background="#121e33" BorderBrush="#1d2b44" BorderThickness="0,0,0,1" Padding="18,10">
-        <DockPanel>
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="180" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock x:Name="PageTitle" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,18,0" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,22,0">
             <TextBlock Text="Supports:" Foreground="#9fb4cf" VerticalAlignment="Center" Margin="0,0,8,0" />
             <Border Style="{StaticResource Chip}" Background="#1d3d6b"><TextBlock Text="NHL 27 (PS5)" /></Border>
             <TextBlock Text="·" Foreground="#5f7391" VerticalAlignment="Center" Margin="0,0,6,0" />
             <Border Style="{StaticResource Chip}" Background="#c8102e"><TextBlock Text="NHL 24 (PS4)" /></Border>
           </StackPanel>
-          <TextBlock x:Name="PageTitle" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-        </DockPanel>
+          <StackPanel Grid.Column="2" Width="290" VerticalAlignment="Center">
+            <TextBlock Text="NHL 24 BUILD" Foreground="#9fb4cf" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <ComboBox x:Name="BuildSelector" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="Build_SelectionChanged"
+                      Padding="9,6" Background="#1b2940" Foreground="#e6ebf2" BorderBrush="#385170"
+                      ToolTip="{Binding SelectedItem.GameDir, RelativeSource={RelativeSource Self}}" />
+            <TextBlock x:Name="BuildTargetText" Foreground="#7f95b2" FontSize="10" Margin="1,4,0,0" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Grid>
       </Border>
       <ContentControl x:Name="Page" Grid.Row="1" />
     </Grid>

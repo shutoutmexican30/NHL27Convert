@@ -68,7 +68,7 @@ public sealed class ModListWindow : Window
 
         var bottom = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var b in new[] { Btn("Apply all to the game…", Apply_Click), Btn("Undo last texture apply…", Restore_Click) })
+        foreach (var b in new[] { Btn("Apply replacements…", Apply_Click), Btn("Apply new uniforms…", ApplyNew_Click), Btn("Undo last game apply…", Restore_Click) })
         {
             var problems = ModApply.Problems(_settings);
             b.IsEnabled = problems.Count == 0;
@@ -109,21 +109,24 @@ public sealed class ModListWindow : Window
     void Reload()
     {
         _mods = ModApply.LoadMods();
-        _list.ItemsSource = _mods
-            .Select(m => $"{m.Name}  —  {m.Replacements.Count} replacement{(m.Replacements.Count == 1 ? "" : "s")}")
-            .ToList();
+        _list.ItemsSource = _mods.Select(m => m.Kind == NewUniformAddition.ModKind
+            ? $"{m.Name}  —  {m.Additions?.Count ?? 0} new uniform(s)"
+            : $"{m.Name}  —  {m.Replacements.Count} replacement{(m.Replacements.Count == 1 ? "" : "s")}").ToList();
+        int overlaps = ModApply.OverlappingEntries(_mods);
+        int additions = _mods.Sum(m => m.Additions?.Count ?? 0);
         _summary.Text = _mods.Count == 0
             ? $"Mod list is empty.  ({SuitePaths.Mods})"
-            : $"{_mods.Count} mod(s), {ModApply.TotalReplacements(_mods):N0} replacement(s) in total.   {SuitePaths.Mods}";
+            : $"{_mods.Count} mod(s), {ModApply.TotalReplacements(_mods):N0} unique replacement(s), {additions} new uniform(s)" +
+              (overlaps > 0 ? $"; {overlaps:N0} overlapping entr{(overlaps == 1 ? "y" : "ies")} — later listed mods win." : ".") + $"   {SuitePaths.Mods}";
         if (_mods.Count > 0)
         {
             _list.SelectedIndex = 0;
-            _status.Text = "Press “Apply all to the game…” to write the list into the game, or “Undo last texture apply…” to take the last texture apply back out.";
+            _status.Text = "Replacements and new uniforms have separate Apply actions. New uniforms use independent assets and spare rows; neither action is performed until you confirm it.";
         }
         else
         {
             _details.Text = "";
-            _status.Text = "Nothing in the mod list. Use Convert 27 → “Add all matched folders” or the texture browser to add replacements.";
+            _status.Text = "Nothing in the mod list. Use Convert 27 to save replacements or independent new uniforms.";
         }
     }
 
@@ -137,8 +140,15 @@ public sealed class ModListWindow : Window
         sb.AppendLine($"Kind:     {m.Kind}");
         if (!string.IsNullOrEmpty(m.Comment)) sb.AppendLine($"Comment:  {m.Comment}");
         sb.AppendLine($"Saved:    {m.Saved:g}");
-        sb.AppendLine($"Entries:  {m.Replacements.Count}");
+        sb.AppendLine(m.Kind == NewUniformAddition.ModKind ? $"New uniforms: {m.Additions?.Count ?? 0}" : $"Entries:  {m.Replacements.Count}");
         sb.AppendLine();
+        foreach (var addition in m.Additions ?? [])
+        {
+            sb.AppendLine($"{addition.Team} · {addition.SourceKit} → NEW variant {addition.TargetVariant} ({addition.TargetPrefix})");
+            sb.AppendLine($"    {addition.Textures.Count} source → target texture mappings; no existing row or asset is replaced");
+            foreach (var texture in addition.Textures)
+                sb.AppendLine($"    {texture.SourceSlot}\n      → {texture.TargetSlot}");
+        }
         foreach (var r in m.Replacements)
         {
             var source = r.Source.Length == 0 ? (r.Layers is null ? "(none)" : $"{r.Layers.Count} layers") : Path.GetFileName(r.Source);
@@ -174,10 +184,39 @@ public sealed class ModListWindow : Window
         }
     }
 
+    async void ApplyNew_Click(object sender, RoutedEventArgs e)
+    {
+        var saved = _mods.Where(m => m.Kind == NewUniformAddition.ModKind && m.Additions is { Count: > 0 }).ToList();
+        int count = saved.Sum(m => m.Additions!.Count);
+        if (count == 0) { _status.Text = "There are no saved new uniforms to apply."; return; }
+        if (MessageBox.Show(
+                $"Add {count} independent uniform(s) and their new selectable rows to:\n{_settings.ApplyTargetDir}\n\n" +
+                "Every asset, ordered logo role, artwork layer and spare row is preflighted. Assets and databases share one backup and rollback. Existing uniforms are not replaced.\n\nContinue?",
+                "Apply new uniforms", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var combined = new ModFile
+        {
+            Name = "New uniform apply", Kind = NewUniformAddition.ModKind,
+            Additions = saved.SelectMany(m => m.Additions!).ToList(),
+        };
+        IsEnabled = false;
+        _status.Text = "Preflighting new uniforms…";
+        try
+        {
+            var (ok, message) = await NewUniformApply.ApplyAsync(_settings, combined,
+                line => Dispatcher.Invoke(() => _status.Text = line));
+            _status.Text = (ok ? "Applied: " : "Apply failed: ") + message;
+        }
+        finally
+        {
+            IsEnabled = true;
+            Reload();
+        }
+    }
+
     async void Restore_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "Undo the last texture apply? The game goes back to the backup taken right before it. This is refused when " +
+                "Undo the last game apply? The game goes back to the backup taken right before it. This is refused when " +
                 "anything was written to the game after that apply, because that would be lost too.\n\nContinue?",
                 "Undo last texture apply", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
@@ -187,6 +226,10 @@ public sealed class ModListWindow : Window
         {
             var (ok, message) = await ModApply.RestoreAsync(_settings, line => Dispatcher.Invoke(() => _status.Text = line));
             _status.Text = (ok ? "Restored: " : "Restore failed: ") + message;
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "Restore failed without closing the mod list: " + ex.Message;
         }
         finally
         {

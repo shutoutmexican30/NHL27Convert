@@ -7,6 +7,12 @@ using Suite.Core.Frostbite;
 var lf = new LegacyFiles(args[0], SuiteSettings.Load());
 var names = lf.Names("gamemodes/database/t3db/nhl_game.db");
 Console.WriteLine($"{names.Count} legacy files");
+if (args.Length > 2 && args[1] == "--names")
+{
+    foreach (var n in names.Where(n => args.Skip(2).Any(f => n.Contains(f, StringComparison.OrdinalIgnoreCase))))
+        Console.WriteLine(n);
+    return;
+}
 var needles = args.Skip(2).Select(Encoding.ASCII.GetBytes).ToList();
 foreach (var n in names.Where(n => !n.EndsWith(".db")))
 {

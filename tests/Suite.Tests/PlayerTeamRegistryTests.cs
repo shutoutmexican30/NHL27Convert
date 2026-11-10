@@ -90,4 +90,31 @@ public class PlayerTeamRegistryTests
         var once = PlayerTeamRegistry.Register(raw, meta, [new KitRegistration(From, To)]);
         Assert.Throws<InvalidDataException>(() => PlayerTeamRegistry.Register(once.Raw, once.Meta, [new KitRegistration(From, To)]));
     }
+
+    [Fact]
+    public void LaterRegistrationsPreserveEarlierStringPoolRows()
+    {
+        const string secondTo = "content/character/skater/league/nhl/detroit/adidas/twentyfour";
+        const string thirdTo = "content/character/skater/league/nhl/detroit/adidas/twentythree";
+        var (raw, meta) = Sample();
+        var once = PlayerTeamRegistry.Register(raw, meta, [new KitRegistration(From, To)]);
+        var twice = PlayerTeamRegistry.Register(once.Raw, once.Meta, [new KitRegistration(From, secondTo)]);
+        var thrice = PlayerTeamRegistry.Register(twice.Raw, twice.Meta, [new KitRegistration(From, thirdTo)]);
+
+        foreach (string folder in new[] { From, To, secondTo, thirdTo })
+        {
+            var rows = PlayerTeamRegistry.Rows(thrice.Raw, folder);
+            Assert.Equal(2, rows.Count);
+            Assert.All(rows, row =>
+            {
+                Assert.True(PlayerTeamRegistry.Contains(thrice.Raw, row.Leaf));
+                Assert.True(PlayerTeamRegistry.Contains(thrice.Raw, row.Folder + "/" + row.Leaf));
+                Assert.False(string.IsNullOrWhiteSpace(row.Bundle.Name));
+            });
+        }
+        Assert.Equal(PlayerTeamRegistry.Rows(once.Raw, To), PlayerTeamRegistry.Rows(thrice.Raw, To));
+        Assert.True(PlayerTeamRegistry.IsSorted(thrice.Raw));
+        Assert.Equal(thrice.Raw.Length, (int)BinaryPrimitives.ReadUInt32LittleEndian(thrice.Meta)
+            + (int)BinaryPrimitives.ReadUInt32LittleEndian(thrice.Meta.AsSpan(4)));
+    }
 }

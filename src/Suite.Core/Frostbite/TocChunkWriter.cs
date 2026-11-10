@@ -10,22 +10,10 @@ public static class TocChunkWriter
     public sealed record Ref(TocFile Toc, ChunkRef Where);
     public sealed record WriteResult(Guid Id, string Cas, long Offset, int StoredLength, int Repointed, List<string> Log);
 
-    /// <summary>Every TOC under Data and Patch that carries chunk tables.</summary>
-    public static List<TocFile> LoadTocs(string game)
-    {
-        var list = new List<TocFile>();
-        foreach (var root in new[] { "Patch", "Data" })
-        {
-            var dir = Path.Combine(game, root);
-            if (!Directory.Exists(dir)) continue;
-            foreach (var f in Directory.EnumerateFiles(dir, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
-                list.Add(TocFile.Load(f));
-        }
-        return list;
-    }
+    /// <summary>Every TOC under the resolved Data and Patch layers that carries chunk tables.</summary>
+    public static List<TocFile> LoadTocs(string game) => BundleIndex.Tocs(game).Select(TocFile.Load).ToList();
 
-    public static string CasPath(string game, ChunkRef r) => Path.Combine(game, r.Patch ? "Patch" : "Data", "Gen4b",
-        "superbundlelayout", $"nhl_installpackage_{r.Catalog:D2}", $"cas_{r.Cas:D2}.cas");
+    public static string CasPath(string game, ChunkRef r) => BundleIndex.CasPath(game, r.Patch, r.Catalog, r.Cas);
 
     public static byte[] ReadStored(string game, ChunkRef r)
     {

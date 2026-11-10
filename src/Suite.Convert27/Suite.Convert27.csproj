@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\Suite.Rosters\Suite.Rosters.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,8 +17,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Suite.Tests" />
+    <InternalsVisibleTo Include="NewUniformVerify" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="viewer\**" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\tools\nhl27_bridge.py" Link="tools\nhl27_bridge.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\logo_refs.json" Link="data\logo_refs.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\uniform_source_layouts.json" Link="data\uniform_source_layouts.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\nhl27-equipment\**" Link="data\nhl27-equipment\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

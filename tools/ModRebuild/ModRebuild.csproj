@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Headless "Add all matched folders": rebuilds the named mod from the saved Convert 27 project
+       (decode, normals, manufacturer branding, merge-save) without opening the app. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Convert27\Suite.Convert27.csproj" />
+  </ItemGroup>
+</Project>

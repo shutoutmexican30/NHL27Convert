@@ -78,13 +78,30 @@ def _decode_one(job):
         if cas is None:
             return "ERR", job["name"], "cas file missing"
         data = cas_reader.decompress_region(cas, job["offset"], job["size"])
-        rgba = image_decode.decode_top_mip(job["width"], job["height"], job["format"], data)
-        if rgba is None:
-            return "ERR", job["name"], f"no decoder for {job['format']}"
-        os.makedirs(os.path.dirname(job["out"]), exist_ok=True)
-        tmp = job["out"] + ".tmp.png"
-        Image.fromarray(rgba, "RGBA").save(tmp)
-        os.replace(tmp, job["out"])
+        slices = max(1, int(job.get("slices", 1)))
+        slice_outs = job.get("sliceOuts") or []
+        if slices > 1 and len(slice_outs) != slices:
+            return "ERR", job["name"], "array slice output list is incomplete"
+        if len(data) % slices:
+            return "ERR", job["name"], f"{len(data)} payload bytes do not divide into {slices} slices"
+        stride = len(data) // slices
+        rgba = None
+        for layer in range(slices):
+            part = data[layer * stride:(layer + 1) * stride]
+            decoded = image_decode.decode_top_mip(job["width"], job["height"], job["format"], part)
+            if decoded is None:
+                return "ERR", job["name"], f"no decoder for {job['format']} or truncated slice {layer}"
+            rgba = decoded
+            output = slice_outs[layer] if slices > 1 else job["out"]
+            os.makedirs(os.path.dirname(output), exist_ok=True)
+            tmp = output + ".tmp.png"
+            Image.fromarray(decoded, "RGBA").save(tmp)
+            os.replace(tmp, output)
+        if slices > 1:
+            os.makedirs(os.path.dirname(job["out"]), exist_ok=True)
+            tmp = job["out"] + ".tmp.png"
+            Image.fromarray(rgba, "RGBA").save(tmp)
+            os.replace(tmp, job["out"])
         return "OK", job["out"], ""
     except Exception as e:  # report and keep going
         return "ERR", job["name"], str(e).replace("\n", " ")

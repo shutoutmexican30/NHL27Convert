@@ -81,6 +81,8 @@ public partial class Convert27View : UserControl
 
     void Repropose_Click(object sender, RoutedEventArgs e) => _vm.Repropose(keepManual: true);
 
+    async void Convert_Click(object sender, RoutedEventArgs e) => await _vm.ConvertCurrentAsync();
+
     /// <summary>
     /// Picking a folder from the list commits it straight away. The editable ComboBox otherwise waits for
     /// LostFocus, so the matcher looked like it ignored the new folder until you clicked somewhere else.
@@ -128,6 +130,99 @@ public partial class Convert27View : UserControl
 
     async void AddFolder_Click(object sender, RoutedEventArgs e) => await AddToModList(currentOnly: true);
     async void AddAll_Click(object sender, RoutedEventArgs e) => await AddToModList(currentOnly: false);
+    async void AddNew_Click(object sender, RoutedEventArgs e) => await AddAsNew(currentOnly: true);
+    async void AddAllNew_Click(object sender, RoutedEventArgs e) => await AddAsNew(currentOnly: false);
+    async void InstallAllNew_Click(object sender, RoutedEventArgs e) => await InstallAllNew();
+    async void ApplyNew_Click(object sender, RoutedEventArgs e) => await ApplyNewUniforms();
+
+    /// <summary>One confirmation and one preparation: preflight, save, then install the same completed plan.</summary>
+    async Task InstallAllNew()
+    {
+        IsEnabled = false;
+        _vm.Busy = true;
+        SuiteLog.Write("install: Install all 64 as new clicked");
+        try
+        {
+            var targetProblems = ModApply.Problems(_vm.Settings);
+            if (targetProblems.Count > 0)
+                throw new InvalidDataException("The selected build cannot be written:\n" + string.Join("\n", targetProblems));
+            string name = ModName.Text.Trim();
+            if (name.Length == 0) name = "NHL 27 Fanatics 64 new uniforms";
+            var draft = await NewUniformExport.PlanAsync(_vm, name, currentFolderOnly: false);
+            int count = draft.Prepared.AdditionPlan.Additions.Count;
+            SuiteLog.Write($"install: plan ready for {count} uniforms; waiting for confirmation");
+            if (MessageBox.Show(
+                    $"{draft.Summary}\n\nSave and install these {count} independent uniforms to:\n{_vm.Settings.ApplyTargetDir}\n\n" +
+                    "The completed plan will be used directly; preparation will not run twice. Assets and both databases share one backup and rollback. Existing uniforms are never replaced.\n\nContinue?",
+                    "Install all 64 as new", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            string path = draft.Save();
+            SuiteLog.Write("install: mod saved to " + path + "; starting coordinated apply");
+            var (ok, message) = await NewUniformApply.ApplyPreparedAsync(_vm.Settings, draft.Prepared,
+                s => Dispatcher.Invoke(() => _vm.Status = s));
+            SuiteLog.Write($"install: apply finished ok={ok}: {message}");
+            _vm.Status = (ok ? "Installed: " : "Install failed: ") + message + $" Saved mod: {path}";
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("install: FAILED " + ex);
+            _vm.Status = "Could not install the new uniforms: " + ex.Message;
+        }
+        finally
+        {
+            _vm.Busy = false;
+            IsEnabled = true;
+        }
+    }
+
+    async Task AddAsNew(bool currentOnly)
+    {
+        _vm.Busy = true;
+        try
+        {
+            string name = ModName.Text.Trim();
+            if (name.Length == 0) name = currentOnly ? "NHL 27 new uniform" : "NHL 27 Fanatics 64 new uniforms";
+            var draft = await NewUniformExport.PlanAsync(_vm, name, currentOnly);
+            string details = draft.Details;
+            var lines = details.Split('\n');
+            if (lines.Length > 22) details = string.Join("\n", lines.Take(22)) + $"\n… and {lines.Length - 22} more lines";
+            if (MessageBox.Show(
+                    $"{draft.Summary}\n\n{details}\n\nSave this addition mod? This does not write to the game.",
+                    "Add as new uniform — preflight passed", MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK) return;
+            string path = draft.Save();
+            _vm.Status = $"Saved new-uniform mod '{name}'. No game files were changed. {path}";
+        }
+        catch (Exception ex)
+        {
+            _vm.Status = "Could not add the new uniform(s): " + ex.Message;
+        }
+        finally { _vm.Busy = false; }
+    }
+
+    async Task ApplyNewUniforms()
+    {
+        var additionMods = ModApply.LoadMods().Where(m => m.Kind == NewUniformAddition.ModKind && m.Additions is { Count: > 0 }).ToList();
+        int count = additionMods.Sum(m => m.Additions!.Count);
+        if (count == 0) { _vm.Status = "No saved new-uniform mods. Use “Add as new uniform” first."; return; }
+        var combined = new ModFile
+        {
+            Name = "New uniform apply",
+            Kind = NewUniformAddition.ModKind,
+            Additions = additionMods.SelectMany(m => m.Additions!).ToList(),
+        };
+        if (MessageBox.Show(
+                $"Add {count} independent uniform(s) and their new selectable database rows to:\n{_vm.Settings.ApplyTargetDir}\n\n" +
+                "Every source slot, target asset, semantic logo layout, artwork layer and spare row is checked before any write. " +
+                "Assets and both databases share one backup and rollback. Existing uniforms are never replaced.\n\nContinue?",
+                "Apply new uniforms", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        _vm.Busy = true;
+        try
+        {
+            var (ok, message) = await NewUniformApply.ApplyAsync(_vm.Settings, combined,
+                s => Dispatcher.Invoke(() => _vm.Status = s));
+            _vm.Status = (ok ? "Applied: " : "Apply failed: ") + message;
+        }
+        finally { _vm.Busy = false; }
+    }
 
     /// <summary>Shows every saved mod with its replacements, and the apply/restore buttons.</summary>
     void ModList_Click(object sender, RoutedEventArgs e) => new ModListWindow(_vm.Settings).ShowDialog();
@@ -204,9 +299,11 @@ public partial class Convert27View : UserControl
             _vm.Status = "The mod list is empty — use “Add folder to mod list” or “Add all matched folders” first.";
             return;
         }
+        int overlaps = ModApply.OverlappingEntries(mods);
         if (MessageBox.Show(
-                $"Apply {total:N0} replacement(s) from {mods.Count} mod(s) to the game at:\n{_vm.Settings.ApplyTargetDir}\n\n" +
-                "TOCs and CAS lengths are backed up first. Everything applied can be undone with “Restore stock game…” in the mod list window.\n\nContinue?",
+                $"Apply {total:N0} unique replacement(s) from {mods.Count} mod(s) to the game at:\n{_vm.Settings.ApplyTargetDir}\n\n" +
+                (overlaps > 0 ? $"{overlaps:N0} overlapping entries will be skipped; later listed mods win.\n" : "") +
+                "Legacy baked jersey bases are repaired automatically. TOCs and CAS lengths are backed up first. Everything applied can be undone with “Restore stock game…” in the mod list window.\n\nContinue?",
                 "Apply to game", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         _vm.Busy = true;
@@ -343,5 +440,49 @@ public sealed class ConfidenceToBrushConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
         value is double d ? d <= 0 ? None : d >= 0.8 ? High : d >= 0.5 ? Mid : Low : None;
 
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+public sealed class InverseBooleanToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is true ? Visibility.Collapsed : Visibility.Visible;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is Visibility.Collapsed;
+}
+
+public sealed class FolderDisplayConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        Convert27ViewModel.FriendlyFolder(value as string);
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+public sealed class TitleCaseConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is string { Length: > 0 } text ? char.ToUpperInvariant(text[0]) + text[1..] : "";
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+public sealed class PreflightSeverityToBrushConverter : IValueConverter
+{
+    static readonly Brush Ready = Frozen(0x27, 0x78, 0x50), Repaired = Frozen(0x35, 0x68, 0xa4),
+        Warning = Frozen(0x9a, 0x6a, 0x24), Error = Frozen(0xa4, 0x42, 0x4b);
+
+    static Brush Frozen(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value switch
+    {
+        PreflightSeverity.Ready => Ready,
+        PreflightSeverity.Repaired => Repaired,
+        PreflightSeverity.Warning => Warning,
+        _ => Error,
+    };
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }

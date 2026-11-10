@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,6 +6,13 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\data\team_colors_27.tsv" Link="data\team_colors_27.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\team_colors.tsv" Link="data\team_colors.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\team_goalie_colors_24.tsv" Link="data\team_goalie_colors_24.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\teams_overrides.json" Link="data\teams_overrides.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCnEncoder.Net" Version="2.3.0" />

@@ -27,6 +27,8 @@
     </Style>
   </UserControl.Resources>
 
+  <TabControl x:Name="StudioTabs" Background="#151a22" BorderThickness="0">
+    <TabItem Header="Texture replacements">
   <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="300" />
@@ -194,4 +196,9 @@
       </Border>
     </Grid>
   </Grid>
+    </TabItem>
+    <TabItem Header="Equipment &amp; slots">
+      <ContentControl x:Name="EquipmentHost" />
+    </TabItem>
+  </TabControl>
 </UserControl>

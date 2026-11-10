@@ -109,9 +109,7 @@ if (args.Length >= 3 && args[0] == "findindex")
     var game = args[1];
     var needle = System.Text.Encoding.ASCII.GetBytes(args[2]);
     Oodle.Ensure(settings);
-    var tocs = new[] { "Patch", "Data" }.Select(s => Path.Combine(game, s)).Where(Directory.Exists)
-        .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
-        .Select(TocFile.Load).ToList();
+    var tocs = BundleIndex.Tocs(game).Select(TocFile.Load).ToList();
     var seen = new HashSet<Guid>();
     foreach (var toc in tocs)
         foreach (var id in toc.Chunks)
@@ -119,7 +117,7 @@ if (args.Length >= 3 && args[0] == "findindex")
             if (!seen.Add(id)) continue;
             var r = tocs.Select(t => t.Find(id)).FirstOrDefault(x => x is not null);
             if (r is null || r.Size > 8_000_000) continue;
-            var cas = Path.Combine(game, r.Patch ? "Patch" : "Data", "Gen4b", "superbundlelayout", $"nhl_installpackage_{r.Catalog:D2}", $"cas_{r.Cas:D2}.cas");
+            var cas = BundleIndex.CasPath(game, r.Patch, r.Catalog, r.Cas);
             byte[] raw;
             try
             {

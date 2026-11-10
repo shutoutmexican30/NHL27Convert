@@ -9,6 +9,7 @@ public sealed class Nhl27Texture(AssetEntry e)
     public string Name => Entry.Path;
     public int Width => Entry.Width;
     public int Height => Entry.Height;
+    public int Slices => Entry.Slices;
     public string Format => Entry.Format ?? "";
     public int Pkg => Entry.Location?.Package ?? 0;
     public int Cas => Entry.Location?.Cas ?? 0;

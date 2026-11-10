@@ -42,7 +42,11 @@ public sealed class T3Csv
         {
             using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(tables));
             foreach (var e in doc.RootElement.EnumerateArray())
-                if (e.GetProperty("table").GetString() == table && e.TryGetProperty("valid", out var v)) t._valid = v.GetInt32();
+            {
+                // NHL 24 db-dump calls the table key "table"; the NHL 27 full dump calls it "name".
+                string? name = e.TryGetProperty("table", out var key) ? key.GetString() : e.GetProperty("name").GetString();
+                if (name == table && e.TryGetProperty("valid", out var v)) t._valid = v.GetInt32();
+            }
         }
         return t;
     }

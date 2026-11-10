@@ -70,12 +70,12 @@ public static class ImageIO
     }
 
     /// <summary>Bilinear resize to an exact size (stamped logos are scaled, and nearest-neighbour would look blocky).</summary>
-    public static Rgba ResizeSmooth(Rgba src, int width, int height)
+    public static Rgba ResizeSmooth(Rgba src, int width, int height, int workers = 0)
     {
         if (src.Width == width && src.Height == height) return src;
         var dst = new byte[width * height * 4];
         double sx = (double)src.Width / width, sy = (double)src.Height / height;
-        Parallel.For(0, height, y =>
+        CpuParallel.For(0, height, workers, y =>
         {
             double fy = Math.Max(0, (y + 0.5) * sy - 0.5);
             int y0 = (int)fy, y1 = Math.Min(src.Height - 1, y0 + 1);

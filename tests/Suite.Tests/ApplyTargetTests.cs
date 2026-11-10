@@ -37,6 +37,27 @@ public class ApplyTargetTests : IDisposable
     }
 
     [Fact]
+    public void Merged_game_patch_wins_when_a_split_update_also_exists()
+    {
+        var root = Path.Combine(_root, "split");
+        var game = MakeGame(Path.Combine("split", "game"));
+        var update = Path.Combine(root, "game-UPDATE");
+        Directory.CreateDirectory(update);
+        Directory.Move(Path.Combine(game, "Patch"), Path.Combine(update, "Patch"));
+        // A merged NHL24-PC profile keeps the real update in game\Patch; a leftover game-UPDATE must not override it.
+        // The split NHL24PC layout is the fallback when game\Patch is absent.
+        Directory.CreateDirectory(Path.Combine(game, "Patch", "Gen4b"));
+        File.WriteAllBytes(Path.Combine(game, "Patch", "Gen4b", "contentsb.toc"), [7, 7, 7]);
+
+        Assert.Empty(ApplyTarget.Problems(root).Where(p => !p.Contains("is running")));
+        Assert.Equal(game, GameLayout.BaseDir(root));
+        Assert.Equal(game, GameLayout.UpdateDir(root));
+        Assert.Contains(ApplyTarget.Tocs(root), f => f.StartsWith(Path.Combine(game, "Data"), StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ApplyTarget.Tocs(root), f => f.StartsWith(Path.Combine(game, "Patch"), StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ApplyTarget.Tocs(root), f => f.StartsWith(Path.Combine(update, "Patch"), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Folders_with_links_into_another_tree_are_refused()
     {
         var real = MakeGame("real");
@@ -67,6 +88,39 @@ public class ApplyTargetTests : IDisposable
         ApplyTarget.RestoreFromBackup(g, backup);
         Assert.Empty(ApplyTarget.Compare(g, backup));
         Assert.Equal(100, new FileInfo(cas).Length);
+        Directory.Delete(backup, true);
+    }
+
+    [Fact]
+    public void Backup_can_be_contained_in_an_explicit_verification_root()
+    {
+        var g = MakeGame("contained-backup");
+        string root = Path.Combine(_root, "verification-backups");
+        var backup = ApplyTarget.Backup(g, root);
+
+        Assert.Equal(root, Path.GetDirectoryName(backup));
+        Assert.True(File.Exists(Path.Combine(backup, "snapshot.json")));
+        Assert.Empty(ApplyTarget.Compare(g, backup));
+    }
+
+    [Fact]
+    public void A_short_cas_refuses_the_whole_restore_before_any_file_changes()
+    {
+        var g = MakeGame("short-cas");
+        string first = Path.Combine(g, "Data", "Gen4b", "superbundlelayout", "cas_01.cas");
+        string second = Path.Combine(g, "Data", "Gen4b", "superbundlelayout", "cas_02.cas");
+        File.WriteAllBytes(second, new byte[100]);
+        var backup = ApplyTarget.Backup(g);
+        using (var fs = new FileStream(first, FileMode.Append)) fs.Write(new byte[37]);
+        string toc = Path.Combine(g, "Data", "Gen4b", "contentsb.toc");
+        File.WriteAllBytes(toc, [9, 9, 9, 9]);
+        File.WriteAllBytes(second, new byte[50]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ApplyTarget.RestoreFromBackup(g, backup));
+        Assert.Contains("before changing any files", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(137, new FileInfo(first).Length);
+        Assert.Equal(50, new FileInfo(second).Length);
+        Assert.Equal([9, 9, 9, 9], File.ReadAllBytes(toc));
         Directory.Delete(backup, true);
     }
 

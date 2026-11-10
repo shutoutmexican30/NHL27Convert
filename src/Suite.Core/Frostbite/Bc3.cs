@@ -8,12 +8,12 @@ namespace Suite.Core.Frostbite;
 public static class Bc3
 {
     /// <summary>The tiled BC3 data (single mip) for an RGBA image, as the game stores it.</summary>
-    public static byte[] EncodeTiled(Rgba img)
+    public static byte[] EncodeTiled(Rgba img, int workers = 0)
     {
         int bw = (img.Width + 3) / 4, bh = (img.Height + 3) / 4;
         int pw = (bw + 7) / 8 * 8, ph = (bh + 7) / 8 * 8;
         var linear = new byte[bw * bh * 16];
-        Parallel.For(0, bh, by =>
+        CpuParallel.For(0, bh, workers, by =>
         {
             Span<byte> px = stackalloc byte[64];
             for (int bx = 0; bx < bw; bx++)

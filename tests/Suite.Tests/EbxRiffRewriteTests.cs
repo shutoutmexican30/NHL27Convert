@@ -70,4 +70,19 @@ public class EbxRiffRewriteTests
         var rewritten = EbxRiff.Parse(bytes).Rewrite("folder/away_asset", Guid.NewGuid());
         Assert.Equal(BitConverter.ToInt64(bytes, field), BitConverter.ToInt64(rewritten, field));
     }
+
+    [Fact]
+    public void GrowingEmbeddedContentKeepsTrailingPointersAndIdentity()
+    {
+        var (bytes, field) = Sample();
+        int extra = field + (int)BitConverter.ToInt64(bytes, field);
+        var identity = EbxRiff.Parse(bytes);
+        byte[] replacement = Encoding.ASCII.GetBytes("a considerably longer replacement string\0");
+        byte[] result = identity.ReplaceEmbedded(extra, "weaveRegions".Length + 1, replacement);
+        Assert.True(result.Length > bytes.Length);
+        Assert.Equal("a considerably longer replacement string", Target(result, field));
+        Assert.Equal(identity.Name, EbxRiff.Parse(result).Name);
+        Assert.Equal(identity.FileGuid, EbxRiff.Parse(result).FileGuid);
+        Assert.Equal(identity.ImportedFileGuids, EbxRiff.Parse(result).ImportedFileGuids);
+    }
 }

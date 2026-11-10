@@ -29,6 +29,7 @@ public sealed class LegacyFiles
     Guid _indexId;
     byte[] _index = [];
     ChunkRef _indexRef = null!;
+    TocFile _indexToc = null!;
 
     sealed record Record(int Pos, Guid Chunk, string Name, long StoredStart, long StoredEnd, long RawOffset, long RawSize);
 
@@ -37,16 +38,13 @@ public sealed class LegacyFiles
         _game = Path.GetFullPath(gameDir).TrimEnd('\\');
         Oodle.Ensure(settings);
         // Patch first: where a chunk is in both, the update's copy is the one the game reads.
-        _tocs = new[] { "Patch", "Data" }.Select(s => Path.Combine(_game, s)).Where(Directory.Exists)
-            .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
-            .Select(TocFile.Load).ToList();
+        _tocs = BundleIndex.Tocs(_game).Select(TocFile.Load).ToList();
     }
 
     /// <summary>The copy of a chunk the game reads (first TOC that lists it, Patch before Data).</summary>
     ChunkRef? Locate(Guid id) => _tocs.Select(t => t.Find(id)).FirstOrDefault(r => r is not null);
 
-    string CasPath(ChunkRef r) => Path.Combine(_game, r.Patch ? "Patch" : "Data", "Gen4b", "superbundlelayout",
-        $"nhl_installpackage_{r.Catalog:D2}", $"cas_{r.Cas:D2}.cas");
+    string CasPath(ChunkRef r) => BundleIndex.CasPath(_game, r.Patch, r.Catalog, r.Cas);
 
     byte[] ReadStored(ChunkRef r)
     {
@@ -59,24 +57,14 @@ public sealed class LegacyFiles
         return b;
     }
 
-    /// <summary>Finds the index chunk: a small chunk whose records name <paramref name="anyName"/>.</summary>
+    /// <summary>Finds the index chunk through the same globals-first lookup used by writes.</summary>
     void EnsureIndex(string anyName)
     {
         if (_index.Length > 0) return;
-        var needle = Encoding.ASCII.GetBytes(anyName + "\0");
-        foreach (var toc in _tocs)
-            foreach (var id in toc.Chunks)
-            {
-                var r = Locate(id)!;
-                if (r.Size > 4_000_000) continue;
-                byte[] raw;
-                try { raw = ChunkBlocks.Parse(ReadStored(r)).Decode(); } catch { continue; }
-                if (raw.AsSpan().IndexOf(needle) < 0) continue;
-                _index = raw; _indexId = id; _indexRef = r;
-                if (Records().Any(x => x.Name == anyName)) return;
-                _index = [];
-            }
-        throw new InvalidDataException($"No legacy file index lists {anyName}.");
+        // Read-back must not decompress every small asset chunk in contentlaunchsb before reaching the database
+        // collectors in globals.toc. Keep the existing all-TOC fallback for unusual game layouts.
+        var (toc, id, raw, reference) = FindAllIndexes(anyName).First();
+        _indexToc = toc; _index = raw; _indexId = id; _indexRef = reference;
     }
 
     List<Record> Records()
@@ -170,21 +158,68 @@ public sealed class LegacyFiles
     /// <summary>
     /// Replaces legacy files (name → new bytes). Same-size files are swapped in place; other sizes are placed as the
     /// class summary says. Appends to CAS files and rewrites TOCs in place; take <see cref="ApplyTarget.Backup"/> first.
+    /// The base game and the update each carry an index with their own copy of a file (the scorebug's scoreclock.gfx
+    /// is in Patch globals.toc AND Data globals.toc, each its own chunk) - every copy is written, or one stays stock.
     /// Returns one log line per change.
     /// </summary>
     public List<string> Replace(IReadOnlyDictionary<string, byte[]> files)
     {
         var log = new List<string>();
         if (files.Count == 0) return log;
-        EnsureIndex(files.Keys.First());
-        var records = Records();
+        var indexes = FindAllIndexes(files.Keys.First());
+        var missing = files.Keys.ToHashSet(StringComparer.Ordinal);
+        foreach (var (toc, id, raw, refr) in indexes)
+        {
+            _indexToc = toc; _indexId = id; _index = raw; _indexRef = refr;
+            var records = Records();
+            var here = files.Where(f => records.Any(r => r.Name == f.Key)).ToDictionary(f => f.Key, f => f.Value, StringComparer.Ordinal);
+            missing.ExceptWith(here.Keys);
+            if (here.Count == 0) continue;
+            log.AddRange(ReplaceViaIndex(here, records));
+        }
+        if (missing.Count > 0) throw new InvalidDataException($"No legacy file {missing.First()}.");
+        return log;
+    }
+
+    /// <summary>Every index chunk listing <paramref name="anyName"/>, with the TOC that carries it.</summary>
+    List<(TocFile Toc, Guid Id, byte[] Raw, ChunkRef Ref)> FindAllIndexes(string anyName)
+    {
+        var needle = Encoding.ASCII.GetBytes(anyName + "\0");
+        var found = new List<(TocFile, Guid, byte[], ChunkRef)>();
+        // Legacy collectors live in globals.toc; only a miss there justifies the slow scan of every TOC.
+        foreach (var globalsOnly in new[] { true, false })
+        {
+            foreach (var toc in _tocs)
+            {
+                bool isGlobals = toc.Path.EndsWith("globals.toc", StringComparison.OrdinalIgnoreCase);
+                if (globalsOnly != isGlobals) continue;
+                foreach (var id in toc.Chunks)
+                {
+                    if (toc.Find(id) is not { } r || r.Size > 4_000_000) continue;
+                    byte[] raw;
+                    try { raw = ChunkBlocks.Parse(ReadStored(r)).Decode(); } catch { continue; }
+                    if (raw.AsSpan().IndexOf(needle) < 0) continue;
+                    _index = raw;
+                    if (Records().Any(x => x.Name == anyName)) found.Add((toc, id, raw, r));
+                }
+            }
+            if (found.Count > 0) break;
+        }
+        if (found.Count == 0) throw new InvalidDataException($"No legacy file index lists {anyName}.");
+        return found;
+    }
+
+    /// <summary>Replaces the files through one index chunk — one copy of the game (base or update).</summary>
+    List<string> ReplaceViaIndex(IReadOnlyDictionary<string, byte[]> files, List<Record> records)
+    {
+        var log = new List<string>();
         var newIndex = (byte[])_index.Clone();
         var appends = new List<(Guid Id, ChunkRef Old, byte[] Stored)>();
 
-        foreach (var group in files.GroupBy(f => (records.FirstOrDefault(r => r.Name == f.Key) ?? throw new InvalidDataException($"No legacy file {f.Key}.")).Chunk))
+        foreach (var group in files.GroupBy(f => records.First(r => r.Name == f.Key).Chunk))
         {
             var chunk = group.Key;
-            var where = Locate(chunk)!;
+            var where = _indexToc.Find(chunk) ?? Locate(chunk)!;
             var blocks = ChunkBlocks.Parse(ReadStored(where));
             var oldRaw = blocks.Decode();
             var inChunk = records.Where(r => r.Chunk == chunk).ToList();

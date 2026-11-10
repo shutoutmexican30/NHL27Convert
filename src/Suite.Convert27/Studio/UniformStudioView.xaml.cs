@@ -16,6 +16,7 @@ public partial class UniformStudioView : UserControl
     {
         InitializeComponent();
         _vm = new UniformStudioViewModel(settings) { Post = a => Dispatcher.InvokeAsync(a) };
+        EquipmentHost.Content = new EquipmentStudioView(settings);
         DataContext = _vm;
         Loaded += async (_, _) => { if (_vm.Teams.Count == 0) await _vm.LoadAsync(); };
         Zoom.ValueChanged += (_, _) => ApplyZoom();

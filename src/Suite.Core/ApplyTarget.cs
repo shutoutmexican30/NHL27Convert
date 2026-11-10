@@ -5,10 +5,11 @@ using System.Text.Json;
 namespace Suite.Core;
 
 /// <summary>
-/// Guards every write to a game. A folder is only an apply target when it is one real, writable game tree
-/// (package.mft + Data + Patch, every TOC and CAS inside it, no junctions or symbolic links anywhere) and the game
-/// is not running. Before a write the TOCs and CAS lengths are backed up here, independently of the writer's own
-/// state, so a restore can be verified and, if needed, redone from this backup.
+/// Guards every write to a game. A target may be a merged game folder, an NHL24PC install root (game\ + game-UPDATE\),
+/// or the base game\ folder; the writable layers are the base Data\ folder and the patch layer (Patch\ in the game
+/// folder, or game-UPDATE\Patch beside it). Every TOC and CAS in both layers must be real writable files, and the game
+/// must not be running. Before a write the TOCs and CAS lengths are backed up here, independently of the writer's own
+/// state, so a restore can be verified and redone from this backup.
 /// </summary>
 public static class ApplyTarget
 {
@@ -19,28 +20,32 @@ public static class ApplyTarget
     {
         var problems = new List<string>();
         if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) { problems.Add($"Apply target '{dir}' does not exist."); return problems; }
-        dir = Path.GetFullPath(dir).TrimEnd('\\');
-        if (!File.Exists(Path.Combine(dir, "package.mft"))) problems.Add("No package.mft: this is not one complete game folder.");
-        foreach (var sub in new[] { "Data", "Patch" })
-            if (!Directory.Exists(Path.Combine(dir, sub))) problems.Add($"No {sub}\\ folder: base game and update must be in the same folder.");
+        dir = GameLayout.Normalize(dir);
+        var game = GameLayout.BaseDir(dir);
+        if (!File.Exists(Path.Combine(game, "package.mft"))) problems.Add("No package.mft: this is not a complete NHL 24 base game.");
+        if (!Directory.Exists(GameLayout.DataDir(dir))) problems.Add($"No Data\\ folder in {game}.");
+        if (!GameLayout.HasPatch(dir)) problems.Add($"No Patch\\ layer in {game} or a sibling game-UPDATE\\Patch folder.");
 
-        // No links: every folder and file must physically live inside this tree.
+        // No links anywhere in either writable layer: every file must physically live in its layer.
         var links = new List<string>();
-        var stack = new Stack<string>([dir]);
-        while (stack.Count > 0 && links.Count < 5)
+        foreach (var root in GameLayout.Layers(dir))
         {
-            var d = stack.Pop();
-            var info = new DirectoryInfo(d);
-            if (d != dir && (info.Attributes & FileAttributes.ReparsePoint) != 0) { links.Add(d); continue; }
-            try
+            var stack = new Stack<string>([root]);
+            while (stack.Count > 0 && links.Count < 5)
             {
-                foreach (var s in info.EnumerateDirectories()) stack.Push(s.FullName);
-                foreach (var f in info.EnumerateFiles())
-                    if ((f.Attributes & FileAttributes.ReparsePoint) != 0) links.Add(f.FullName);
+                var d = stack.Pop();
+                var info = new DirectoryInfo(d);
+                if (!string.Equals(d, root, StringComparison.OrdinalIgnoreCase) && (info.Attributes & FileAttributes.ReparsePoint) != 0) { links.Add(d); continue; }
+                try
+                {
+                    foreach (var s in info.EnumerateDirectories()) stack.Push(s.FullName);
+                    foreach (var f in info.EnumerateFiles())
+                        if ((f.Attributes & FileAttributes.ReparsePoint) != 0) links.Add(f.FullName);
+                }
+                catch (Exception ex) { problems.Add($"Cannot read {d}: {ex.Message}"); }
             }
-            catch (Exception ex) { problems.Add($"Cannot read {d}: {ex.Message}"); }
+            if ((new DirectoryInfo(root).Attributes & FileAttributes.ReparsePoint) != 0) links.Add(root);
         }
-        if ((new DirectoryInfo(dir).Attributes & FileAttributes.ReparsePoint) != 0) links.Add(dir);
         foreach (var l in links) problems.Add($"Link found ({l}): the target must not point into another folder.");
 
         // Writable: no read-only TOC/CAS, and one TOC can be opened for writing (nothing is written).
@@ -73,16 +78,20 @@ public static class ApplyTarget
     public static IEnumerable<string> Cas(string dir) => Files(dir, "*.cas");
 
     static IEnumerable<string> Files(string dir, string pattern) =>
-        new[] { "Data", "Patch" }.Select(s => Path.Combine(dir, s)).Where(Directory.Exists)
+        GameLayout.Layers(dir)
             .SelectMany(d => Directory.EnumerateFiles(d, pattern, new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }));
 
     public sealed record Snapshot(string Game, DateTime Taken, Dictionary<string, long> CasLengths, Dictionary<string, string> TocHashes);
 
     /// <summary>Copies every TOC and records every CAS length and TOC hash into a new backup folder. Returns the folder.</summary>
-    public static string Backup(string dir)
+    /// <param name="backupRoot">Optional isolated backup parent used by verification tools; normal applies keep the default.</param>
+    public static string Backup(string dir, string? backupRoot = null)
     {
-        dir = Path.GetFullPath(dir).TrimEnd('\\');
-        var backup = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "backups", $"{DateTime.Now:yyyyMMdd-HHmmss}"));
+        dir = GameLayout.Normalize(dir);
+        string parent = backupRoot is null
+            ? Path.Combine(SuitePaths.Local, "backups")
+            : Path.GetFullPath(backupRoot);
+        var backup = SuitePaths.Ensure(Path.Combine(parent, $"{DateTime.Now:yyyyMMdd-HHmmss}"));
         var tocs = Tocs(dir).ToList();
         var hashes = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         Parallel.ForEach(tocs, toc =>
@@ -107,7 +116,7 @@ public static class ApplyTarget
     /// <summary>Differences between the game now and a backup (CAS lengths, TOC hashes, files added or missing).</summary>
     public static List<string> Compare(string dir, string backup)
     {
-        dir = Path.GetFullPath(dir).TrimEnd('\\');
+        dir = GameLayout.Normalize(dir);
         var snap = LoadSnapshot(backup);
         var diffs = new List<string>();
         var cas = Cas(dir).ToDictionary(f => Path.GetRelativePath(dir, f), f => new FileInfo(f).Length, StringComparer.OrdinalIgnoreCase);
@@ -128,16 +137,35 @@ public static class ApplyTarget
     /// <summary>Puts the game back to a backup: truncates appended CAS data and copies the TOCs back.</summary>
     public static void RestoreFromBackup(string dir, string backup)
     {
-        dir = Path.GetFullPath(dir).TrimEnd('\\');
+        dir = GameLayout.Normalize(dir);
         var snap = LoadSnapshot(backup);
+        // Preflight the complete restore before truncating even one CAS. A shorter file means this backup belongs to a
+        // different/older game state; continuing would mix old TOCs and lengths with an otherwise newer installation.
+        var problems = new List<string>();
         foreach (var (rel, len) in snap.CasLengths)
         {
             var path = Path.Combine(dir, rel);
-            var now = new FileInfo(path).Length;
-            if (now < len) throw new InvalidOperationException($"{rel} is shorter than in the backup; it was changed outside the suite.");
-            if (now > len) using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write)) fs.SetLength(len);
+            if (!File.Exists(path)) problems.Add($"CAS missing: {rel}");
+            else if (new FileInfo(path).Length < len)
+                problems.Add($"{rel} is shorter than in the backup; it was changed outside the suite.");
         }
-        foreach (var rel in snap.TocHashes.Keys) File.Copy(Path.Combine(backup, "toc", rel), Path.Combine(dir, rel), true);
+        foreach (var rel in snap.TocHashes.Keys)
+            if (!File.Exists(Path.Combine(backup, "toc", rel))) problems.Add($"Backup TOC missing: {rel}");
+        if (problems.Count > 0)
+            throw new InvalidOperationException("Restore refused before changing any files:\n" + string.Join("\n", problems));
+
+        foreach (var (rel, len) in snap.CasLengths)
+        {
+            var path = Path.Combine(dir, rel);
+            if (new FileInfo(path).Length > len)
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write)) fs.SetLength(len);
+        }
+        foreach (var rel in snap.TocHashes.Keys)
+        {
+            var dst = Path.Combine(dir, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            File.Copy(Path.Combine(backup, "toc", rel), dst, true);
+        }
         SuiteLog.Write($"restored {dir} from {backup}");
     }
 

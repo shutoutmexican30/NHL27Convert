@@ -1,0 +1,37 @@
+# General viewer palette derived only from NHL 24 stockgoalieequipment, league 0, all padszone1..15 colors.
+# Primary: most frequent chromatic color; ties use the numeric color. Without one, the most frequent dark neutral wins.
+# Secondary: most frequent different-hue chromatic color, then dark neutral, then any remaining color; same tie-break.
+# These are UI colors, not a goalie-equipment edit. Team 22 receives the existing Utah override in TeamColors.
+# index	name	c0	c1
+0	Anaheim Anaheim Ducks	FC6519	AD9149
+1	Winnipeg Winnipeg Jets	18223A	1C2132
+2	Boston Boston Bruins	E7AB04	202020
+3	Buffalo Buffalo Sabres	172F7E	FEB101
+4	Calgary Calgary Flames	9C1B1F	C9962E
+5	Carolina Carolina Hurricanes	9A1B1F	202020
+6	Chicago Chicago Blackhawks	922328	202020
+7	Colorado Colorado Avalanche	0B182E	52121D
+8	Columbus Columbus Blue Jackets	162338	9C1B1F
+9	Dallas Dallas Stars	0A6342	202020
+10	Detroit Detroit Red Wings	9F0D1A	E7E7E7
+11	Edmonton Edmonton Oilers	1A255E	DA391C
+12	Florida Florida Panthers	18223A	BF2025
+13	Los Angeles Los Angeles Kings	202020	E7E7E7
+14	Minnesota Minnesota Wild	DDC178	7C1A15
+15	Montreal Montreal Canadiens	90181C	253969
+16	Nashville Nashville Predators	FEB101	18223A
+17	New Jersey New Jersey Devils	922328	202020
+18	NY Islanders New York Islanders	C5431D	0F1C4F
+19	NY Rangers New York Rangers	A1131C	253969
+20	Ottawa Ottawa Senators	B8122E	B59C6C
+21	Philadelphia Philadelphia Flyers	DA391C	202020
+22	Arizona Arizona Coyotes	631219	023008
+23	Pittsburgh Pittsburgh Penguins	FEB601	202020
+24	St. Louis St. Louis Blues	1C3C78	EDBA29
+25	San Jose San Jose Sharks	0B555E	E7E7E7
+26	Tampa Bay Tampa Bay Lightning	1B3C79	E7E7E7
+27	Toronto Toronto Maple Leafs	152A64	E7E7E7
+28	Vancouver Vancouver Canucks	091C5A	074A2D
+29	Washington Washington Capitals	0B182E	BA1C20
+30	Vegas Vegas Golden Knights	DEB253	BE1615
+31	Seattle Seattle Kraken	50849C	0B182E

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Plans and exports Fanatics 27 Home/Away as converted adidas alternate uniforms for NHL24PC V3.2. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\..\src\Suite.Rosters\Suite.Rosters.csproj" />
+  </ItemGroup>
+</Project>

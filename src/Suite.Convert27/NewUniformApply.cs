@@ -30,7 +30,10 @@ public static class NewUniformApply
             if (art.Layers is { Count: > 0 })
             {
                 foreach (var (layer, source) in art.Layers)
-                    if (!File.Exists(source)) problems.Add($"{mod.Name}: {addition.Team} {addition.SourceKit}, {texture.SourceSlot} layer {layer}: missing {source}");
+                {
+                    string actual = source.StartsWith("coeff:", StringComparison.Ordinal) ? source["coeff:".Length..] : source;
+                    if (!File.Exists(actual)) problems.Add($"{mod.Name}: {addition.Team} {addition.SourceKit}, {texture.SourceSlot} layer {layer}: missing {actual}");
+                }
             }
             else if (art.Source.Length > 0 && !File.Exists(art.Source))
                 problems.Add($"{mod.Name}: {addition.Team} {addition.SourceKit}, {texture.SourceSlot}: missing {art.Source}");
@@ -61,6 +64,7 @@ public static class NewUniformApply
             ["initial_experience"] = legacy.Read(RosterSyncRun.LegacyName("initial_experience")),
         };
         var index = BundleIndex.Build(target, progress);
+        RegisteredKitSource.Normalize(mod.Additions, index, progress);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var additionPlan = NewUniformAdditionPlanner.Build(mod.Additions, sources, metaPath, Exists);
         var assets = new List<NewUniformAssetPlan>();
@@ -116,7 +120,8 @@ public static class NewUniformApply
         settings.Save();
         var result = FullKitInstall.Apply(new FullKitInstall.Options(target, mod, SuitePaths.Nhl27Images, null, true,
             s => { progress?.Invoke(s); SuiteLog.Write("new-uniform: " + s); }, settings.Workers,
-            JerseyName: string.IsNullOrWhiteSpace(settings.NewUniformJerseyName) ? FullKitInstall.DefaultJerseyName : settings.NewUniformJerseyName.Trim()), settings);
+            JerseyName: string.IsNullOrWhiteSpace(settings.NewUniformJerseyName) ? FullKitInstall.DefaultJerseyName : settings.NewUniformJerseyName.Trim(),
+            EquipmentSource: Path.Combine(AppContext.BaseDirectory, "data", "nhl27-equipment")), settings);
         if (result.Ok && result.Backup is not null) ModApply.RecordUndo(target, result.Backup);
         return (result.Ok, result.Message);
     }

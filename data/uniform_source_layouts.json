@@ -1,0 +1,34 @@
+{
+  "content/character/skater/league/nhl/boston/adidas/thirteen": {
+    "branding_jersey": {
+      "omitLayers": [4],
+      "sponsorLayers": [2]
+    }
+  },
+  "content/character/skater/league/nhl/boston/adidas/fourteen": {
+    "branding_jersey": {
+      "omitLayers": [4],
+      "sponsorLayers": [2]
+    }
+  },
+  "content/character/skater/league/nhl/carolina/adidas/ten": {
+    "branding_jersey": {
+      "sponsorLayers": [5]
+    }
+  },
+  "content/character/skater/league/nhl/carolina/adidas/thirteen": {
+    "branding_jersey": {
+      "sponsorLayers": [5]
+    }
+  },
+  "content/character/skater/league/nhl/ottawa/adidas/ten": {
+    "branding_jersey": {
+      "sponsorLayers": [3]
+    }
+  },
+  "content/character/skater/league/nhl/ottawa/adidas/eleven": {
+    "branding_jersey": {
+      "sponsorLayers": [3]
+    }
+  }
+}

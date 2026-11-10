@@ -1,0 +1,33 @@
+[
+  {
+    "fields": [
+      "zone3",
+      "zone10",
+      "zone4",
+      "zone2",
+      "zone5",
+      "zone11",
+      "zone15",
+      "zone6",
+      "zone12",
+      "zone8",
+      "zone14",
+      "zone1",
+      "zone13",
+      "zone9",
+      "zone7",
+      "team",
+      "brand",
+      "jerseyartid",
+      "equipment",
+      "era",
+      "variant",
+      "index"
+    ],
+    "name": "stockteamequipmenttable",
+    "records": 13276,
+    "max": 13276,
+    "valid": 911,
+    "rows": 13276
+  }
+]

@@ -60,6 +60,16 @@ public static class PlayerTeamRegistry
         return rows;
     }
 
+    /// <summary>All registered folders beneath a team prefix, including numbered alternate kits.</summary>
+    public static string[] Folders(byte[] b, string prefix)
+    {
+        var t = new Table(b);
+        string parent = prefix.TrimEnd('/') + "/";
+        return Enumerable.Range(0, t.NB).Select(i => t.Str(t.U(t.OB + i * 16 + 8)))
+            .Where(folder => folder.StartsWith(parent, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+    }
+
     /// <summary>True when the sorted key rows contain <paramref name="key"/>'s FNV-1 hash.</summary>
     public static bool Contains(byte[] b, string key)
     {
@@ -74,6 +84,27 @@ public static class PlayerTeamRegistry
             if (v < h) lo = mid + 1; else hi = mid - 1;
         }
         return false;
+    }
+
+    /// <summary>Resolves one folder/leaf lookup to its stored row, including aliases to another kit folder.</summary>
+    public static AssetRow? Resolve(byte[] b, string key)
+    {
+        var t = new Table(b);
+        ulong h = Key(key);
+        int lo = 0, hi = t.NC - 1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) / 2;
+            ulong value = t.U(t.OC + mid * 16);
+            if (value == h)
+            {
+                int a = (int)t.I(t.OC + mid * 16 + 8), bi = (int)t.I(t.OC + mid * 16 + 12);
+                return new AssetRow(t.Str(t.U(t.OB + bi * 16)), t.Str(t.U(t.OB + bi * 16 + 8)),
+                    new BundleRow(t.Str(t.U(t.OA + a * 24)), t.Str(t.U(t.OA + a * 24 + 8))));
+            }
+            if (value < h) lo = mid + 1; else hi = mid - 1;
+        }
+        return null;
     }
 
     public static bool IsSorted(byte[] b)
@@ -91,7 +122,9 @@ public static class PlayerTeamRegistry
         var t = new Table(b);
         if (t.OC + t.NC * 16 != t.OTail || t.OA + t.NA * 24 > t.OB || t.OB + t.NB * 16 > t.OC)
             throw new InvalidDataException("player_team_brt: unexpected layout.");
-        int poolEnd = checked((int)t.Suffix) + t.Str(t.Suffix).Length + 1;
+        // The suffix is no longer the last string after an earlier registration. Preserve the entire existing
+        // string pool, including previously added kits and its alignment, so later passes keep every old pointer valid.
+        int poolEnd = t.OA;
 
         var bRows = Enumerable.Range(0, t.NB).Select(i => (Leaf: t.Str(t.U(t.OB + i * 16)), Folder: t.Str(t.U(t.OB + i * 16 + 8)))).ToArray();
         var byFolder = bRows.Select((r, i) => (r.Folder, i)).ToLookup(x => x.Folder, x => x.i);

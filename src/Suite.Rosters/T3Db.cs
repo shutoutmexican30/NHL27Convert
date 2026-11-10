@@ -115,6 +115,19 @@ public sealed class T3Db
         return f;
     }
 
+    /// <summary>Reads a string field (type 0) of a record, up to the first NUL. Strings are read-only in this editor:
+    /// writing a different length would move the table's bytes and break the layout.</summary>
+    public string GetString(Table t, int record, string field)
+    {
+        if (!t.Fields.TryGetValue(field, out var f)) throw new KeyNotFoundException($"{t.Name} has no field {field}.");
+        if (f.Type != 0) throw new InvalidOperationException($"{t.Name}.{field} is not a string field (type {f.Type}).");
+        if (record < 0 || record >= t.InUse) throw new ArgumentOutOfRangeException(nameof(record), $"{t.Name}: record {record} is not in use ({t.InUse}).");
+        var span = Bytes.AsSpan(t.RecordsAt + record * t.RecordBytes + f.BitOffset / 8, f.Depth / 8);
+        var end = span.IndexOf((byte)0);
+        if (end >= 0) span = span[..end];
+        return System.Text.Encoding.UTF8.GetString(span);
+    }
+
     /// <summary>
     /// Adds one record at <paramref name="at"/>, a copy of record <paramref name="copyOf"/> (an index before the insert),
     /// inside the table's own spare slots: the records from <paramref name="at"/> move down one slot, the header's in-use
@@ -138,6 +151,26 @@ public sealed class T3Db
         _dirty.Remove(t);
         _dirty.Add(grown);
         return grown;
+    }
+
+    /// <summary>
+    /// Removes in-use record <paramref name="at"/> by moving the records after it down one slot. The file size and every
+    /// other table stay put; only usable for tables whose records nothing points at by position (stockteamjerseys is keyed).
+    /// Returns the table with the new count (also replacing it in <see cref="Tables"/>).
+    /// </summary>
+    public Table DeleteRecord(Table t, int at)
+    {
+        if (at < 0 || at >= t.InUse) throw new ArgumentOutOfRangeException(nameof(at));
+        var tail = Bytes.AsSpan(t.RecordsAt + (at + 1) * t.RecordBytes, (t.InUse - at - 1) * t.RecordBytes).ToArray();
+        tail.CopyTo(Bytes.AsSpan(t.RecordsAt + at * t.RecordBytes));
+        uint head = U32(Bytes, t.Start + 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(t.Start + 16), (uint)(t.InUse - 1) << 16 | (head & 0xFFFF));
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(t.Start + 32), Crc(Bytes.AsSpan(t.Start, 32)));
+        var shrunk = new Table { Name = t.Name, Short = t.Short, Start = t.Start, End = t.End, RecordBytes = t.RecordBytes, RecordsAt = t.RecordsAt, InUse = t.InUse - 1, Fields = t.Fields };
+        Tables[t.Name] = shrunk;
+        _dirty.Remove(t);
+        _dirty.Add(shrunk);
+        return shrunk;
     }
 
     /// <summary>Recomputes the section CRC of every edited table and returns the bytes (same length as loaded).</summary>

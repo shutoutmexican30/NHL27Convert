@@ -27,6 +27,8 @@ public sealed class ModFile
     public string Comment { get; set; } = "";
     public DateTime Saved { get; set; }
     public List<TextureReplacement> Replacements { get; set; } = [];
+    /// <summary>Independent uniforms and new jersey rows. Never included in the ordinary replacement Apply path.</summary>
+    public List<NewUniformAddition>? Additions { get; set; }
     /// <summary>Whole legacy files (roster databases from the roster sync). Null in texture mods.</summary>
     public List<LegacyReplacement>? Legacy { get; set; }
 
@@ -49,10 +51,31 @@ public sealed class ModFile
     {
         Saved = DateTime.Now;
         var path = PathFor(Name);
+        BackupExisting(path);
         var tmp = path + ".tmp";
         File.WriteAllText(tmp, JsonSerializer.Serialize(this, Json));
         File.Move(tmp, path, true);
         return path;
+    }
+
+    /// <summary>
+    /// Keeps the last 30 copies of a mod in mods\history before each overwrite, so a bad save
+    /// (for example a partial add replacing the whole list) is never final.
+    /// </summary>
+    static void BackupExisting(string path)
+    {
+        if (!File.Exists(path)) return;
+        var dir = Path.Combine(Path.GetDirectoryName(path)!, "history");
+        Directory.CreateDirectory(dir);
+        var stem = Path.GetFileNameWithoutExtension(path);
+        var copy = Path.Combine(dir, $"{stem}.{File.GetLastWriteTime(path):yyyyMMdd-HHmmss}.json");
+        try
+        {
+            if (!File.Exists(copy)) File.Copy(path, copy);
+            foreach (var old in Directory.EnumerateFiles(dir, stem + ".*.json").OrderByDescending(f => f).Skip(30).ToList())
+                File.Delete(old);
+        }
+        catch (Exception ex) { SuiteLog.Write("mod backup failed: " + ex.Message); }
     }
 
     /// <summary>The Worker's plan.json shape ({"Replacements":[...], "Legacy":[...]}).</summary>

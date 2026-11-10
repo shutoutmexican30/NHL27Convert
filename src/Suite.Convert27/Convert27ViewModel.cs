@@ -28,7 +28,19 @@ public sealed class Convert27ViewModel : Observable
     public ObservableCollection<FolderProposal> Proposals { get; } = [];
     public ObservableCollection<string> Sources27 { get; } = [];
     public ObservableCollection<SlotMatch> Rows { get; } = [];
+    public ObservableCollection<PreflightItem> PreflightItems { get; } = [];
     public Dictionary<string, string> Stock24 { get; private set; } = [];
+    /// <summary>The folder <see cref="Stock24"/> was dumped from; array-slice checks run only while it is current.</summary>
+    string? _stockFolder;
+    bool _advancedMode;
+    string _preflightSummary = "Choose a uniform, then select Check & convert.";
+
+    /// <summary>Standard hides texture plumbing by default; Advanced reveals the complete matcher and override tools.</summary>
+    public bool AdvancedMode { get => _advancedMode; set => Set(ref _advancedMode, value); }
+    public string PreflightSummary { get => _preflightSummary; set => Set(ref _preflightSummary, value); }
+    public string SourceSummary => Folder27 is null
+        ? "The best NHL 27 source will be selected automatically."
+        : $"{FriendlyFolder(Folder27)} selected automatically · logos are matched by role";
 
     /// <summary>Raised with a JSON-serialisable message for the viewer page.</summary>
     public event Action<object>? ViewerMessage;
@@ -79,7 +91,13 @@ public sealed class Convert27ViewModel : Observable
     public string? Folder24
     {
         get => _folder24;
-        set { if (Set(ref _folder24, value?.Trim().TrimEnd('/'))) _ = OpenFolderAsync(); }
+        set
+        {
+            if (!Set(ref _folder24, value?.Trim().TrimEnd('/'))) return;
+            PreflightItems.Clear();
+            PreflightSummary = "Uniform changed. Select Check & convert to validate it.";
+            _ = OpenFolderAsync();
+        }
     }
 
     /// <summary>The NHL 27 folder that supplies art. Editable; changing it re-proposes non-manual rows.</summary>
@@ -89,6 +107,7 @@ public sealed class Convert27ViewModel : Observable
         set
         {
             if (!Set(ref _folder27, value?.Trim().TrimEnd('/'))) return;
+            Raise(nameof(SourceSummary));
             Sources27.Clear();
             if (_folder27 is not null && Catalog27?.ByFolder.TryGetValue(_folder27, out var list) == true)
                 foreach (var t in list.OrderBy(t => t.Name, StringComparer.Ordinal)) Sources27.Add(t.Name);
@@ -103,6 +122,26 @@ public sealed class Convert27ViewModel : Observable
             }
             _ = PushLeftAsync();
         }
+    }
+
+    /// <summary>A jersey path in the language of the Standard workflow rather than its internal set name.</summary>
+    public static string FriendlyFolder(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "No uniform selected";
+        var clean = path.Trim().TrimEnd('/');
+        if (clean.Length == 0) return "No uniform selected";
+        var parts = clean.Split('/');
+        var set = parts[^1];
+        var team = parts.Length > 2 ? parts[^3] : "";
+        var variant = set.ToLowerInvariant() switch
+        {
+            "home" or "ten" => "Home",
+            "away" or "eleven" => "Away",
+            "twelve" => "Alternate 1",
+            "thirteen" => "Alternate 2",
+            _ => char.ToUpperInvariant(set[0]) + set[1..],
+        };
+        return team.Length == 0 ? variant : $"{char.ToUpperInvariant(team[0]) + team[1..]} · {variant}";
     }
 
     public async Task LoadAsync()
@@ -144,6 +183,7 @@ public sealed class Convert27ViewModel : Observable
     {
         if (Catalog24 is null || Catalog27 is null || _folder24 is null) return;
         var folder = _folder24;
+        _ = PushReferenceAsync(folder);
         try
         {
             Proposals.Clear();
@@ -213,9 +253,11 @@ public sealed class Convert27ViewModel : Observable
         Busy = true;
         try
         {
-            var (report, summary) = await UniformReference.CheckAsync(UniformReference.CurrentSeason(), Settings, Catalog27, Variants, s => Status = s);
-            Status = summary + " Report: " + report;
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(report) { UseShellExecute = true });
+            string season = UniformReference.CurrentSeason();
+            var (report, summary) = await UniformReference.CheckAsync(season, Settings, Catalog27, Variants, s => Status = s);
+            string contact = Path.Combine(UniformReference.Dir(season), "contact-sheet.html");
+            Status = summary + " Visual review: " + contact;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(contact) { UseShellExecute = true });
         }
         catch (Exception ex) { Status = "Uniform check failed: " + ex.Message; }
         finally { Busy = false; }
@@ -286,7 +328,16 @@ public sealed class Convert27ViewModel : Observable
             var name = row.Name;
             LayerLabel? label = null;
             if (name.Layer is { } layer && entries.FirstOrDefault(e => e.Garment == name.Garment) is { } entry)
+            {
                 label = entry.Layers24.FirstOrDefault(l => l.Layer == layer);
+                // A numbered row is labelled by the array layer showing the same picture, never by its own number
+                // (Detroit: numbered 0 is the club crest while array layer 0 is the shield), so the label matches
+                // the stock logo shown next to it.
+                if (!row.IsArray && ArrayRow(name.Garment) is { } arrayRow
+                    && NumberedPairsFor(arrayRow.Slot).FirstOrDefault(kv => kv.Value == ColorSibling(row)) is { Value: not null } pair
+                    && entry.Layers24.FirstOrDefault(l => l.Layer == pair.Key) is { } byPicture)
+                    label = byPicture;
+            }
             var what = Describe(name, label);
             // A layer with no slice in the NHL 24 array cannot be written, however it was labelled.
             if (name.Layer is { } slice && name.Garment.StartsWith("branding", StringComparison.Ordinal))
@@ -297,6 +348,28 @@ public sealed class Convert27ViewModel : Observable
             }
             row.What = what;
         }
+    }
+
+    /// <summary>
+    /// Hides the numbered branding rows NHL 24 does not have: their own layer number has no slice in the array and
+    /// no array slice shows the same picture, so there is nothing to write to. Rows with a source stay visible (they
+    /// are pruned at export instead). Only the current folder's stock images decide; before they load nothing is hidden.
+    /// </summary>
+    void HideMissingSlots()
+    {
+        if (_current is null || _stockFolder != _current.Folder24) return;
+        foreach (var row in _current.Rows)
+        {
+            var name = row.Name;
+            row.Hidden = !row.IsArray && name.Layer is { } slice
+                && name.Garment.StartsWith("branding", StringComparison.Ordinal)
+                && row.Kind == SourceKind.Stock
+                && ArrayRow(name.Garment) is { } arrayRow
+                && !Stock24.ContainsKey($"{arrayRow.Slot}#{slice}")
+                && !NumberedPairsFor(arrayRow.Slot).Any(kv => kv.Value == ColorSibling(row));
+        }
+        foreach (var row in _current.Rows.Where(r => r.Hidden).ToList())
+            Rows.Remove(row);
     }
 
     /// <summary>One slot in words. Branding layers follow the slot map; everything else follows the texture name.</summary>
@@ -339,13 +412,14 @@ public sealed class Convert27ViewModel : Observable
         foreach (var r in Rows) r.PropertyChanged -= OnRowChanged;
         Rows.Clear();
         if (_current is null) return;
-        foreach (var r in _current.Rows.OrderBy(r => r.Garment).ThenBy(r => r.Leaf, StringComparer.Ordinal))
+        foreach (var r in _current.Rows.Where(r => !r.Hidden).OrderBy(r => r.Garment).ThenBy(r => r.Leaf, StringComparer.Ordinal))
         {
             r.PropertyChanged += OnRowChanged;
             r.SourceTextChanged = ResolveSourceText;
             Rows.Add(r);
         }
         LabelSlots();
+        HideMissingSlots();
         _ = DecodeSourcesAsync(Rows.ToList());
         _ = PushRightAsync();
     }
@@ -355,12 +429,14 @@ public sealed class Convert27ViewModel : Observable
         if (_folder24 is null) return;
         var folder = _folder24;
         Stock24 = await Images.Nhl24FolderAsync(folder, s => Status = s, expected: ExpectedFor(folder));
+        _stockFolder = folder;
         _numbered.Clear();
         if (folder != _folder24) return;
         foreach (var r in Rows) UpdateThumbs(r);
         ClampArrayLayers();
+        HideMissingSlots();
         MatchLogoShapes();
-        CompositeBaseColours();
+        RepairBaseColours();
         LabelSlots();
         BakeStamps();
         Status = $"{folder}: {Rows.Count} slots, {Rows.Count(r => r.Kind != SourceKind.Stock || r.Layers.Any(l => l.Source27 != null))} with a source. {Stock24.Count} stock images.";
@@ -473,7 +549,9 @@ public sealed class Convert27ViewModel : Observable
         var store = SlotMaps;
         foreach (var row in Rows)
         {
-            if (!row.IsArray || row.Manual || row.Kind != SourceKind.Stock) continue;
+            // A saved automatic row can already be marked Nhl27 by an earlier branding pass. It still needs
+            // reconciliation: the role map, not that stale source marker, owns every non-manual array layer.
+            if (!row.IsArray || row.Manual) continue;
             var name = row.Name;
             if (name.Role != "color" || !name.Garment.StartsWith("branding", StringComparison.Ordinal)) continue;
             if (!candidates.TryGetValue(name.Garment, out var cands)) continue;
@@ -482,16 +560,15 @@ public sealed class Convert27ViewModel : Observable
             if (images24.All(i => i.Item2 is null) || images27.Count == 0) continue;
             var entry = store.Resolve(_current.Folder24, _folder27, name.Garment, images24, images27);
             var used = ClaimedFor(name.Garment);
-            int linked = 0;
+            var sources = cands.Where(c => c.Layer is not null).ToDictionary(c => c.Layer!.Value, c => c.Name);
+            int linked = SlotRoles.ReconcileColourArray(row, entry, sources);
             foreach (var link in entry.Links.Where(l => l.Nhl27 is not null))
             {
+                if (!sources.TryGetValue(link.Nhl27!.Value, out var source)) continue;
                 var layer = row.Layers.FirstOrDefault(l => l.Layer == link.Nhl24);
-                var source = cands.FirstOrDefault(c => c.Layer == link.Nhl27).Name;
-                if (layer is null || source is null || layer.Source27 is not null || layer.FilePath is not null) continue;
-                layer.Source27 = source;
+                if (layer?.Source27 != source) continue;
                 used.Add(source);
                 arrayLayerSource[(name.Garment, layer.Layer)] = source;
-                linked++;
             }
             if (linked == 0) continue;
             row.Confidence = 1.0;
@@ -618,10 +695,13 @@ public sealed class Convert27ViewModel : Observable
         }
         int shields = KeepShieldOffPants();
         store.Save();
-        if (filled > 0 || shields > 0)
+        // Every colour layer with an NHL 27 source also brings its normal sibling, so the new logo never
+        // sits on the old logo's relief (this runs after the pants rule, so reset layers get nothing).
+        int normals = ManufacturerBranding.PropagateNormals(Rows, n => File.Exists(TextureImages.Nhl27Png(n)));
+        if (filled > 0 || shields > 0 || normals > 0)
         {
             foreach (var r in Rows) UpdateThumbs(r);
-            SuiteLog.Write($"logo shapes: matched {filled} layer(s), {swapped} by layer index, in {Short(_current.Folder24)}");
+            SuiteLog.Write($"logo shapes: matched {filled} layer(s), {swapped} by layer index, {normals} normal(s) followed, in {Short(_current.Folder24)}");
         }
     }
 
@@ -693,7 +773,7 @@ public sealed class Convert27ViewModel : Observable
         await Images.Nhl27Async(wanted, s => Status = s);
         foreach (var r in rows) UpdateThumbs(r);
         MatchLogoShapes();
-        CompositeBaseColours();
+        RepairBaseColours();
         LabelSlots();
         BakeStamps();
         // The NHL 27 sources are decoded now: push the right side so the viewer shows the new art
@@ -771,10 +851,38 @@ public sealed class Convert27ViewModel : Observable
         Status = $"Saved {Project.Folders.Count} folder matches to {MatchProject.DefaultPath}";
     }
 
-    public async Task<string> AddToModListAsync(string name, bool currentFolderOnly)
+    /// <summary>The single Standard-mode action: reconcile the selected uniform, validate it, and refresh the preview.</summary>
+    public async Task ConvertCurrentAsync()
     {
-        if (Catalog27 is null) throw new InvalidOperationException("Not loaded.");
-        var folders = currentFolderOnly && _current is not null ? [_current] : Project.Folders;
+        if (Catalog27 is null || _current is null)
+        {
+            Status = "Choose a uniform first.";
+            return;
+        }
+        Busy = true;
+        try
+        {
+            await LoadStock24Async();
+            var report = await RunPreflightAsync(currentFolderOnly: true);
+            Status = report.Summary;
+            await PushRightAsync();
+        }
+        catch (Exception ex)
+        {
+            PreflightSummary = "The conversion check could not finish";
+            PreflightItems.Clear();
+            PreflightItems.Add(new PreflightItem(PreflightSeverity.Error, "Conversion check failed", ex.Message));
+            Status = PreflightSummary + ": " + ex.Message;
+        }
+        finally { Busy = false; }
+    }
+
+    /// <summary>Runs the same automatic repair and validation path used immediately before every export.</summary>
+    public async Task<PreflightReport> RunPreflightAsync(bool currentFolderOnly, IEnumerable<FolderMatch>? canonicalFolders = null)
+    {
+        if (Catalog27 is null) throw new InvalidOperationException("The texture indexes are not loaded yet.");
+        List<FolderMatch> folders = canonicalFolders?.ToList()
+            ?? (currentFolderOnly && _current is not null ? [_current] : Project.Folders.ToList());
         var sources = folders.SelectMany(f => f.Rows).SelectMany(r => r.Layers.Select(l => l.Source27).Append(r.Kind == SourceKind.Nhl27 ? r.Source27 : null))
             .Where(n => n is not null && Catalog27.ByName.ContainsKey(n)).Select(n => Catalog27.ByName[n!]).ToList();
         // Manufacturer recognition needs every candidate's real alpha, not just an old saved layer pick.
@@ -783,6 +891,69 @@ public sealed class Convert27ViewModel : Observable
                 sources.AddRange(textures.Where(t => TextureName.Parse(t.Name) is { Layer: not null } n
                     && n.Role is "color" or "normal" && IsLogoGarment(n.Garment)));
         await Images.Nhl27Async(sources, s => Status = s);
+
+        var items = new List<PreflightItem>();
+        foreach (var folder in folders)
+        {
+            if (folder.Folder27 is null || !Catalog27.ByFolder.TryGetValue(folder.Folder27, out var textures))
+            {
+                items.Add(new PreflightItem(PreflightSeverity.Error, "No NHL 27 source is selected",
+                    $"{FriendlyFolder(folder.Folder24)}: choose a source in Advanced mode before converting."));
+                continue;
+            }
+            int baseChanges = BaseColourRules.RepairAutomaticBaseColours(folder.Rows, textures);
+            int logoChanges = 0;
+            var entries = new List<SlotMapEntry>();
+            var arrays = folder.Rows.Where(r => r.IsArray && !r.Manual && r.Role == "color"
+                && r.Name.Garment.StartsWith("branding", StringComparison.Ordinal)).ToList();
+            if (arrays.Count > 0)
+            {
+                var stock = await Images.Nhl24FolderAsync(folder.Folder24);
+                foreach (var row in arrays)
+                {
+                    var candidates = textures.Where(t => TextureName.Parse(t.Name) is { Role: "color", Layer: not null } n
+                            && !n.IsArrayName && n.Garment == row.Garment)
+                        .Select(t => (Name: t.Name, Layer: TextureName.Parse(t.Name).Layer!.Value)).ToList();
+                    var images24 = row.Layers.Select(l => (l.Layer, (string?)stock.GetValueOrDefault($"{row.Slot}#{l.Layer}"))).ToList();
+                    var images27 = candidates.Select(c => (c.Layer, (string?)TextureImages.Nhl27Png(c.Name))).ToList();
+                    if (images24.All(i => i.Item2 is null) || images27.Count == 0) continue;
+                    var entry = SlotMaps.Resolve(folder.Folder24, folder.Folder27, row.Garment, images24, images27);
+                    entries.Add(entry);
+                    logoChanges += SlotRoles.ReconcileColourArray(row, entry, candidates.ToDictionary(c => c.Layer, c => c.Name));
+                }
+            }
+            int normalChanges = ManufacturerBranding.PropagateNormals(folder.Rows, n => File.Exists(TextureImages.Nhl27Png(n)));
+            if (baseChanges + logoChanges + normalChanges > 0)
+            {
+                var repairs = new[] { (Count: baseChanges, Name: "base texture"), (Count: logoChanges, Name: "logo layer"),
+                    (Count: normalChanges, Name: "normal map") }.Where(r => r.Count > 0)
+                    .Select(r => $"{r.Count} {r.Name}{(r.Count == 1 ? "" : "s")}");
+                items.Add(new PreflightItem(PreflightSeverity.Repaired, $"Repaired {FriendlyFolder(folder.Folder24)}",
+                    "Updated " + string.Join(", ", repairs) + " automatically. Manual overrides were preserved."));
+            }
+            items.AddRange(ConversionPreflight.InspectRows(folder.Rows,
+                n => File.Exists(TextureImages.Nhl27Png(n)), File.Exists));
+            foreach (var entry in entries) items.AddRange(ConversionPreflight.InspectUnplacedLogos(entry));
+        }
+        var report = new PreflightReport(items);
+        if (report.CanExport && report.WarningCount == 0)
+            items.Insert(0, new PreflightItem(PreflightSeverity.Ready, "This uniform is ready",
+                "Base artwork, logo slots, normal maps, and image sources passed the export checks."));
+        report = new PreflightReport(items);
+        PreflightItems.Clear();
+        foreach (var item in items) PreflightItems.Add(item);
+        PreflightSummary = report.Summary;
+        return report;
+    }
+
+    public async Task<string> AddToModListAsync(string name, bool currentFolderOnly)
+    {
+        if (Catalog27 is null) throw new InvalidOperationException("Not loaded.");
+        var preflight = await RunPreflightAsync(currentFolderOnly);
+        if (!preflight.CanExport)
+            throw new InvalidOperationException(preflight.Summary + ". Review the conversion report before exporting.");
+        List<FolderMatch> folders = currentFolderOnly && _current is not null ? [_current] : Project.Folders.ToList();
+        SlotMaps.Save();
         Project.Save();
         var mod = Project.ToModFile(name, folders);
         var manufacturerLayers = new List<BrandingLayerSet>();
@@ -855,6 +1026,21 @@ public sealed class Convert27ViewModel : Observable
             }
         }
         ManufacturerBranding.ApplyToMod(mod, manufacturerLayers);
+        if (ModFile.Load(ModFile.PathFor(name)) is { } existing)
+        {
+            // Adding to a mod never wipes it: slots this batch touches are replaced, everything else stays.
+            // "Add all matched folders" still rebuilds every matched slot, because the batch covers them all;
+            // entries whose slots are not in the project at all are kept too.
+            var slots = folders.SelectMany(f => f.Rows.Select(r => r.Slot)).ToHashSet(StringComparer.Ordinal);
+            var before = existing.Replacements.Count;
+            existing.Replacements.RemoveAll(r => slots.Contains(r.Slot));
+            existing.Replacements.AddRange(mod.Replacements);
+            existing.Comment = mod.Comment;
+            existing.Legacy ??= mod.Legacy;
+            mod = existing;
+            if (mod.Replacements.Count < before / 2)
+                SuiteLog.Write($"mod '{name}' shrank from {before} to {mod.Replacements.Count} replacements on save");
+        }
         var path = mod.Save();
         Status = $"Saved mod '{name}' with {mod.Replacements.Count} replacements: {path}";
         return path;
@@ -932,6 +1118,43 @@ public sealed class Convert27ViewModel : Observable
         else Status = "NHL 24 skater meshes unavailable: " + problem;
     }
 
+    /// <summary>Loads the matching season home/away band for the viewer's Reference button.</summary>
+    async Task PushReferenceAsync(string folder)
+    {
+        string season = UniformReference.CurrentSeason();
+        bool homeOrAway = folder.EndsWith("/home", StringComparison.Ordinal) || folder.EndsWith("/away", StringComparison.Ordinal);
+        ViewerMessage?.Invoke(new { type = "reference", available = false, loading = homeOrAway });
+        try
+        {
+            UniformViewerReference.Selection? selected = null;
+            if (homeOrAway)
+            {
+                selected = UniformViewerReference.FindLocal(folder, season);
+                if (selected is null)
+                {
+                    using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                    selected = await UniformViewerReference.FetchAsync(folder, season, http);
+                }
+            }
+            if (_folder24 != folder) return; // a slower previous download must not replace the newly selected kit
+            if (selected is null)
+                ViewerMessage?.Invoke(new { type = "reference", available = false, loading = false });
+            else
+                ViewerMessage?.Invoke(new
+                {
+                    type = "reference", available = true, loading = false, season,
+                    team = selected.TeamKey, role = selected.Role, kit = selected.Kit, kits = selected.Kits,
+                    url = ViewerUrl.For(selected.Png),
+                });
+        }
+        catch (Exception ex)
+        {
+            if (_folder24 != folder) return;
+            SuiteLog.Write("viewer reference: " + ex);
+            ViewerMessage?.Invoke(new { type = "reference", available = false, loading = false });
+        }
+    }
+
     async Task PushLeftAsync()
     {
         ViewerMessage?.Invoke(new { type = "labels", left = "NHL 27 · " + Short(_folder27), right = "NHL 24 result · " + Short(_folder24) });
@@ -1007,43 +1230,18 @@ public sealed class Convert27ViewModel : Observable
     }
 
     /// <summary>
-    /// Base colour slots get the plain art with the base map's fabric alpha. Some uniforms carry a sponsor only in the
-    /// plain colour map (no logo-array slot for it), so writing the plain base alone would lose it; this keeps the
-    /// sponsor and the region alpha in one texture.
+    /// Base colour uses the NHL 27 base art, never the plain preview with crests and sponsors already baked in.
+    /// The game adds those logos from the branding arrays; using both sources draws them twice. Also migrates
+    /// automatic composite rows saved by older versions. Explicit stamps and other manual choices stay untouched.
     /// </summary>
-    void CompositeBaseColours()
+    void RepairBaseColours()
     {
         if (Catalog27 is null || _folder27 is null) return;
         if (!Catalog27.ByFolder.TryGetValue(_folder27, out var textures)) return;
-        int made = 0;
-        foreach (var row in Rows)
-        {
-            if (row.Manual || row.IsArray) continue;
-            if (!row.Name.IsBase || row.Name.Role != "color") continue;
-            if (row.Kind != SourceKind.Nhl27 || row.Source27 is null) continue;
-            // Region codes/layout belong to the NHL 24 destination, not the NHL 27 source.
-            var basePng = Stock24.GetValueOrDefault(row.Slot);
-            if (basePng is null) continue;
-            if (!File.Exists(basePng)) continue;
-            var plainCanonical = row.Name.Canonical.Replace("_base_", "_");
-            var plain = textures.FirstOrDefault(t => TextureName.Parse(t.Name).Canonical == plainCanonical);
-            if (plain is null) continue;
-            var artPng = TextureImages.Nhl27Png(plain.Name);
-            if (!File.Exists(artPng)) continue;
-            var composite = TextureImages.CompositeArtWithBaseAlpha(artPng, basePng, row.Slot + "|" + plain.Name);
-            if (composite is null) continue;
-            row.FilePath = composite;
-            row.Source27 = null;
-            row.Kind = SourceKind.File;
-            row.Alpha = "auto";
-            row.Reason = "plain art + NHL 24 fabric alpha (keeps a sponsor that has no logo slot)";
-            made++;
-        }
-        if (made > 0)
-        {
-            foreach (var r in Rows) UpdateThumbs(r);
-            SuiteLog.Write($"composite base colour: {made} row(s) in {Short(_current?.Folder24)}");
-        }
+        int repaired = BaseColourRules.RepairAutomaticBaseColours(Rows, textures);
+        if (repaired == 0) return;
+        foreach (var r in Rows) UpdateThumbs(r);
+        SuiteLog.Write($"base colour: repaired {repaired} row(s) to use unbaked base art in {Short(_current?.Folder24)}");
     }
 
     /// <summary>The picture a row currently produces: its NHL 27 source, its dropped file, or the stock NHL 24 texture.</summary>
@@ -1068,13 +1266,24 @@ public sealed class Convert27ViewModel : Observable
     readonly Dictionary<string, Dictionary<int, string>> _numbered = new(StringComparer.Ordinal);
     readonly Dictionary<string, double[]?> _stockSil = new(StringComparer.Ordinal);
 
-    /// <summary>The numbered texture showing the same picture as an array layer (<see cref="SlotRoles.PairNumbered"/>), or null.</summary>
-    string? NumberedFor(string colorArraySlot, int layer)
+    /// <summary>All array layer ↔ numbered texture pairs of one array (<see cref="SlotRoles.PairNumbered"/>).</summary>
+    IReadOnlyDictionary<int, string> NumberedPairsFor(string colorArraySlot)
     {
         if (!_numbered.TryGetValue(colorArraySlot, out var pairs))
             _numbered[colorArraySlot] = pairs = SlotRoles.PairNumbered(colorArraySlot, Stock24, _stockSil);
-        return pairs.GetValueOrDefault(layer);
+        return pairs;
     }
+
+    /// <summary>The numbered texture showing the same picture as an array layer (<see cref="SlotRoles.PairNumbered"/>), or null.</summary>
+    string? NumberedFor(string colorArraySlot, int layer) => NumberedPairsFor(colorArraySlot).GetValueOrDefault(layer);
+
+    /// <summary>The colour-array row of a branding garment — the one the numbered textures mirror.</summary>
+    SlotMatch? ArrayRow(string garment) =>
+        _current?.Rows.FirstOrDefault(r => r.IsArray && r.Role == "color" && r.Garment == garment);
+
+    /// <summary>The numbered colour slot a numbered normal/coeff row mirrors (…_N_normal → …_N_color).</summary>
+    static string ColorSibling(SlotMatch row) => row.Role == "color" ? row.Slot
+        : row.Slot.EndsWith("_" + row.Role, StringComparison.Ordinal) ? row.Slot[..^(row.Role.Length + 1)] + "_color" : row.Slot;
 
     public string? StockImage(SlotMatch row) => Stock24.GetValueOrDefault(row.Slot) ?? Stock24.GetValueOrDefault(row.Slot + "#0");
 

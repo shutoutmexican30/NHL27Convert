@@ -35,19 +35,19 @@ public sealed class BundleIndex
 
     BundleIndex(string game) { Game = game; }
 
-    public static string CasPath(string game, bool patch, int catalog, int cas) => Path.Combine(game, patch ? "Patch" : "Data", "Gen4b",
-        "superbundlelayout", $"nhl_installpackage_{catalog:D2}", $"cas_{cas:D2}.cas");
+    /// <summary>The CAS file a chunk location names. In a merged install (the 1.60 update folded into Data and the
+    /// Patch folder deleted — the CIMS game copy's layout) a patch-flagged location resolves to the Data copy.</summary>
+    public static string CasPath(string game, bool patch, int catalog, int cas)
+    {
+        var root = patch ? GameLayout.PatchDir(game) : GameLayout.DataDir(game);
+        var path = Path.Combine(root, "Gen4b", "superbundlelayout", $"nhl_installpackage_{catalog:D2}", $"cas_{cas:D2}.cas");
+        if (patch && !File.Exists(path)) return CasPath(game, false, catalog, cas);
+        return path;
+    }
 
-    public static IEnumerable<string> Tocs(string game) => new[] { "Patch", "Data" }.Select(s => Path.Combine(game, s)).Where(Directory.Exists)
+    public static IEnumerable<string> Tocs(string game) => GameLayout.Layers(game)
         .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories)).Order(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>One TOC's bundle records with their entry locations (no CAS reads).</summary>
-    public static List<(int RecordAt, List<Location> Entries)> Records(string toc, byte[] b)
-    {
-        var list = new List<(int, List<Location>)>();
-        const int H = TocFile.HeaderSize;
-        if (b.Length < H + 64 || b[1] != 0xD1 || b[2] != 0xCE) return list;
-        uint F(int i) => BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(H + 4 * i));
     /// <summary>The install folder above a TOC. TOCs can sit below Gen4b (levels/game/game.toc), so walk up to it.</summary>
     static string GameFolderOf(string toc)
     {
@@ -57,6 +57,13 @@ public sealed class BundleIndex
         return Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(toc)))!;
     }
 
+    /// <summary>One TOC's bundle records with their entry locations (no CAS reads).</summary>
+    public static List<(int RecordAt, List<Location> Entries)> Records(string toc, byte[] b)
+    {
+        var list = new List<(int, List<Location>)>();
+        const int H = TocFile.HeaderSize;
+        if (b.Length < H + 64 || b[1] != 0xD1 || b[2] != 0xCE) return list;
+        uint F(int i) => BinaryPrimitives.ReadUInt32BigEndian(b.AsSpan(H + 4 * i));
         long table = H + F(1), count = F(2);
         if (count == 0 || table + count * 16 > b.Length) return list;
         var game = GameFolderOf(toc);

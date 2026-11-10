@@ -51,7 +51,7 @@
       <!-- Start -->
       <TextBlock Text="Start" FontSize="18" FontWeight="SemiBold" Margin="0,16,0,10" />
       <WrapPanel>
-        <Button Style="{StaticResource Action}" Content="Open Convert 27 (matcher + viewer)" Click="Convert_Click" />
+        <Button Style="{StaticResource Action}" Content="Convert uniforms" Click="Convert_Click" />
         <Button Style="{StaticResource Action}" Content="Open mods folder" Click="Mods_Click" />
         <Button Style="{StaticResource Action}" Content="Edit settings" Click="Settings_Click" />
       </WrapPanel>
@@ -60,7 +60,7 @@
       <TextBlock Text="Status" FontSize="18" FontWeight="SemiBold" Margin="0,24,0,10" />
       <TextBlock Foreground="#aab4c3" TextWrapping="Wrap" LineHeight="20" MaxWidth="1000" HorizontalAlignment="Left">
         <Run Text="Ready: " Foreground="#5fc97a" FontWeight="SemiBold" />
-        <Run Text="Convert 27 matcher (proposals with confidence, manual edits, drag-and-drop, mod list) and the live side-by-side GPU uniform viewer." />
+        <Run Text="Guided uniform conversion with automatic logo and material checks, a live preview, and an Advanced workspace for custom texture work." />
         <LineBreak />
         <Run Text="Next: " Foreground="#f0c04c" FontWeight="SemiBold" />
         <Run Text="the suite's own NHL 24 writer (append to CAS, repoint TOC/bundle/RES/SHA1, kept list, restore), then Teams &amp; roster. Until then NHL 24 reads go through the built NHL24Kit Worker as a stopgap, via an isolated read view so FMT never writes into the game folder." />

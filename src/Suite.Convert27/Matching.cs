@@ -43,6 +43,8 @@ public sealed class SlotMatch : Observable
     public string Reason { get => _reason; set => Set(ref _reason, value); }
     /// <summary>Set once the user has touched this row; re-proposing never overwrites a manual row.</summary>
     public bool Manual { get => _manual; set => Set(ref _manual, value); }
+    /// <summary>True when the slot does not exist in NHL 24 (no array slice and no picture twin): hidden from the grid.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public bool Hidden { get; set; }
     string _what = "";
     /// <summary>What this slot is for the game, in words (team crest, brand, back-hem tag, sponsor...).</summary>
     public string What { get => _what; set => Set(ref _what, value); }

@@ -20,6 +20,11 @@
   #numspanel .num { display: flex; flex-direction: column; gap: 4px; align-items: center; }
   #numspanel img { width: 230px; height: 230px; object-fit: contain; background: #1f2633; border-radius: 4px; }
   #numspanel span { font-size: 10px; color: #9fb4cf; }
+  #referenceBtn:disabled { opacity: .4; cursor: default; }
+  #reference { position: absolute; left: 0; top: 0; bottom: 44px; width: 50%; display: none; box-sizing: border-box; padding: 42px 12px 12px; background: #171d26; align-items: center; justify-content: center; flex-direction: column; overflow: hidden; }
+  #refcrop { position: relative; width: 100%; aspect-ratio: 960 / 450; overflow: hidden; border: 1px solid #344452; border-radius: 5px; background: #aab0b4; }
+  #refimg { position: absolute; left: 0; width: 100%; height: auto; }
+  #refnote { width: 100%; margin-top: 8px; color: #9fb4cf; font-size: 11px; line-height: 1.4; text-align: center; }
 </style>
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
@@ -33,10 +38,15 @@
   <div class="num"><span>NHL 27 numbers</span><img id="numL" alt=""></div>
   <div class="num"><span>NHL 24 result numbers</span><img id="numR" alt=""></div>
 </div>
+<div id="reference">
+  <div id="refcrop"><img id="refimg" alt="Season uniform reference"></div>
+  <div id="refnote">Reference artwork only · compare crest, shoulders, sponsor, colours and striping</div>
+</div>
 <div id="bar">
   <button data-mode="lit" class="on">Shaded</button>
   <button data-mode="flat">Flat texture</button>
   <button data-mode="regions">Fabric regions</button>
+  <button id="referenceBtn" disabled title="Show the season reference beside the converted result">Reference</button>
   <button id="spin">Turntable</button>
   <button id="helmetBtn" class="on">Helmet</button>
   <button id="headBtn" class="on">Head</button>
@@ -301,7 +311,7 @@ async function loadMeshes(items) {
   }
   const box = new THREE.Box3().setFromObject(left.body);
   document.getElementById('note').textContent =
-    `NHL 24 skater meshes (LOD0, bind pose) · height ${box.max.y.toFixed(2)} m · width ${(box.max.x - box.min.x).toFixed(2)} m`;
+    `Simplified preview · solid helmet/glove colors, not the game's 15-zone materials · NHL 24 meshes · height ${box.max.y.toFixed(2)} m`;
   window.chrome?.webview?.postMessage({ type: 'meshes', count: ok.length, height: box.max.y, width: box.max.x - box.min.x });
 }
 
@@ -325,7 +335,21 @@ const VIEWS = {
 function view(name) { const v = VIEWS[name]; if (!v) return; camera.position.set(...v[0]); controls.target.set(...v[1]); controls.update(); }
 
 function exportPng() {
-  const a = document.createElement('a'); a.download = 'uniform.png'; a.href = canvas.toDataURL('image/png'); a.click();
+  let url = canvas.toDataURL('image/png'), filename = 'uniform.png';
+  const img = document.getElementById('refimg');
+  if (referenceShown && referenceData && img.complete && img.naturalWidth) {
+    const out = document.createElement('canvas');
+    out.width = canvas.width; out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#171d26'; ctx.fillRect(0, 0, out.width, out.height);
+    const half = out.width / 2, sw = img.naturalWidth, sh = img.naturalHeight / referenceData.kits;
+    const scale = Math.min(half / sw, out.height / sh);
+    ctx.drawImage(img, 0, referenceData.kit * sh, sw, sh,
+      (half - sw * scale) / 2, (out.height - sh * scale) / 2, sw * scale, sh * scale);
+    ctx.drawImage(canvas, half, 0, half, out.height, half, 0, half, out.height);
+    url = out.toDataURL('image/png'); filename = 'uniform-reference-comparison.png';
+  }
+  const a = document.createElement('a'); a.download = filename; a.href = url; a.click();
 }
 
 function resize() {
@@ -492,6 +516,43 @@ function setFontImage(side, url) {
   setJerseyNumber(side, url);
 }
 
+let referenceData = null, referenceShown = false;
+let baseLabels = { left: 'NHL 27', right: 'NHL 24 result' };
+function updateReference() {
+  const button = document.getElementById('referenceBtn');
+  const panel = document.getElementById('reference');
+  button.disabled = !referenceData;
+  button.classList.toggle('on', referenceShown && !!referenceData);
+  panel.style.display = referenceShown && referenceData ? 'flex' : 'none';
+  document.getElementById('l1').textContent = referenceShown && referenceData
+    ? `${referenceData.season} · ${referenceData.team} ${referenceData.role} reference` : baseLabels.left;
+  document.getElementById('l2').textContent = baseLabels.right;
+  if (!referenceData) return;
+  const img = document.getElementById('refimg');
+  if (img.getAttribute('src') !== referenceData.url) {
+    img.crossOrigin = 'anonymous';
+    img.src = referenceData.url;
+  }
+  img.style.top = `${-referenceData.kit * 100}%`;
+}
+function setReference(msg) {
+  const button = document.getElementById('referenceBtn');
+  if (msg.loading) {
+    referenceData = null; referenceShown = false;
+    button.textContent = 'Loading…';
+  } else {
+    button.textContent = 'Reference';
+    referenceData = msg.available ? msg : null;
+    if (!referenceData) referenceShown = false;
+  }
+  updateReference();
+}
+document.getElementById('referenceBtn').onclick = () => {
+  if (!referenceData) return;
+  referenceShown = !referenceShown;
+  updateReference();
+};
+
 function handle(msg) {
   if (!msg) return;
   if (msg.type === 'tex') setTexture(msg.side, msg.part, msg.role, msg.url);
@@ -499,7 +560,8 @@ function handle(msg) {
   else if (msg.type === 'font') setFontImage(msg.side, msg.url);
   else if (msg.type === 'colors') setTeamColors(msg.primary, msg.secondary);
   else if (msg.type === 'helmetlogo') setHelmetLogo(msg.side, msg.url);
-  else if (msg.type === 'labels') { document.getElementById('l1').textContent = msg.left; document.getElementById('l2').textContent = msg.right; }
+  else if (msg.type === 'labels') { baseLabels = { left: msg.left, right: msg.right }; updateReference(); }
+  else if (msg.type === 'reference') setReference(msg);
   else if (msg.type === 'mode') { mode = msg.mode; applyMode(); }
   else if (msg.type === 'meshes') loadMeshes(msg.items);
   else if (msg.type === 'view') view(msg.name);

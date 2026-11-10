@@ -68,6 +68,104 @@ public static class ManufacturerBranding
         }
     }
 
+    /// <summary>
+    /// Every colour pick also sets the matching normal: layer N of a <c>…_color_array</c> fills layer N of its
+    /// <c>…_normal_array</c> with the source's normal sibling (…_color → …_normal), and a numbered <c>…_N_color</c>
+    /// row fills its <c>…_N_normal</c> sibling the same way. A colour layer that keeps its NHL 24 image keeps the
+    /// stock normal, so the new crest never sits on the old crest's relief (Utah colour over Coyotes stitching).
+    /// Automatic array picks are reconciled, not just filled when empty: an old saved normal cannot survive a corrected
+    /// colour pick, and a colour layer returned to stock returns its normal to stock too. A manual normal row or an
+    /// explicit file supplied by <see cref="ApplyToRows"/> is never overridden. Returns how many picks changed.
+    /// </summary>
+    public static int PropagateNormals(IEnumerable<SlotMatch> rows, Func<string, bool> nhl27PngExists)
+    {
+        var list = rows.ToList();
+        var touched = new HashSet<SlotMatch>();
+        int changed = 0;
+        string? Sibling(string? source) =>
+            source is not null && source.EndsWith("_color", StringComparison.Ordinal)
+                ? source[..^"_color".Length] + "_normal" : null;
+
+        foreach (var color in list.Where(r => r.Role == "color"))
+        {
+            if (color.IsArray)
+            {
+                if (!color.Slot.EndsWith("_color_array", StringComparison.Ordinal)) continue;
+                var normal = list.FirstOrDefault(r => r.IsArray && !r.Manual
+                    && r.Slot == color.Slot[..^"_color_array".Length] + "_normal_array");
+                if (normal is null) continue;
+                foreach (var layer in color.Layers)
+                {
+                    var target = normal.Layers.FirstOrDefault(l => l.Layer == layer.Layer);
+                    if (target is null) continue;
+                    if (layer.Source27 is null)
+                    {
+                        // ApplyToRows supplies an explicit colour/normal file pair; that pair owns this layer.
+                        if (layer.FilePath is not null || target.Source27 is null && target.FilePath is null) continue;
+                        target.Source27 = null;
+                        target.FilePath = null;
+                        touched.Add(normal);
+                        changed++;
+                        continue;
+                    }
+                    // A Fanatics file pair is selected as a unit and must not be replaced by a source-path guess.
+                    if (target.FilePath is not null) continue;
+                    if (Sibling(layer.Source27) is not { } sib || !nhl27PngExists(sib) || target.Source27 == sib) continue;
+                    target.Source27 = sib;
+                    touched.Add(normal);
+                    changed++;
+                }
+            }
+            else
+            {
+                if (color.Source27 is null || !color.Slot.EndsWith("_color", StringComparison.Ordinal)) continue;
+                var normal = list.FirstOrDefault(r => !r.IsArray && !r.Manual && r.Kind == SourceKind.Stock
+                    && r.Slot == color.Slot[..^"_color".Length] + "_normal");
+                if (normal is null) continue;
+                if (Sibling(color.Source27) is not { } sib || !nhl27PngExists(sib)) continue;
+                normal.Kind = SourceKind.Nhl27;
+                normal.Source27 = sib;
+                normal.Confidence = color.Confidence;
+                normal.Reason = "normal follows the colour pick; the stock relief would show through";
+                changed++;
+            }
+        }
+        foreach (var row in touched)
+        {
+            row.Confidence = 1;
+            row.Reason = "normal layers follow the colour layers of the same logo (never the stock layer order)";
+        }
+        return changed;
+    }
+
+    /// <summary>Adds the matching clean coefficient array to a full-kit addition; base-garment coeff maps stay stock.</summary>
+    public static NewUniformTexture CoefficientFor(NewUniformTexture color)
+    {
+        if (!color.SourceSlot.EndsWith("_color_array", StringComparison.Ordinal) || color.Artwork.Layers is not { Count: > 0 })
+            throw new InvalidDataException("A coefficient array needs its complete converted colour-array layers.");
+        string source = color.SourceSlot[..^"_color_array".Length] + "_coeff_array";
+        string target = color.TargetSlot.Length == 0 ? "" : color.TargetSlot[..^"_color_array".Length] + "_coeff_array";
+        return new NewUniformTexture
+        {
+            SourceSlot = source,
+            TargetSlot = target,
+            RequiredRoles = color.RequiredRoles?.ToList(),
+            Artwork = new TextureReplacement(source, "", color.Artwork.Layers.ToDictionary(kv => kv.Key, kv => "coeff:" + kv.Value)),
+        };
+    }
+
+    /// <summary>Older saved addition mods did not carry coefficient arrays. Supply them deterministically on install.</summary>
+    public static void EnsureCoefficientArrays(NewUniformAddition addition)
+    {
+        foreach (var color in addition.Textures.Where(t => t.SourceSlot.EndsWith("_color_array", StringComparison.Ordinal)
+                     && t.Artwork.Layers is { Count: > 0 }).ToList())
+        {
+            var coefficient = CoefficientFor(color);
+            addition.Textures.RemoveAll(t => t.SourceSlot == coefficient.SourceSlot);
+            addition.Textures.Add(coefficient);
+        }
+    }
+
     public static bool IsAdidas(LayerLabel label) => label.Role == "brand"
         && label.Detail?.StartsWith("adidas", StringComparison.OrdinalIgnoreCase) == true;
     public static bool IsFanatics(LayerLabel label) => label.Role == "brand"

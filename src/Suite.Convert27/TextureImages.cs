@@ -99,7 +99,8 @@ public sealed class TextureImages(SuiteSettings settings)
     public async Task<Dictionary<string, string>> Nhl27Async(IEnumerable<Nhl27Texture> textures, Action<string>? progress = null, CancellationToken ct = default)
     {
         var list = textures.DistinctBy(t => t.Name).ToList();
-        var missing = list.Where(t => !File.Exists(Nhl27Png(t.Name))).ToList();
+        var missing = list.Where(t => !File.Exists(Nhl27Png(t.Name))
+            || t.Slices > 1 && Enumerable.Range(0, t.Slices).Any(i => !File.Exists(Nhl27Png($"{t.Name}#{i}")))).ToList();
         if (missing.Count > 0)
         {
             // De-duplicate in-flight decodes: two simultaneous calls for the same texture would race the
@@ -121,6 +122,8 @@ public sealed class TextureImages(SuiteSettings settings)
                     {
                         name = t.Name, pkg = t.Pkg, cas = t.Cas, tree = t.Tree, offset = t.Offset, size = t.Size,
                         width = t.Width, height = t.Height, format = t.Format, @out = Nhl27Png(t.Name),
+                        slices = t.Slices,
+                        sliceOuts = t.Slices > 1 ? Enumerable.Range(0, t.Slices).Select(i => Nhl27Png($"{t.Name}#{i}")).ToArray() : null,
                     }).ToList();
                     File.WriteAllText(jobFile, JsonSerializer.Serialize(jobs));
                     int done = 0;

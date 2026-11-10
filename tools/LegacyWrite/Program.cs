@@ -19,11 +19,9 @@ Say("oodle: " + Oodle.LoadedFrom);
 if (args[0] == "chunk")
 {
     var id = Guid.Parse(args[2]);
-    var reference = new[] { "Patch", "Data" }.Select(s => Path.Combine(game, s)).Where(Directory.Exists)
-        .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
-        .Select(TocFile.Load).Select(t => t.Find(id)).FirstOrDefault(r => r is not null)
+    var reference = BundleIndex.Tocs(game).Select(TocFile.Load).Select(t => t.Find(id)).FirstOrDefault(r => r is not null)
         ?? throw new InvalidDataException("No top-level TOC entry for " + id);
-    var cas = Path.Combine(game, reference.Patch ? "Patch" : "Data", "Gen4b", "superbundlelayout", $"nhl_installpackage_{reference.Catalog:D2}", $"cas_{reference.Cas:D2}.cas");
+    var cas = BundleIndex.CasPath(game, reference.Patch, reference.Catalog, reference.Cas);
     using var stream = File.OpenRead(cas); stream.Position = reference.Offset;
     var stored = new byte[reference.Size]; stream.ReadExactly(stored);
     var raw = ChunkBlocks.Parse(stored).Decode();

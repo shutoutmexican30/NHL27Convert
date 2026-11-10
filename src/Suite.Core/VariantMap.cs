@@ -54,7 +54,28 @@ public sealed class VariantMap
             File.Copy(UserPath, UserPath + $".before-format{Parse(File.ReadAllText(ShippedPath)).Format}", true);
             File.Copy(ShippedPath, UserPath, true);
         }
-        return File.Exists(UserPath) ? Parse(File.ReadAllText(UserPath)) : new VariantMap();
+        var user = File.Exists(UserPath) ? Parse(File.ReadAllText(UserPath)) : new VariantMap();
+        if (!File.Exists(ShippedPath)) return user;
+        var shipped = Parse(File.ReadAllText(ShippedPath));
+        int repaired = RepairMissingCurrentTeams(user, shipped);
+        if (repaired > 0)
+        {
+            File.Copy(UserPath, UserPath + ".before-current-team-repair", true);
+            File.WriteAllText(UserPath, JsonSerializer.Serialize(user, new JsonSerializerOptions { WriteIndented = true }));
+            SuiteLog.Write($"variant map: restored {repaired} missing current NHL team(s); custom mappings preserved");
+        }
+        return user;
+    }
+
+    /// <summary>Adds required current NHL teams absent from a hand-edited user map without replacing any custom entry.</summary>
+    public static int RepairMissingCurrentTeams(VariantMap user, VariantMap shipped)
+    {
+        var missing = shipped.Teams.Where(t => t.Index is >= 0 and <= 31)
+            .Where(s => !user.Teams.Any(u => u.Index == s.Index)).ToList();
+        if (missing.Count == 0) return 0;
+        user.Teams.AddRange(missing);
+        user.Teams = user.Teams.OrderBy(t => t.Index).ToList();
+        return missing.Count;
     }
 
     public static VariantMap Parse(string json) => JsonSerializer.Deserialize<VariantMap>(json) ?? new VariantMap();

@@ -3,6 +3,30 @@
  "comment": "Hand-editable. Default home (dark) / away (light) jersey variant per team, from stockteamjerseys (isdefault=1, islightcolor). Folder = texture set folder (0 home, 1 away, n = number word). The Convert 27 matcher pairs NHL 24 home with NHL 27 home and away with away using this file. extraKits: NHL 27 adidas sets with no NHL 24 folder (besides the default home/away). NHL 24 cannot get new texture folders, so each can replace an existing NHL 24 set: 'replaces24' is a suggestion (an old adidas alternate, never home/away/retro); set it to null to skip. Nothing is applied from here.",
  "teams": [
   {
+   "index": 0,
+   "name24": "Anaheim Ducks",
+   "name27": "Anaheim Ducks",
+   "nhl24": {
+    "folder": "anaheim",
+    "homeVariant": 0,
+    "home": "home",
+    "awayVariant": 1,
+    "away": "away",
+    "homeExists": true,
+    "awayExists": true
+   },
+   "nhl27": {
+    "folder": "anaheim",
+    "homeVariant": 10,
+    "home": "ten",
+    "awayVariant": 11,
+    "away": "eleven",
+    "homeExists": true,
+    "awayExists": true
+   },
+   "extraKits": []
+  },
+  {
    "index": 1,
    "name24": "Winnipeg Jets",
    "name27": "Winnipeg Jets",

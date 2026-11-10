@@ -44,7 +44,7 @@ public sealed class UniformStudioViewModel : Observable
         set
         {
             if (value == _settings.Nhl24GameDir) return;
-            _settings.Nhl24GameDir = value;
+            _settings.UseGameBuild(value, value);
             _settings.Save();
             Raise();
             _ = LoadAsync();

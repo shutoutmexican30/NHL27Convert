@@ -171,6 +171,30 @@ public static class SlotRoles
     }
 
     /// <summary>
+    /// Reconciles an automatic colour-array row with its role map. Older saved projects can contain a wrong automatic
+    /// pick (or no pick) even after the map has been corrected, so filling only empty layers is not enough. A manual
+    /// array row is never changed. Returns the number of layer picks changed.
+    /// </summary>
+    public static int ReconcileColourArray(SlotMatch row, SlotMapEntry entry, IReadOnlyDictionary<int, string> sources27)
+    {
+        if (row.Manual) return 0;
+        int changed = 0;
+        foreach (var link in entry.Links)
+        {
+            var layer = row.Layers.FirstOrDefault(l => l.Layer == link.Nhl24);
+            if (layer is null) continue;
+            string? source = link.Nhl27 is { } n ? sources27.GetValueOrDefault(n) : null;
+            // A missing decoded source must not erase an existing pick; it can appear after the next decode pass.
+            if (link.Nhl27 is not null && source is null) continue;
+            if (layer.Source27 == source && (source is not null || layer.FilePath is null)) continue;
+            layer.Source27 = source;
+            layer.FilePath = null;
+            changed++;
+        }
+        return changed;
+    }
+
+    /// <summary>
     /// Which numbered texture (…_N_color) shows the same stock picture as each layer of a colour array, from the folder's
     /// stock images (<paramref name="stock"/>: slot name → PNG, array layers as "slot#layer").  NHL 24 keeps its branding
     /// arrays in its own order (Detroit pants: array 0 = NHL shield, 1 = club; numbered 0 = club, 1 = empty grey,

@@ -28,11 +28,9 @@ public sealed class BundleChunks
 
     sealed record Hit(string Toc, int PairsAt, int ChunkPair, int Sha1At, string Cas, uint ManifestOff, uint ManifestSize, uint ChunkOff, uint ChunkSize);
 
-    string CasPath(bool patch, int cat, int cas) => Path.Combine(_game, patch ? "Patch" : "Data", "Gen4b", "superbundlelayout",
-        $"nhl_installpackage_{cat:D2}", $"cas_{cas:D2}.cas");
+    string CasPath(bool patch, int cat, int cas) => BundleIndex.CasPath(_game, patch, cat, cas);
 
-    IEnumerable<string> Tocs() => new[] { "Patch", "Data" }.Select(s => Path.Combine(_game, s)).Where(Directory.Exists)
-        .SelectMany(d => Directory.EnumerateFiles(d, "*.toc", SearchOption.AllDirectories)).Order(StringComparer.OrdinalIgnoreCase);
+    IEnumerable<string> Tocs() => BundleIndex.Tocs(_game);
 
     /// <summary>Every bundle record whose first EBX is one of <paramref name="names"/> and that holds exactly one chunk.</summary>
     Dictionary<string, List<Hit>> Find(IReadOnlySet<string> names, Dictionary<string, byte[]> tocBytes, Action<string>? progress)

@@ -17,14 +17,68 @@ public static class ModApply
     {
         var dir = SuitePaths.Mods;
         if (!Directory.Exists(dir)) return [];
-        return Directory.GetFiles(dir, "*.json")
+        var mods = Directory.GetFiles(dir, "*.json")
             .Select(ModFile.Load)
             .OfType<ModFile>()
             .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        int repaired = RepairLegacyJerseyBases(mods);
+        if (repaired > 0) SuiteLog.Write($"mod library: repaired {repaired} legacy jersey base(s) to unbaked NHL 27 art");
+        return mods;
     }
 
-    public static int TotalReplacements(IEnumerable<ModFile> mods) => mods.Sum(m => m.Replacements.Count);
+    static IEnumerable<ModFile> ReplacementMods(IEnumerable<ModFile> mods) =>
+        mods.Where(m => !string.Equals(m.Kind, NewUniformAddition.ModKind, StringComparison.Ordinal));
+
+    /// <summary>One effective replacement per slot. Addition mods are never ordinary overwrites.</summary>
+    public static List<TextureReplacement> EffectiveReplacements(IEnumerable<ModFile> mods) =>
+        ReplacementMods(mods).SelectMany(m => m.Replacements).GroupBy(r => r.Slot, StringComparer.Ordinal).Select(g => g.Last()).ToList();
+
+    public static int TotalReplacements(IEnumerable<ModFile> mods) => EffectiveReplacements(mods).Count;
+    public static int OverlappingEntries(IEnumerable<ModFile> mods) => ReplacementMods(mods).Sum(m => m.Replacements.Count) - TotalReplacements(mods);
+
+    /// <summary>
+    /// Older exports put the baked jersey sheet into a generated composite and then drew branding over it again.
+    /// Recover the exact unbaked base from the corresponding NHL 27 base-normal path. Pants and socks are not jersey
+    /// branding overlays and are deliberately untouched. The repair is in memory; saved mods are never rewritten here.
+    /// </summary>
+    public static int RepairLegacyJerseyBases(IEnumerable<ModFile> mods, Func<string, bool>? fileExists = null)
+    {
+        fileExists ??= File.Exists;
+        int changed = 0;
+        foreach (var mod in mods)
+        {
+            var normals = mod.Replacements
+                .Where(r => r.Slot.EndsWith("_base_normal", StringComparison.Ordinal) && r.Source.EndsWith("_base_normal.png", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(r => r.Slot[..^"_base_normal".Length], StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Last().Source, StringComparer.Ordinal);
+            for (int i = 0; i < mod.Replacements.Count; i++)
+            {
+                var row = mod.Replacements[i];
+                if (!IsLegacyJerseyBase(row)) continue;
+                var prefix = row.Slot[..^"_base_color".Length];
+                if (!normals.TryGetValue(prefix, out var normal)) continue;
+                var exact = normal[..^"_base_normal.png".Length] + "_base_color.png";
+                if (!fileExists(exact)) continue;
+                mod.Replacements[i] = row with { Source = exact, Alpha = "auto" };
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    static bool IsLegacyJerseyBase(TextureReplacement row)
+    {
+        var leaf = row.Slot.Split('/')[^1];
+        return leaf.StartsWith("jersey_", StringComparison.Ordinal) && leaf.EndsWith("_base_color", StringComparison.Ordinal)
+            && row.Source.Replace('\\', '/').Contains("/composite/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Unrepairable legacy bases are blocking: applying them would reproduce doubled logos.</summary>
+    public static List<string> LegacyBaseProblems(IEnumerable<ModFile> mods) => mods.SelectMany(m => m.Replacements
+        .Where(IsLegacyJerseyBase)
+        .Select(r => $"{m.Name}: {r.Slot.Split('/')[^1]} is a legacy baked composite; its exact NHL 27 base_color.png was not found. Re-run Check & convert before Apply."))
+        .ToList();
 
     /// <summary>
     /// Every replacement must point at a source image that still exists (or be a generated coeff). Checked before an
@@ -32,11 +86,12 @@ public static class ModApply
     /// </summary>
     public static List<string> SourceProblems(IEnumerable<ModFile> mods)
     {
-        var problems = new List<string>();
-        foreach (var mod in mods)
+        var list = mods.ToList();
+        var problems = LegacyBaseProblems(list);
+        foreach (var mod in list)
         foreach (var l in mod.Legacy ?? [])
             if (!File.Exists(l.Source)) problems.Add($"{mod.Name}: {l.Name} has no source file ({l.Source})");
-        foreach (var mod in mods)
+        foreach (var mod in list)
         foreach (var r in mod.Replacements)
         {
             var slot = r.Slot.Split('/')[^1];
@@ -59,7 +114,7 @@ public static class ModApply
     {
         // Legacy files (roster databases) are not sent to the Worker: its writer cannot reach TOC chunks. They are written
         // by the suite's own Suite.Core.Frostbite.LegacyApply from the Teams & roster page.
-        var plan = new { Replacements = mods.SelectMany(m => m.Replacements).ToList() };
+        var plan = new { Replacements = EffectiveReplacements(mods) };
         var path = Path.Combine(SuitePaths.Local, "apply-plan.json");
         File.WriteAllText(path, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
         return path;
@@ -69,7 +124,7 @@ public static class ModApply
     public static List<string> Problems(SuiteSettings s)
     {
         if (string.IsNullOrWhiteSpace(s.ApplyTargetDir))
-            return ["No apply target set. In Settings, set ApplyTargetDir to one complete game folder (package.mft + Data + Patch, no links)."];
+            return ["No apply target set. Choose an NHL 24 build with an Apply destination in the main window's build selector."];
         return ApplyTarget.Problems(s.ApplyTargetDir);
     }
 
@@ -84,10 +139,10 @@ public static class ModApply
         if (TotalReplacements(mods) == 0) return Task.FromResult((false, "The mod list is empty."));
         var missing = SourceProblems(mods);
         if (missing.Count > 0)
-            return Task.FromResult((false, $"Apply refused: {missing.Count} source file(s) are missing.\n" +
+            return Task.FromResult((false, $"Apply refused: {missing.Count} mod source problem(s) need attention.\n" +
                 string.Join("\n", missing.Take(12)) + (missing.Count > 12 ? $"\n… and {missing.Count - 12} more" : "")));
         WritePlan(mods);   // kept on disk as a record of what was applied
-        return ApplyReplacementsAsync(s, mods.SelectMany(m => m.Replacements).ToList(), progress, ct);
+        return ApplyReplacementsAsync(s, EffectiveReplacements(mods), progress, ct);
     }
 
     public static Task<(bool Ok, string Message)> ApplyPlanAsync(SuiteSettings s, string planPath, Action<string>? progress = null, CancellationToken ct = default)
@@ -105,10 +160,13 @@ public static class ModApply
         // Coeff layers generated by the matcher ("coeff:...") stay stock: the base coeff rule.
         list = list.Select(r => r.Layers is null ? r : r with { Layers = r.Layers.Where(kv => !kv.Value.StartsWith("coeff:", StringComparison.Ordinal)).ToDictionary() })
                    .Where(r => r.Source.Length > 0 || r.Layers is { Count: > 0 }).ToList();
-        var (ok, message, backup) = await Task.Run(() => Suite.Core.Frostbite.TextureSlots.Apply(target, list, progress), ct);
-        if (ok && backup is not null) File.AppendAllText(UndoFile(target), backup + "\n");
+        var (ok, message, backup) = await Task.Run(() => Suite.Core.Frostbite.TextureSlots.Apply(target, list, progress, s.Workers), ct);
+        if (ok && backup is not null) RecordUndo(target, backup);
         return (ok, message);
     }
+
+    internal static void RecordUndo(string target, string backup) =>
+        File.AppendAllText(UndoFile(Full(target)), backup + "\n");
 
     /// <summary>Undoes the last texture apply: puts the game back to the backup taken right before it, and verifies it.</summary>
     public static Task<(bool Ok, string Message)> RestoreAsync(SuiteSettings s, Action<string>? progress = null, CancellationToken ct = default)
