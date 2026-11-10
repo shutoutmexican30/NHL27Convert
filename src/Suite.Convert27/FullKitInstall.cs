@@ -115,7 +115,7 @@ public sealed class FullKitInstall
         var slotMap = SlotMapStore.Load();
         int overrides = MatcherOverrides.Apply(mods, slotMap, o.Say);
         if (overrides > 0) o.Say($"{overrides} manual matcher decision(s) applied");
-        DuplicateLogoLayers.Apply(mods, o.Say);
+        DuplicateLogoLayers.Apply(mods, array => SponsorSlots.PhysicalRoles(index, array), o.Say);
         ShoulderPatches.FitArt(mods, slotMap, o.Say);
         mods = SponsorSlots.AddMissing(mods, index, o.Say);
         ShoulderPatches.PlaceSides(mods, slotMap, index, o.Say);

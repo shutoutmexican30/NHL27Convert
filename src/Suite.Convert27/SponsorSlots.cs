@@ -137,9 +137,26 @@ public static class SponsorSlots
             }
             if (added.Count == 0 && !unify) continue;
             addition.HotspotLayouts.Add(WithAdded(copies[0], added));
-            say?.Invoke($"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => a.Role))} slot(s) to the jersey");
+            say?.Invoke(added.Count == 0 ? $"{addition.Team} {addition.SourceKit}: the jersey's base and patch layouts were made the same (no slot added)"
+                : $"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => SlotNames.Name(a.Role, a.Role == "shoulder" ? ShoulderPatches.IsLeft(a.Position) : null)))} slot(s) to the jersey");
         }
         return additions;
+    }
+
+    /// <summary>The stock slot roles of a branding array (its stamp's deepest copy), or null when the stamp cannot be read.</summary>
+    public static IReadOnlyList<string>? PhysicalRoles(BundleIndex index, string arraySlot)
+    {
+        try
+        {
+            string stamp = UniformPhysicalLayouts.StampForArray(arraySlot);
+            if (!index.EbxByName.ContainsKey(stamp)) return null;
+            var layout = WithRoles(Copies(index, stamp).OrderByDescending(c => c.Branding.Count).First());
+            int count = layout.Branding.Count == 0 ? 0 : layout.Branding.Max(s => s.Id) - UniformHotspots.FirstBrandingId + 1;
+            var roles = Enumerable.Repeat("blank", count).ToArray();
+            foreach (var slot in layout.Branding) roles[slot.Id - UniformHotspots.FirstBrandingId] = slot.Role;
+            return roles;
+        }
+        catch (InvalidDataException) { return null; }
     }
 
     /// <summary>A copy in which numbered or misspelled stock slots keep their names but take their role from their position.</summary>

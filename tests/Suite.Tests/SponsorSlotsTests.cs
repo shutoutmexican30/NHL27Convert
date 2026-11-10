@@ -196,6 +196,20 @@ public class NashvilleOneShoulderTests
     }
 
     [Fact]
+    public void ARepeatThatFillsAnExistingStockSlotIsKept()
+    {
+        // Nashville: one stock shoulder, so the second copy goes. Boston five: two stock crest hotspots, so both stay.
+        var nashville = Nashville();
+        Assert.Equal([5], Suite.Convert27.DuplicateLogoLayers.Duplicates(nashville.Textures[0],
+            ["crest", "shield", "brand", "epw_tag", "shoulder", "sponsor"]));
+        var boston = Nashville();
+        boston.Textures[0].RequiredRoles = ["crest", "crest", "shield", "brand", "sponsor", "shoulder"];
+        boston.Textures[0].Artwork = boston.Textures[0].Artwork with { Layers = new Dictionary<int, string> { [0] = "b_1_color.png", [1] = "b_1_color.png", [2] = "b_2_color.png", [3] = "b_3_color.png", [4] = "b_4_color.png", [5] = "b_5_color.png" } };
+        Assert.Empty(Suite.Convert27.DuplicateLogoLayers.Duplicates(boston.Textures[0],
+            ["crest", "shield", "brand", "epw_tag", "crest", "shoulder"]));
+    }
+
+    [Fact]
     public void APinnedRepeatIsKept()
     {
         var addition = Nashville();
