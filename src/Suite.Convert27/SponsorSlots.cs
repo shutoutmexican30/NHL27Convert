@@ -87,12 +87,21 @@ public static class SponsorSlots
             string stamp = UniformPhysicalLayouts.StampForArray(source);
             if (addition.HotspotLayouts.Any(l => l.SourceSlot == stamp) || !index.EbxByName.ContainsKey(stamp)) continue;
             var copies = Copies(index, stamp);
+            bool unify = false;
             if (copies.Skip(1).Any(c => !UniformPhysicalLayouts.SameLayout(c, copies[0])))
             {
-                // Base and Patch differ (Detroit's Patch copy gained a sponsor); the installer grows the shorter copy.
-                if (copies.Any(c => c.Branding.Any(slot => slot.Role == Role))) continue;
-                say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stamp copies differ and need a review");
-                continue;
+                // Base and Patch differ (Detroit's Patch copy gained a sponsor). When the shorter copy is the start of the
+                // longer one, the longer layout is written to every copy so each has the same positions.
+                var deepest = copies.OrderByDescending(c => c.Branding.Count).First();
+                bool prefix = copies.All(c => c.Branding.Count <= deepest.Branding.Count && c.Branding.OrderBy(s => s.Id)
+                    .Zip(deepest.Branding.OrderBy(s => s.Id)).All(p => p.First.Id == p.Second.Id && p.First.Name == p.Second.Name));
+                if (!prefix)
+                {
+                    say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stamp copies differ and need a review");
+                    continue;
+                }
+                copies = [deepest];
+                unify = true;
             }
             var stock = WithRoles(copies[0]);
             IReadOnlyList<string> physical;
@@ -126,7 +135,7 @@ public static class SponsorSlots
                     added.Add((role, position));
                 }
             }
-            if (added.Count == 0) continue;
+            if (added.Count == 0 && !unify) continue;
             addition.HotspotLayouts.Add(WithAdded(copies[0], added));
             say?.Invoke($"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => a.Role))} slot(s) to the jersey");
         }

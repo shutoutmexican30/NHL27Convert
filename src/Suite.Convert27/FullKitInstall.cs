@@ -145,7 +145,24 @@ public sealed class FullKitInstall
         var kits = additionPlan.Additions.Select(a => new KitRegistration(a.SourcePrefix.TrimEnd('/'), a.TargetPrefix.TrimEnd('/'))).ToList();
         if (!o.Apply)
         {
-            foreach (var a in additionPlan.Additions) { PrepareArt(a); CloneKit(a, null); artByChunk.Clear(); o.Say($"planned {a.Team} {a.SourceKit} -> variant {a.TargetVariant}"); }
+            // A dry run checks every kit and lists every problem instead of stopping at the first one.
+            var failures = new List<string>();
+            foreach (var a in additionPlan.Additions)
+            {
+                try { PrepareArt(a); CloneKit(a, null); o.Say($"planned {a.Team} {a.SourceKit} -> variant {a.TargetVariant}"); }
+                catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or ArgumentException or AggregateException)
+                {
+                    var inner = ex is AggregateException ag ? ag.Flatten().InnerExceptions[0] : ex;
+                    failures.Add($"{a.Team} {a.SourceKit}: {inner.Message}");
+                    o.Say($"FAILED {a.Team} {a.SourceKit}: {inner.Message}");
+                }
+                finally { artByChunk.Clear(); }
+            }
+            if (failures.Count > 0)
+            {
+                o.Say($"DRY RUN: {failures.Count} of {additionPlan.Additions.Count} kits failed. Nothing was written.");
+                return 3;
+            }
             ReportRegistry(kits);
             foreach (var (cas, bytes) in appended.OrderByDescending(kv => new FileInfo(kv.Key).Length + kv.Value).Take(5))
                 o.Say($"projected {Path.GetRelativePath(Game, cas)}: {(new FileInfo(cas).Length + bytes) / 1048576.0:F0} MB of 4096 MB (+{bytes / 1048576.0:F0} MB)");
@@ -236,6 +253,23 @@ public sealed class FullKitInstall
 
     readonly Dictionary<Guid, TextureSlots.Slot> expandedSlots = [];
 
+    /// <summary>
+    /// How many logo positions a branding array's stamp defines (an added layout, else the stock stamp's largest copy).
+    /// Every array must hold that many slices, or a positioned logo has no slice to draw from.
+    /// </summary>
+    int StampSlots(NewUniformAddition a, string arraySource)
+    {
+        string stamp = UniformPhysicalLayouts.StampForArray(arraySource.Trim().Replace('\\', '/').TrimStart('/'));
+        if (a.HotspotLayouts.SingleOrDefault(l => l.SourceSlot == stamp) is { } added) return added.Branding.Count;
+        int most = 0;
+        foreach (var bundle in (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt)))
+        {
+            try { most = Math.Max(most, UniformHotspots.Roles(UniformPhysicalLayouts.ReadStamp(index, stamp, bundle)).Count); }
+            catch (InvalidDataException) { }
+        }
+        return most;
+    }
+
     /// <summary>Expands one source copy once; the clone receives new structural slots, never the donor's pixels.</summary>
     TextureSlots.Slot EnsureCapacity(NewUniformAddition a, string target, string role, int need,
         TextureSlots.Slot sourceSlot, IReadOnlyList<TextureSlots.Slot> siblings, int codecThreads)
@@ -292,7 +326,7 @@ public sealed class FullKitInstall
             var sourceNormals = TextureSlots.ReadAll(Game, index, normal.SourceSlot);
             var sourceCoeffs = TextureSlots.ReadAll(Game, index, coeff.SourceSlot);
             string sourceStamp = UniformPhysicalLayouts.StampForArray(color.SourceSlot);
-            int overrideSlots = a.HotspotLayouts.SingleOrDefault(l => l.SourceSlot == sourceStamp)?.Branding.Count ?? 0;
+            int overrideSlots = StampSlots(a, color.SourceSlot);
             int required = Math.Max(color.Artwork.Layers!.Keys.Max() + 1,
                 Math.Max(color.RequiredRoles?.Count ?? 0, Math.Max(color.DonorRoles?.Count ?? 0, overrideSlots)));
             foreach (var originalColor in sourceColors)
@@ -366,9 +400,8 @@ public sealed class FullKitInstall
             string lower = target.ToLowerInvariant();
             // An added hotspot (a sponsor slot) makes the layout longer than the artwork: every array must reach it.
             string sourceLeaf = source[(source.LastIndexOf('/') + 1)..];
-            if (sourceLeaf.StartsWith("branding_", StringComparison.Ordinal) && sourceLeaf.EndsWith("_array", StringComparison.Ordinal)
-                && a.HotspotLayouts.SingleOrDefault(l => l.SourceSlot == UniformPhysicalLayouts.StampForArray(source)) is { } addedLayout)
-                need = Math.Max(need, addedLayout.Branding.Count);
+            if (sourceLeaf.StartsWith("branding_", StringComparison.Ordinal) && sourceLeaf.EndsWith("_array", StringComparison.Ordinal))
+                need = Math.Max(need, StampSlots(a, source));
             string arrayRole = lower.EndsWith("_color_array", StringComparison.Ordinal) ? "color"
                 : lower.EndsWith("_normal_array", StringComparison.Ordinal) ? "normal"
                 : lower.EndsWith("_coeff_array", StringComparison.Ordinal) ? "coeff" : "";

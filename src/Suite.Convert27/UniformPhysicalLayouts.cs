@@ -107,6 +107,12 @@ public static class UniformPhysicalLayouts
             // bundle. A single physical stamp is unambiguous; multiple stamp homes still require explicit review.
             var stampBundles = stampEntries.Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt)).ToList();
             if (stampBundles.Count == 1) return stampBundles[0];
+            // Base and Patch each carry the stamp: use the one in the texture's own layer (same TOC, else same root).
+            static string Layer(string toc) => toc.Contains("game-UPDATE", StringComparison.OrdinalIgnoreCase) ? "patch" : "base";
+            var sameToc = stampBundles.Where(b => bundles.Any(t => string.Equals(t.Toc, b.Toc, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (sameToc.Count == 1) return sameToc[0];
+            var sameLayer = stampBundles.Where(b => bundles.Any(t => Layer(t.Toc) == Layer(b.Toc))).ToList();
+            if (sameLayer.Count == 1) return sameLayer[0];
             throw new InvalidDataException($"{slot.Name}: no containing bundle names {stamp}, and the stamp has "
                 + $"{stampBundles.Count} possible physical homes.");
         }
