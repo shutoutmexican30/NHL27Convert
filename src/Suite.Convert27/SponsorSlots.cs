@@ -4,32 +4,57 @@ using Suite.Core.Frostbite;
 namespace Suite.Convert27;
 
 /// <summary>
-/// Adds a sponsor slot to a new kit whose NHL 27 art has a sponsor but whose stock NHL 24 jersey stamp has no sponsor
-/// position. The added hotspot copies the sponsor position most stock kits use; the installer then grows every copy of
-/// the branding arrays to the new slot count, so no NHL 27 logo is dropped.
+/// Adds the logo slots a new kit's NHL 27 art needs but its stock NHL 24 jersey stamp lacks (a sponsor patch, a second
+/// shoulder, ...). An added shoulder mirrors the kit's own shoulder; anything else copies the position most stock kits
+/// use for that role. The installer then grows every copy of the branding arrays to the new slot count, so no logo is
+/// dropped or forced into another logo's position.
 /// </summary>
 public static class SponsorSlots
 {
     public const string Role = "sponsor";
+    static readonly string[] Addable = ["crest", "shield", "brand", "shoulder", "sponsor"];
 
     /// <summary>The layout with a sponsor placement appended after the last branding hotspot.</summary>
     public static UniformHotspotLayout WithSponsor(UniformHotspotLayout stock, UniformHotspotPlacement position)
     {
+        if (stock.Branding.Any(slot => slot.Role == Role)) throw new InvalidDataException($"{stock.SourceSlot} already has a sponsor slot.");
+        return WithAdded(stock, [(Role, position)]);
+    }
+
+    /// <summary>The layout with each given role appended, in order, after the last branding hotspot.</summary>
+    public static UniformHotspotLayout WithAdded(UniformHotspotLayout stock, IReadOnlyList<(string Role, UniformHotspotPlacement Position)> added)
+    {
         var branding = WithRoles(stock).Branding;
-        if (branding.Any(slot => slot.Role == Role)) throw new InvalidDataException($"{stock.SourceSlot} already has a sponsor slot.");
-        var added = Copy(position);
-        added.Id = branding.Count == 0 ? UniformHotspots.FirstBrandingId : branding.Max(slot => slot.Id) + 1;
-        added.Name = Role;
-        added.Role = Role;
-        added.Enabled = true;
-        branding.Add(added);
+        int next = branding.Count == 0 ? UniformHotspots.FirstBrandingId : branding.Max(slot => slot.Id) + 1;
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        foreach (var (role, position) in added)
+        {
+            var slot = Copy(position);
+            slot.Id = next++;
+            slot.Name = role == "shoulder"
+                ? (double.TryParse(slot.TranslateX, c, out double tx) && tx > 0.5 ? "left_shoulder" : "right_shoulder")
+                : role == Role ? Role : "added_" + role;
+            slot.Role = role;
+            slot.Enabled = true;
+            branding.Add(slot);
+        }
         var result = new UniformHotspotLayout { SourceSlot = stock.SourceSlot, Branding = branding };
         _ = UniformHotspots.Roles(result);
         return result;
     }
 
-    /// <summary>The sponsor position shared by the most stock jersey stamps.</summary>
-    public static UniformHotspotPlacement? StockPosition(BundleIndex index)
+    /// <summary>The other shoulder: the same patch reflected across the jersey's centre line.</summary>
+    public static UniformHotspotPlacement Mirror(UniformHotspotPlacement shoulder)
+    {
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        var m = Copy(shoulder);
+        m.TranslateX = (1 - double.Parse(shoulder.TranslateX, c)).ToString("0.0000", c);
+        m.Rotation = ((360 - double.Parse(shoulder.Rotation, c)) % 360).ToString("0.0000", c);
+        return m;
+    }
+
+    /// <summary>The position shared by the most stock jersey stamps for one role.</summary>
+    public static UniformHotspotPlacement? StockPosition(BundleIndex index, string role = Role)
     {
         var positions = new List<UniformHotspotPlacement>();
         foreach (var name in index.EbxByName.Keys)
@@ -40,7 +65,7 @@ public static class SponsorSlots
             try
             {
                 foreach (var layout in Copies(index, name))
-                    positions.AddRange(layout.Branding.Where(slot => slot.Role == Role && slot.Enabled));
+                    positions.AddRange(layout.Branding.Where(slot => slot.Role == role && slot.Enabled));
             }
             catch (InvalidDataException) { }
         }
@@ -48,50 +73,65 @@ public static class SponsorSlots
             .OrderByDescending(g => g.Count()).ThenBy(g => g.Key.ToString(), StringComparer.Ordinal).FirstOrDefault()?.First();
     }
 
-    /// <summary>Adds a reviewed sponsor layout to every jersey array that needs one. Layouts the mod already supplies are kept.</summary>
+    /// <summary>Adds every logo slot a jersey's art needs and its stamp lacks. Layouts the mod already supplies are kept.</summary>
     public static List<NewUniformAddition> AddMissing(List<NewUniformAddition> additions, BundleIndex index, Action<string>? say = null)
     {
-        UniformHotspotPlacement? position = null;
-        bool searched = false;
+        var stockPositions = new Dictionary<string, UniformHotspotPlacement?>(StringComparer.Ordinal);
         foreach (var addition in additions)
         foreach (var texture in addition.Textures)
         {
             string source = texture.SourceSlot.Trim().Replace('\\', '/').TrimStart('/');
             string leaf = source[(source.LastIndexOf('/') + 1)..];
-            if (!leaf.StartsWith("branding_jersey_", StringComparison.Ordinal) || !leaf.EndsWith("_color_array", StringComparison.Ordinal)) continue;
-            int sponsorLayer = texture.RequiredRoles?.IndexOf(Role) ?? -1;
-            if (sponsorLayer < 0 || texture.Artwork.Layers is not { } layers || !layers.ContainsKey(sponsorLayer)) continue;
+            if (!leaf.StartsWith("branding_jersey_", StringComparison.Ordinal) || !leaf.EndsWith("_color_array", StringComparison.Ordinal)
+                || texture.RequiredRoles is not { } artRoles || texture.Artwork.Layers is not { Count: > 0 } layers) continue;
             string stamp = UniformPhysicalLayouts.StampForArray(source);
             if (addition.HotspotLayouts.Any(l => l.SourceSlot == stamp) || !index.EbxByName.ContainsKey(stamp)) continue;
             var copies = Copies(index, stamp);
-            // A copy that already has a sponsor position (Detroit's Patch copy) is handled by growing the shorter copy.
-            if (copies.Any(c => c.Branding.Any(slot => slot.Role == Role))) continue;
             if (copies.Skip(1).Any(c => !UniformPhysicalLayouts.SameLayout(c, copies[0])))
             {
-                say?.Invoke($"{addition.Team} {addition.SourceKit}: sponsor not placed; the stamp copies differ and need a review");
+                // Base and Patch differ (Detroit's Patch copy gained a sponsor); the installer grows the shorter copy.
+                if (copies.Any(c => c.Branding.Any(slot => slot.Role == Role))) continue;
+                say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stamp copies differ and need a review");
                 continue;
             }
-            var stock = copies[0];
-            IReadOnlyList<string> roles;
-            try { roles = UniformHotspots.Roles(WithRoles(stock)); }
+            var stock = WithRoles(copies[0]);
+            IReadOnlyList<string> physical;
+            try { physical = UniformHotspots.Roles(stock); }
             catch (InvalidDataException ex)
             {
-                say?.Invoke($"{addition.Team} {addition.SourceKit}: sponsor not placed; the stock layout needs a review ({ex.Message})");
+                say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stock layout needs a review ({ex.Message})");
                 continue;
             }
-            if (roles.Contains(Role)) continue;
-            if (!searched) { position = StockPosition(index); searched = true; }
-            if (position is null) throw new InvalidDataException("No stock jersey has a sponsor position to copy.");
-            addition.HotspotLayouts.Add(WithSponsor(stock, position));
-            say?.Invoke($"{addition.Team} {addition.SourceKit}: added sponsor slot {roles.Count} to the jersey");
+            var needed = artRoles.Where((role, layer) => layers.ContainsKey(layer) && Addable.Contains(role))
+                .GroupBy(r => r).ToDictionary(g => g.Key, g => g.Count());
+            var added = new List<(string Role, UniformHotspotPlacement Position)>();
+            foreach (var (role, count) in needed)
+            {
+                int missing = count - physical.Count(r => r == role);
+                for (int i = 0; i < missing; i++)
+                {
+                    UniformHotspotPlacement? position = null;
+                    if (role == "shoulder")
+                    {
+                        // A second shoulder mirrors the one the kit (or this step) already has.
+                        var existing = added.Where(a => a.Role == "shoulder").Select(a => a.Position)
+                            .Concat(stock.Branding.Where(slot => slot.Role == "shoulder")).FirstOrDefault();
+                        if (existing is not null) position = Mirror(existing);
+                    }
+                    if (position is null)
+                    {
+                        if (!stockPositions.TryGetValue(role, out position)) stockPositions[role] = position = StockPosition(index, role);
+                        if (position is null) throw new InvalidDataException($"No stock jersey has a {role} position to copy.");
+                    }
+                    added.Add((role, position));
+                }
+            }
+            if (added.Count == 0) continue;
+            addition.HotspotLayouts.Add(WithAdded(copies[0], added));
+            say?.Invoke($"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => a.Role))} slot(s) to the jersey");
         }
         return additions;
     }
-
-    /// <summary>The stamp's layout in each bundle that carries it (Base and Patch can differ).</summary>
-    static List<UniformHotspotLayout> Copies(BundleIndex index, string stamp) =>
-        (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt))
-            .Select(b => UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, stamp, b), stamp)).ToList();
 
     /// <summary>A copy in which numbered or misspelled stock slots keep their names but take their role from their position.</summary>
     public static UniformHotspotLayout WithRoles(UniformHotspotLayout stock)
@@ -100,6 +140,11 @@ public static class SponsorSlots
         foreach (var slot in branding.Where(slot => slot.Role.Length == 0)) slot.Role = UniformHotspots.PositionRole(slot);
         return new UniformHotspotLayout { SourceSlot = stock.SourceSlot, Branding = branding };
     }
+
+    /// <summary>The stamp's layout in each bundle that carries it (Base and Patch can differ).</summary>
+    static List<UniformHotspotLayout> Copies(BundleIndex index, string stamp) =>
+        (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt))
+            .Select(b => UniformHotspots.Capture(UniformPhysicalLayouts.ReadStamp(index, stamp, b), stamp)).ToList();
 
     static UniformHotspotPlacement Copy(UniformHotspotPlacement p) => new()
     {

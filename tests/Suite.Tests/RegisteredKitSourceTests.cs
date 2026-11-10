@@ -42,14 +42,15 @@ public class RegisteredKitSourceTests
     }
 
     [Fact]
-    public void OneShallowCompanionCopyDisqualifiesAnOtherwiseCompleteSource()
+    public void TheTeamsOwnKitWinsWhenItCanGrow()
     {
+        // A sibling kit's layout put Nashville's logos in the wrong places; the mapped kit is kept and grown instead.
         string selected = RegisteredKitSource.Choose(Root + "nashville/adidas/home", 22, 6, 2,
         [
             Candidate("nashville/adidas/home", 60, 6, 22, everyCopyFits: false, canExpand: true),
             Candidate("nashville/adidas/two", 55, 6, 22, everyCopyFits: true),
         ]);
-        Assert.Equal(Root + "nashville/adidas/two", selected);
+        Assert.Equal(Root + "nashville/adidas/home", selected);
         Assert.Throws<InvalidDataException>(() => RegisteredKitSource.Choose(Root + "nashville/adidas/home", 22, 6, 2,
             [Candidate("nashville/adidas/home", 60, 6, 22, everyCopyFits: false)]));
     }

@@ -88,7 +88,7 @@ public static class UniformHotspots
         if (n.Contains("primegreen") || n.Contains("primagreen") || n.Contains("endplastic") || n == "bottom" || n.EndsWith("tag")) return "epw_tag";
         if (n.Contains("nhl") && (n.Contains("collar") || n.Contains("collor") || n.Contains("back") || n == "nhl")) return "shield";
         if ((n.Contains("adidas") || n.Contains("addias")) && (n.Contains("back") || n == "adidas" || n.EndsWith("logo"))) return "brand";
-        if (n.StartsWith("main") || n.Contains("teamlogo") || n.Contains("frontlogo")) return "crest";
+        if (n.StartsWith("main") || n.Contains("teamlogo") || n.Contains("frontlogo") || n.StartsWith("logo")) return "crest";
         return "";
     }
 

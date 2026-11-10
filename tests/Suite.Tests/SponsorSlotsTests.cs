@@ -85,3 +85,69 @@ public class HotspotRoleTests
         Assert.Equal(role, Suite.Convert27.UniformHotspots.PositionRole(new Suite.Core.UniformHotspotPlacement
             { Name = "3", Rotation = r, ScaleX = s, ScaleY = s, TranslateX = tx, TranslateY = ty }));
 }
+
+public class AddedSlotTests
+{
+    [Fact]
+    public void ASecondShoulderMirrorsTheFirst()
+    {
+        var right = new Suite.Core.UniformHotspotPlacement { Id = 13, Name = "right_shoulder", Role = "shoulder", Rotation = "90.0000", ScaleX = "0.0577", ScaleY = "0.0577", TranslateX = "0.4000", TranslateY = "0.4935" };
+        var left = Suite.Convert27.SponsorSlots.Mirror(right);
+        Assert.Equal(("0.6000", "270.0000", "0.4935"), (left.TranslateX, left.Rotation, left.TranslateY));
+    }
+
+    [Fact]
+    public void BostonsBorrowedLayoutGainsTheMissingShoulder()
+    {
+        var stock = new Suite.Core.UniformHotspotLayout
+        {
+            SourceSlot = "boston/five/stamp",
+            Branding =
+            [
+                new() { Id = 8, Name = "mainlogo", Role = "crest", Rotation = "180", ScaleX = "0.1095", ScaleY = "0.1095", TranslateX = "0.5", TranslateY = "0.244" },
+                new() { Id = 9, Name = "collar_nhl", Role = "shield" }, new() { Id = 10, Name = "back_adidas", Role = "brand" },
+                new() { Id = 11, Name = "bottomlogo", Role = "epw_tag" }, new() { Id = 12, Name = "front_logo", Role = "crest" },
+                new() { Id = 13, Name = "right_shoulder", Role = "shoulder", Rotation = "90.0000", TranslateX = "0.4000", TranslateY = "0.4935" },
+            ],
+        };
+        var right = stock.Branding.Last();
+        var layout = Suite.Convert27.SponsorSlots.WithAdded(stock, [("shoulder", Suite.Convert27.SponsorSlots.Mirror(right))]);
+        string[] art = ["crest", "shoulder", "shoulder", "sponsor", "brand", "shield"];
+        var roles = Suite.Convert27.UniformHotspots.Roles(layout).ToList();
+        roles.Add("sponsor");
+        var placement = Suite.Convert27.UniformBrandingLayers.PlanRoles(art, roles);
+        for (int layer = 0; layer < art.Length; layer++) Assert.Equal(art[layer], roles[placement.Destination(layer)]);
+        Assert.Equal("left_shoulder", layout.Branding.Last().Name);
+    }
+}
+
+public class SyntheticArrayTests
+{
+    static byte[] Header(int slices)
+    {
+        var h = new byte[Suite.Core.Frostbite.TextureRes.HeaderSize];
+        h[12] = 0x3C;
+        BitConverter.TryWriteBytes(h.AsSpan(22), (ushort)32);
+        BitConverter.TryWriteBytes(h.AsSpan(24), (ushort)32);
+        BitConverter.TryWriteBytes(h.AsSpan(26), (ushort)slices);
+        h[30] = 1;
+        new Guid("11111111-2222-3333-4444-555555555555").TryWriteBytes(h.AsSpan(32, 16));
+        BitConverter.TryWriteBytes(h.AsSpan(48), 1024);
+        return h;
+    }
+
+    [Fact]
+    public void AnArrayGrowsPastEveryStockDepthAndKeepsItsSlices()
+    {
+        var res = Suite.Core.Frostbite.TextureRes.Parse(Header(6));
+        var stock = new byte[6 * 1024];
+        for (int i = 0; i < stock.Length; i++) stock[i] = (byte)(i / 1024 + 1);
+        var team = new Suite.Core.Frostbite.TextureSlots.Slot("x/branding_jersey_adidas_boston_five_color_array", res, res.ChunkGuid, stock);
+        var donor = Suite.Convert27.InstalledArrayExpansion.Synthetic(team, 8);
+        Assert.Equal(8, Suite.Core.Frostbite.Ps4Codec.Slices(donor.Res.Header));
+        Assert.Equal(8 * 1024, donor.Stock.Length);
+        var grown = Suite.Convert27.InstalledArrayExpansion.Expand(team, donor, "color");
+        Assert.Equal(8, Suite.Core.Frostbite.Ps4Codec.Slices(grown.Res.Header));
+        Assert.True(grown.Stock.AsSpan(0, 6 * 1024).SequenceEqual(stock));
+    }
+}

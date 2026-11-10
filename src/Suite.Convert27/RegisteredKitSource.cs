@@ -22,7 +22,10 @@ public static class RegisteredKitSource
         var eligible = candidates.Where(c => c.Folder.StartsWith(parent + "/", StringComparison.Ordinal)
                 && c.RegistryVersions == registryVersions && c.MappedTextures == requiredTextures
                 && (AlreadyFits(c) || c.CanExpand) && c.MinRows > 0)
-            .OrderByDescending(AlreadyFits)
+            // The team's own mapped kit wins whenever it can hold the art (growing if needed): another kit's layout
+            // (Boston five's second crest, Nashville twentythree's extra chest logo) puts logos in the wrong places.
+            .OrderByDescending(c => c.Folder.TrimEnd('/') == source)
+            .ThenByDescending(AlreadyFits)
             .ThenByDescending(c => c.MinRows)
             .ThenByDescending(c => c.Folder.EndsWith("/home", StringComparison.Ordinal))
             .ToList();

@@ -121,7 +121,19 @@ public static class InstalledArrayExpansion
             donors = donors.OrderBy(candidate => candidate.Name, StringComparer.Ordinal)
                 .ThenBy(candidate => candidate.Chunk).ToList();
         }
-        return donors.FirstOrDefault();
+        // No stock array is deep enough (an added shoulder and sponsor can need 8 slots): the structure is the team's own
+        // texture with a larger slice count. Every slice of it is overwritten by Expand, so its empty pixels never survive.
+        return donors.FirstOrDefault() ?? Synthetic(team, required);
+    }
+
+    /// <summary>The team's own resource and chunk layout with <paramref name="slices"/> slices and empty pixel data.</summary>
+    public static TextureSlots.Slot Synthetic(TextureSlots.Slot team, int slices)
+    {
+        byte[] header = (byte[])team.Res.Header.Clone();
+        BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(26, 2), checked((ushort)slices));
+        var res = TextureRes.Parse(header);
+        if (Ps4Codec.Slices(res.Header) != slices || res.ChunkGuid != team.Chunk) throw new InvalidDataException($"{team.Name}: could not size its array.");
+        return team with { Res = res, Stock = new byte[checked((int)(res.PayloadSize * slices))] };
     }
 
     /// <summary>Preserves every team slice and encodes only safe blanks into the added structural slots.</summary>
