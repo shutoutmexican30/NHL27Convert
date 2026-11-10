@@ -81,7 +81,7 @@ public class ConversionPreflightTests
     }
 
     [Fact]
-    public void Optional_sponsor_warns_but_unplaced_crest_blocks_export()
+    public void Logos_without_a_stock_slot_get_one_added_and_are_reported()
     {
         var entry = new SlotMapEntry
         {
@@ -91,7 +91,9 @@ public class ConversionPreflightTests
         };
         var items = ConversionPreflight.InspectUnplacedLogos(entry).ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, i => i.Severity == PreflightSeverity.Error && i.Detail.Contains("crest"));
-        Assert.Contains(items, i => i.Severity == PreflightSeverity.Warning && i.Detail.Contains("Stamp a logo"));
+        // Add to game now adds the missing position instead of dropping the logo or blocking the export.
+        Assert.All(items, i => Assert.Equal(PreflightSeverity.Repaired, i.Severity));
+        Assert.Contains(items, i => i.Title.Contains("crest") && i.Detail.Contains("slot map"));
+        Assert.Contains(items, i => i.Title.Contains("sponsor"));
     }
 }

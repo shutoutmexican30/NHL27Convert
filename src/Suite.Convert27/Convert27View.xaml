@@ -75,8 +75,8 @@
                     ToolTip="Choose the NHL 24 uniform to replace. Advanced mode also accepts a typed asset folder.">
             <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource FolderName}}" /></DataTemplate></ComboBox.ItemTemplate>
           </ComboBox>
-          <TextBlock Style="{StaticResource Caption}" Text="Mod name" />
-          <TextBox x:Name="ModName" Width="190" Text="NHL 27 uniforms" />
+          <CheckBox x:Name="AllTeams" Content="All teams" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#d8e2ee"
+                    ToolTip="Add every team's mapped home and away uniforms instead of only the one selected." />
         </WrapPanel>
 
         <Border Background="#142c45" CornerRadius="5" Padding="10,8" Margin="0,4,0,5"
@@ -84,25 +84,26 @@
           <TextBlock Text="{Binding SourceSummary}" Foreground="#9fc5ed" TextWrapping="Wrap" />
         </Border>
 
-        <WrapPanel Margin="0,5,0,0" Visibility="{Binding AdvancedMode, Converter={StaticResource InverseBoolVis}}">
-          <Button Style="{StaticResource Primary}" Content="Check &amp; convert" Click="Convert_Click"
-                  ToolTip="Repair safe automatic choices, validate the result, and update the preview. Nothing is written to the game." />
-          <Button Content="Replace in mod" Click="AddFolder_Click"
-                  ToolTip="Classic workflow: overwrite existing NHL 24 texture slots when replacement mods are applied." />
-          <Button Content="Add as new uniform" Click="AddNew_Click"
-                  ToolTip="Create independent assets and a spare selectable jersey row. Missing logo slots and artwork block export." />
-          <Button Content="Add all 64 as new" Click="AddAllNew_Click"
-                  ToolTip="Preflight all 32 teams' default home and away Fanatics uniforms as one independent set." />
-          <Button Style="{StaticResource ApplyButton}" Content="Install all 64 as new" Click="InstallAllNew_Click"
-                  ToolTip="Automated workflow: preflight once, save the mod, and install the same completed plan with coordinated backup and rollback." />
-          <Button Content="Mod list…" Click="ModList_Click" />
-          <Button Content="Apply replacements…" Click="Apply_Click" />
-          <Button Style="{StaticResource ApplyButton}" Content="Apply new uniforms…" Click="ApplyNew_Click"
-                  ToolTip="Write saved new-uniform mods with coordinated asset and database backup, read-back and rollback." />
-          <TextBlock Text="Jersey name:" VerticalAlignment="Center" Margin="8,0,4,0" />
-          <TextBox Width="150" VerticalAlignment="Center" Text="{Binding Settings.NewUniformJerseyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   ToolTip="The name new uniforms show in the jersey picker." />
+        <WrapPanel Margin="0,5,0,0">
+          <Button Style="{StaticResource Primary}" Content="Check" Click="Convert_Click"
+                  ToolTip="Match logos to their slots, fix what can be fixed automatically, and list anything you need to decide. Nothing is written to the game." />
+          <Button Style="{StaticResource ApplyButton}" Content="Add to game" Click="AddToGame_Click"
+                  ToolTip="Add the checked uniform (or every team's, with All teams) as new selectable kits: one backup, every file read back, automatic undo on any failure." />
         </WrapPanel>
+
+        <Expander Header="Advanced" Foreground="#d8e2ee" Margin="0,6,0,0" IsExpanded="False">
+          <WrapPanel Margin="0,4,0,0">
+            <TextBlock Style="{StaticResource Caption}" Text="Jersey name" />
+            <TextBox Width="150" VerticalAlignment="Center" Text="{Binding Settings.NewUniformJerseyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="The name new uniforms show in the jersey picker." />
+            <TextBlock Style="{StaticResource Caption}" Text="Saved mod name" />
+            <TextBox x:Name="ModName" Width="190" Text="NHL 27 uniforms" />
+            <Button Content="Slot map…" Click="SlotMap_Click" ToolTip="Review or override which logo goes in which slot." />
+            <Button Content="Stamp a sponsor…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a jersey that has no logo slots." />
+            <Button Content="Mod list…" Click="ModList_Click" />
+            <Button Content="Undo last add" Click="UndoLast_Click" ToolTip="Restore the game to the backup taken just before the last write." />
+          </WrapPanel>
+        </Expander>
 
         <!-- The complete original workflow remains available in Advanced mode. -->
         <StackPanel Visibility="{Binding AdvancedMode, Converter={StaticResource BoolVis}}">
@@ -131,21 +132,12 @@
             <Button Content="Match all teams" Click="ProposeAll_Click" />
             <Button Content="Check vs nhluniforms.com" Click="CheckUniforms_Click" />
             <Button Content="Save matches" Click="Save_Click" />
-            <Button Content="Replace folder in mod" Click="AddFolder_Click" />
-            <Button Content="Replace all matched in mod" Click="AddAll_Click" />
-            <Button Content="Add folder as new" Click="AddNew_Click" />
-            <Button Content="Add all 64 as new" Click="AddAllNew_Click" />
-            <Button Content="Mod list…" Click="ModList_Click" />
-            <Button Content="Apply replacements…" Click="Apply_Click" />
-            <Button Style="{StaticResource ApplyButton}" Content="Apply new uniforms…" Click="ApplyNew_Click" />
           </WrapPanel>
           <WrapPanel Margin="0,3,0,0">
             <TextBlock Style="{StaticResource Caption}" Text="Replacement folder (DDS / PNG)" />
             <TextBox x:Name="ReplacementFolder" Width="390" Text="{Binding Settings.ReplacementDir, Mode=OneWay}" />
             <Button Content="Browse…" Click="ReplacementBrowse_Click" />
             <Button Content="Match from folder" Click="MatchFolder_Click" />
-            <Button Content="Stamp a logo…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a colour map when no branding-array slot exists." />
-            <Button Content="Slot map…" Click="SlotMap_Click" />
             <Button Content="Edit variant map" Click="EditVariants_Click" />
           </WrapPanel>
           <TextBlock Text="{Binding VariantInfo}" Foreground="#8498b1" TextWrapping="Wrap" Margin="0,3,0,0" />

@@ -97,14 +97,11 @@ public static class ConversionPreflight
         {
             var label = entry.Layers27.FirstOrDefault(l => l.Layer == layer);
             if (label is null) continue;
-            if (label.Role == "sponsor")
-                yield return new(PreflightSeverity.Warning, "A sponsor needs manual placement",
-                    $"{entry.Garment}, NHL 27 layer {layer}: this sponsor has no matching NHL 24 slot. " +
-                    "It is not included automatically; use Stamp a logo in Advanced mode if you want it.");
-            else if (label.Role is "crest" or "shoulder")
-                yield return new(PreflightSeverity.Error, "A team logo has no destination",
-                    $"{entry.Garment}, NHL 27 layer {layer}: the {label.Role} logo has no matching NHL 24 slot. " +
-                    "Review the slot map in Advanced mode before exporting.");
+            if (label.Role is "sponsor" or "crest" or "shoulder" or "shield" or "brand")
+                yield return new(PreflightSeverity.Repaired, $"A {label.Role} slot will be added",
+                    $"{entry.Garment}, NHL 27 layer {layer}: the stock kit has no {label.Role} position, so Add to game gives the new " +
+                    $"kit one ({(label.Role == "shoulder" ? "mirroring its other shoulder" : "at the usual stock position")}). " +
+                    "Change it in the slot map if this logo should go somewhere else.");
         }
     }
 

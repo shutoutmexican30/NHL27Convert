@@ -133,10 +133,25 @@ public partial class Convert27View : UserControl
     async void AddNew_Click(object sender, RoutedEventArgs e) => await AddAsNew(currentOnly: true);
     async void AddAllNew_Click(object sender, RoutedEventArgs e) => await AddAsNew(currentOnly: false);
     async void InstallAllNew_Click(object sender, RoutedEventArgs e) => await InstallAllNew();
+    async void AddToGame_Click(object sender, RoutedEventArgs e) => await InstallAllNew(currentOnly: AllTeams.IsChecked != true);
+
+    async void UndoLast_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Restore the game to the backup taken just before the last write?", "Undo last add",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        IsEnabled = false;
+        _vm.Busy = true;
+        try
+        {
+            var (ok, message) = await ModApply.RestoreAsync(_vm.Settings, s => Dispatcher.Invoke(() => _vm.Status = s));
+            _vm.Status = (ok ? "Restored: " : "Could not undo: ") + message;
+        }
+        finally { _vm.Busy = false; IsEnabled = true; }
+    }
     async void ApplyNew_Click(object sender, RoutedEventArgs e) => await ApplyNewUniforms();
 
     /// <summary>One confirmation and one preparation: preflight, save, then install the same completed plan.</summary>
-    async Task InstallAllNew()
+    async Task InstallAllNew(bool currentOnly = false)
     {
         IsEnabled = false;
         _vm.Busy = true;
@@ -147,15 +162,16 @@ public partial class Convert27View : UserControl
             if (targetProblems.Count > 0)
                 throw new InvalidDataException("The selected build cannot be written:\n" + string.Join("\n", targetProblems));
             string name = ModName.Text.Trim();
-            if (name.Length == 0) name = "NHL 27 Fanatics 64 new uniforms";
-            var draft = await NewUniformExport.PlanAsync(_vm, name, currentFolderOnly: false);
+            if (name.Length == 0 || name == "NHL 27 uniforms") name = currentOnly ? $"NHL 27 {_vm.Team} uniform" : "NHL 27 Fanatics new uniforms";
+            var draft = await NewUniformExport.PlanAsync(_vm, name, currentFolderOnly: currentOnly);
             int count = draft.Prepared.AdditionPlan.Additions.Count;
             SuiteLog.Write($"install: plan ready for {count} uniforms; waiting for confirmation");
             if (MessageBox.Show(
                     $"{draft.Summary}\n\nSave and install these {count} independent uniforms to:\n{_vm.Settings.ApplyTargetDir}\n\n" +
                     "The completed plan will be used directly; preparation will not run twice. Assets and both databases share one backup and rollback. Existing uniforms are never replaced.\n\nContinue?",
-                    "Install all 64 as new", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                    "Add to game", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             string path = draft.Save();
+            _vm.Settings.Save(); // keeps the jersey name typed on the page
             SuiteLog.Write("install: mod saved to " + path + "; starting coordinated apply");
             var (ok, message) = await NewUniformApply.ApplyPreparedAsync(_vm.Settings, draft.Prepared,
                 s => Dispatcher.Invoke(() => _vm.Status = s));
