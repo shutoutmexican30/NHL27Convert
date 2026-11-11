@@ -66,6 +66,13 @@ public sealed class FullKitInstall
         b[8] = (byte)((b[8] & 0x3F) | 0x80);
         return new Guid(b);
     }
+    /// <summary>
+    /// True when a bundle belongs to the source kit and is cloned with it. The writer and the read-back both use this, so
+    /// a copy of a source asset inside another kit's bundle (an earlier broken install) is never expected in the clone.
+    /// </summary>
+    internal static bool OwnsBundle(string bundleName, string sourcePrefix) =>
+        bundleName.Contains(sourcePrefix.TrimEnd('/') + "/", StringComparison.Ordinal);
+
     static ulong StableRid(string name) => BinaryPrimitives.ReadUInt64LittleEndian(SHA1.HashData(Encoding.ASCII.GetBytes("NHL27Convert:rid:" + name))) | 1; // The loader reads an even value as an already-resolved pointer; every stock id is odd.
     static byte[] EncodeLike(byte[] old, byte[] raw)
     {
@@ -510,7 +517,7 @@ public sealed class FullKitInstall
         var kitEbx = index.EbxByName.Where(k => k.Key.StartsWith(pre, StringComparison.Ordinal)).ToList();
         var kitRes = index.ResByName.Where(k => k.Key.StartsWith(pre, StringComparison.Ordinal)).ToList();
         var bundles = kitEbx.SelectMany(k => k.Value).Select(e => e.Bundle).Concat(kitRes.SelectMany(k => k.Value).Select(r => r.Bundle))
-            .Distinct().Where(b => NameOf(b).Name.Contains(pre, StringComparison.Ordinal))
+            .Distinct().Where(b => OwnsBundle(NameOf(b).Name, pre))
             .OrderBy(b => NameOf(b).Name, StringComparer.Ordinal).ThenBy(b => b.Toc, StringComparer.OrdinalIgnoreCase).ToList();
 
         var guids = new Dictionary<Guid, Guid>();
@@ -880,7 +887,7 @@ public sealed class FullKitInstall
             string SourceKey(BundleIndex.Bundle b) => b.Toc + "\n" + MapBundle(NameOf(b).Name);
             // Only the kit's own bundles are cloned (see CloneKit). A copy of a source asset inside another kit's bundle
             // (left by an earlier broken install, e.g. Montreal arrays inside Detroit's) is not part of this kit.
-            bool OwnBundle(BundleIndex.Bundle b) => NameOf(b).Name.Contains(pre, StringComparison.Ordinal);
+            bool OwnBundle(BundleIndex.Bundle b) => OwnsBundle(NameOf(b).Name, pre);
             var sourceEbx = index.EbxByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
             var sourceRes = index.ResByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
             var guids = new Dictionary<Guid, Guid>();

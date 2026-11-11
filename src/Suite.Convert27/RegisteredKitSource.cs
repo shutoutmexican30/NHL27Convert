@@ -86,7 +86,7 @@ public static class RegisteredKitSource
             {
                 string mapped = Map(texture.SourceSlot, source, fromId, selected, selectedId);
                 // Before planning (Add to game) no target exists yet; the planner names it from the corrected source.
-                if (!string.IsNullOrWhiteSpace(texture.TargetSlot) && !string.IsNullOrWhiteSpace(addition.TargetPrefix)
+                if (TargetIsPlanned(texture.TargetSlot, addition.TargetPrefix)
                     && !string.Equals(texture.TargetSlot, NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix), StringComparison.Ordinal))
                     throw new InvalidDataException($"{texture.SourceSlot}: the same-team source correction would change its target name.");
                 texture.SourceSlot = mapped;
@@ -95,7 +95,7 @@ public static class RegisteredKitSource
             foreach (var hotspots in addition.HotspotLayouts)
             {
                 string mapped = Map(hotspots.SourceSlot, source, fromId, selected, selectedId);
-                if (!string.IsNullOrWhiteSpace(addition.TargetPrefix)
+                if (TargetIsPlanned(null, addition.TargetPrefix)
                     && !string.Equals(NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix),
                         UniformPhysicalLayouts.TargetStamp(addition, hotspots.SourceSlot), StringComparison.Ordinal))
                     throw new InvalidDataException($"{hotspots.SourceSlot}: source normalization would change its target stamp.");
@@ -170,6 +170,13 @@ public static class RegisteredKitSource
             throw new InvalidDataException($"{sourceSlot}: texture is outside its uniform source folder {source}.");
         return folder + "/" + sourceSlot[prefix.Length..].Replace(fromId, toId, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Whether a target name exists to compare against. Add to game normalizes sources before the planner allocates any
+    /// target, so an empty prefix means "not planned yet", never a broken folder (All teams once failed on exactly that).
+    /// </summary>
+    internal static bool TargetIsPlanned(string? targetSlot, string? targetPrefix) =>
+        !string.IsNullOrWhiteSpace(targetPrefix) && (targetSlot is null || !string.IsNullOrWhiteSpace(targetSlot));
 
     static byte[] Decode(byte[] stored)
     {

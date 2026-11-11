@@ -367,3 +367,28 @@ public class NewKitVariantTests
         Assert.Equal(24, InstalledKits.VariantFor("away"));
     }
 }
+
+/// <summary>Regressions from the live All teams runs (2026-11-11).</summary>
+public class AllTeamsInstallRuleTests
+{
+    [Fact]
+    public void OnlyTheSourceKitsOwnBundlesAreClonedAndCheckedBack()
+    {
+        const string montreal = "content/character/skater/league/nhl/montreal/adidas/home/";
+        Assert.True(FullKitInstall.OwnsBundle("gen4b/content/character/skater/league/nhl/montreal/adidas/home/jersey_adidas_montreal_home_player_team_brt", montreal));
+        // A broken earlier Detroit install holds copies of Montreal's arrays; that bundle is not Montreal's kit.
+        Assert.False(FullKitInstall.OwnsBundle("gen4b/content/character/skater/league/nhl/detroit/adidas/twentyfive/jersey_adidas_detroit_twentyfive_hq_doublesided_asp_player_team_brt", montreal));
+        // "home" must not match "homeplate"-style neighbours.
+        Assert.False(FullKitInstall.OwnsBundle("gen4b/content/character/skater/league/nhl/montreal/adidas/homex/b", montreal));
+    }
+
+    [Fact]
+    public void BeforePlanningThereIsNoTargetToCompare()
+    {
+        Assert.False(RegisteredKitSource.TargetIsPlanned("", ""));
+        Assert.False(RegisteredKitSource.TargetIsPlanned(null, ""));
+        Assert.False(RegisteredKitSource.TargetIsPlanned("", "content/x/adidas/twentyfive/"));
+        Assert.True(RegisteredKitSource.TargetIsPlanned("content/x/adidas/twentyfive/a", "content/x/adidas/twentyfive/"));
+        Assert.True(RegisteredKitSource.TargetIsPlanned(null, "content/x/adidas/twentyfive/"));
+    }
+}
