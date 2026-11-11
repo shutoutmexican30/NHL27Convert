@@ -48,6 +48,34 @@ public sealed class NewUniformExportTests
     }
 
     [Fact]
+    public void A_single_uniform_without_its_own_jersey_logo_arrays_uses_the_teams_structural_set()
+    {
+        // Boston: the picked "home" set has no jersey logo arrays; NHL 24 keeps them in "five".
+        var variants = VariantMap.Parse(File.ReadAllText(Path.Combine(Root, "data", "variant_map.json")));
+        var boston = variants.Teams.First(t => t.Nhl24.Folder == "boston");
+        const string nhl = "content/character/skater/league/nhl/";
+        string home24 = $"{nhl}boston/adidas/{boston.Nhl24.Home}", five = $"{nhl}boston/adidas/five", home27 = $"{nhl}{boston.Nhl27.Folder}/adidas/{boston.Nhl27.Home}";
+        string[] paths = [$"{home24}/jersey_color", $"{five}/jersey_color", $"{five}/branding_jersey_adidas_boston_five_color_array", $"{home27}/jersey_color"];
+        var entries = paths.Select(path => new AssetEntry
+        {
+            Game = "test", Path = path,
+            Kind = path.EndsWith("_array", StringComparison.Ordinal) ? AssetKind.TextureArray : AssetKind.Texture,
+        }).ToList();
+        var catalog24 = new Nhl24Catalog(new AssetIndex("nhl24", "", DateTime.Now, entries));
+        var catalog27 = new Nhl27Catalog(new AssetIndex("nhl27", "", DateTime.Now, entries));
+        var picked = new FolderMatch { Folder24 = home24, Folder27 = home27 };
+
+        var used = NewUniformExport.WithJerseyStructure(picked, catalog24, catalog27, variants);
+
+        Assert.Equal(five, used.Folder24);
+        Assert.Equal(home27, used.Folder27);
+        Assert.Contains(used.Rows, r => r.IsArray && r.Name.Garment == "branding_jersey");
+        // A set with its own arrays is kept as picked.
+        var own = new FolderMatch { Folder24 = five, Folder27 = home27 };
+        Assert.Same(own, NewUniformExport.WithJerseyStructure(own, catalog24, catalog27, variants));
+    }
+
+    [Fact]
     public void Anaheim_complete_array_keeps_sponsor_and_two_shoulders_in_their_own_roles()
     {
         var result = BuildRealArray("anaheim", "home");

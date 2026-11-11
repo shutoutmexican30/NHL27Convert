@@ -155,7 +155,7 @@ public partial class Convert27View : UserControl
     {
         IsEnabled = false;
         _vm.Busy = true;
-        SuiteLog.Write("install: Install all 64 as new clicked");
+        SuiteLog.Write(currentOnly ? $"install: Add to game clicked ({_vm.Folder24})" : "install: Add to game clicked (all teams)");
         try
         {
             var targetProblems = ModApply.Problems(_vm.Settings);

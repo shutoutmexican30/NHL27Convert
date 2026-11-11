@@ -78,7 +78,33 @@ public static class NewUniformExport
     {
         if (!currentOnly) throw new ArgumentException("The complete set uses BuildDefaultFolders.", nameof(currentOnly));
         var current = vm.Folder24 is not null ? vm.Project.Find(vm.Folder24) : null;
-        return current is null ? [] : [current];
+        if (current is null) return [];
+        if (vm.Catalog24 is null || vm.Catalog27 is null) return [current];
+        return [WithJerseyStructure(current, vm.Catalog24, vm.Catalog27, vm.Variants)];
+    }
+
+    /// <summary>
+    /// The folder to build a single uniform from. NHL 24 keeps some teams' jersey logo arrays in another set of the same
+    /// team (Boston's home uses "five"), so a picked folder without them takes the same structural folder the full set
+    /// uses, keeping the picked NHL 27 art. A folder that has its own jersey arrays is used as it is.
+    /// </summary>
+    internal static FolderMatch WithJerseyStructure(FolderMatch current, Nhl24Catalog catalog24, Nhl27Catalog catalog27, VariantMap variants)
+    {
+        bool HasJersey(IEnumerable<string> names) => names.Any(n => TextureName.Parse(n) is { IsArrayName: true, Role: "color", Garment: "branding_jersey" });
+        if (catalog24.ByFolder.TryGetValue(current.Folder24, out var own) && HasJersey(own.Where(s => s.Array).Select(s => s.Name)))
+            return current;
+        if (current.Folder27 is null || CurrentSource(current, variants) is not { } source) return current;
+        string? folder24 = SelectStructuralFolder(catalog24, source.Team.Nhl24.Folder, current.Folder24, source.Kit);
+        if (folder24 is null || folder24 == current.Folder24) return current;
+        SuiteLog.Write($"install: {current.Folder24} has no jersey logo arrays; using {folder24.Split('/')[^1]} for its structure");
+        return new FolderMatch
+        {
+            Folder24 = folder24,
+            Folder27 = current.Folder27,
+            Confidence = 0.95,
+            Reason = $"{source.Kit} logos live in NHL 24 set {folder24.Split('/')[^1]}",
+            Rows = Matcher.Propose(catalog24.ByFolder[folder24], current.Folder27, 0.95, catalog27),
+        };
     }
 
     /// <summary>
