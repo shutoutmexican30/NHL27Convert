@@ -105,6 +105,20 @@ public sealed class LegacyFiles
         return raw.AsSpan((int)rec.RawOffset, (int)rec.RawSize).ToArray();
     }
 
+    /// <summary>Every copy of a legacy file the game carries (base and update indexes), for read-back of all of them.</summary>
+    public List<byte[]> ReadAll(string name, bool everyToc = false)
+    {
+        var copies = new List<byte[]>();
+        foreach (var (toc, id, raw, refr) in FindAllIndexes(name, everyToc))
+        {
+            _indexToc = toc; _indexId = id; _index = raw; _indexRef = refr;
+            var rec = Records().First(r => r.Name == name);
+            var data = ChunkBlocks.Parse(ReadStored(_indexToc.Find(rec.Chunk) ?? Locate(rec.Chunk)!)).Decode();
+            copies.Add(data.AsSpan((int)rec.RawOffset, (int)rec.RawSize).ToArray());
+        }
+        return copies;
+    }
+
     sealed record Rebuilt(byte[] Stored, List<(int OldStart, int OldEnd, int NewStart, int NewEnd)> Map, int Changed);
 
     /// <summary>Re-encodes the blocks of <paramref name="blocks"/> whose raw bytes differ in <paramref name="newRaw"/>.</summary>
@@ -166,7 +180,10 @@ public sealed class LegacyFiles
     {
         var log = new List<string>();
         if (files.Count == 0) return log;
-        var indexes = FindAllIndexes(files.Keys.First());
+        // Every index that lists any of the files: the update copy of loc/eng_us.db is listed in a different index than
+        // nhl_game.db, so searching by the first name only left the update's names unchanged (no "Fanatics 26-27").
+        var indexes = files.Keys.SelectMany(name => FindAllIndexes(name))
+            .DistinctBy(i => (i.Toc.Path.ToLowerInvariant(), i.Id)).ToList();
         var missing = files.Keys.ToHashSet(StringComparer.Ordinal);
         foreach (var (toc, id, raw, refr) in indexes)
         {
@@ -182,7 +199,7 @@ public sealed class LegacyFiles
     }
 
     /// <summary>Every index chunk listing <paramref name="anyName"/>, with the TOC that carries it.</summary>
-    List<(TocFile Toc, Guid Id, byte[] Raw, ChunkRef Ref)> FindAllIndexes(string anyName)
+    List<(TocFile Toc, Guid Id, byte[] Raw, ChunkRef Ref)> FindAllIndexes(string anyName, bool everyToc = false)
     {
         var needle = Encoding.ASCII.GetBytes(anyName + "\0");
         var found = new List<(TocFile, Guid, byte[], ChunkRef)>();
@@ -203,7 +220,7 @@ public sealed class LegacyFiles
                     if (Records().Any(x => x.Name == anyName)) found.Add((toc, id, raw, r));
                 }
             }
-            if (found.Count > 0) break;
+            if (found.Count > 0 && !everyToc) break;
         }
         if (found.Count == 0) throw new InvalidDataException($"No legacy file index lists {anyName}.");
         return found;

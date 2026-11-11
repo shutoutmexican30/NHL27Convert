@@ -196,7 +196,14 @@ public static class NewUniformApply
             if (prepared.Mod?.Additions is not { Count: > 0 } ready || ready.Count != broken.Count)
                 throw new InvalidDataException("After removal not every repaired uniform could be planned in its own slot.");
             var (ok, message) = Install(settings, prepared.Mod, progress);
-            if (ok) return (true, $"Repaired {string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}"))}. " + message);
+            if (ok)
+            {
+                // Like Add to game, the repaired uniforms go on the mod list as a saved mod.
+                string saved = prepared.AdditionPlan.ToMod(unplanned.Name,
+                    "Uniforms rebuilt by Repair in their own variant slots.").Save();
+                progress?.Invoke("mod saved to " + saved);
+                return (true, $"Repaired {string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}"))}. " + message + " Saved mod: " + saved);
+            }
             Restore(target, removalBackup);
             return (false, message + " The incomplete kit(s) were put back exactly as they were.");
         }
