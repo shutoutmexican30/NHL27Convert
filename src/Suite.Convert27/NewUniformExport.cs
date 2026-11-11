@@ -67,7 +67,7 @@ public static class NewUniformExport
     public static async Task<(bool Ok, string Message)> RepairAsync(Convert27ViewModel vm, bool currentFolderOnly)
     {
         var (unplanned, Report) = await BuildUnplannedAsync(vm, "NHL 27 repaired uniforms", currentFolderOnly);
-        return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report));
+        return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report, rebuildComplete: currentFolderOnly));
     }
 
     public static async Task<Draft> PlanAsync(Convert27ViewModel vm, string name, bool currentFolderOnly)

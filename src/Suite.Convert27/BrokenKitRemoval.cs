@@ -22,7 +22,10 @@ public static class BrokenKitRemoval
     public static Plan Build(BundleIndex index, string folder, int teamId, int variant)
     {
         string p = folder.Trim().TrimEnd('/') + "/";
-        var removals = new List<TocRemoval>();
+        // First every bundle of the slot in every TOC (Base and Patch both carry copies), then the chunks only they use:
+        // a chunk is kept only when a bundle outside the slot, in any TOC, still carries it.
+        var tocs = new List<(string Toc, TocArchive Archive, HashSet<string> Names)>();
+        var removed = new HashSet<BundleIndex.Bundle>();
         foreach (string toc in index.Bundles.Select(b => b.Toc).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var archive = TocArchive.Parse(File.ReadAllBytes(toc));
@@ -31,20 +34,18 @@ public static class BrokenKitRemoval
             if (names.Count == 0) continue;
             var records = archive.Bundles.Where(b => names.Contains(b.Name) && b.RecordOffset != ulong.MaxValue)
                 .Select(b => checked((int)b.RecordOffset + TocFile.HeaderSize)).ToHashSet();
-            var removed = index.Bundles.Where(b => string.Equals(b.Toc, toc, StringComparison.OrdinalIgnoreCase) && records.Contains(b.RecordAt)).ToHashSet();
-            bool Kept(BundleIndex.Bundle b) => !removed.Contains(b);
-            var ids = new HashSet<Guid>();
-            foreach (var r in index.ResByName.Values.SelectMany(x => x).Where(r => removed.Contains(r.Bundle)))
-            {
-                try { ids.Add(TextureRes.Parse(UniformPhysicalLayouts.Decode(BundleIndex.ReadBytes(r.Data))).ChunkGuid); }
-                catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IndexOutOfRangeException) { }
-            }
-            foreach (var c in index.ChunksById.Values.SelectMany(x => x).Where(c => removed.Contains(c.Bundle))) ids.Add(c.Id);
-            // A chunk any kept bundle still carries stays.
-            var chunks = ids.Where(id => archive.FindChunk(id) is not null
-                && !(index.ChunksById.GetValueOrDefault(id)?.Any(c => Kept(c.Bundle)) ?? false)).ToHashSet();
-            removals.Add(new TocRemoval(toc, names, chunks));
+            removed.UnionWith(index.Bundles.Where(b => string.Equals(b.Toc, toc, StringComparison.OrdinalIgnoreCase) && records.Contains(b.RecordAt)));
+            tocs.Add((toc, archive, names));
         }
+        var ids = new HashSet<Guid>();
+        foreach (var r in index.ResByName.Values.SelectMany(x => x).Where(r => removed.Contains(r.Bundle)))
+        {
+            try { ids.Add(TextureRes.Parse(UniformPhysicalLayouts.Decode(BundleIndex.ReadBytes(r.Data))).ChunkGuid); }
+            catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IndexOutOfRangeException) { }
+        }
+        foreach (var c in index.ChunksById.Values.SelectMany(x => x).Where(c => removed.Contains(c.Bundle))) ids.Add(c.Id);
+        ids.RemoveWhere(id => index.ChunksById.GetValueOrDefault(id)?.Any(c => !removed.Contains(c.Bundle)) ?? false);
+        var removals = tocs.Select(t => new TocRemoval(t.Toc, t.Names, ids.Where(id => t.Archive.FindChunk(id) is not null).ToHashSet())).ToList();
         return new Plan(p, teamId, variant, removals);
     }
 

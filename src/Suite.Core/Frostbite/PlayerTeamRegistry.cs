@@ -151,10 +151,17 @@ public static class PlayerTeamRegistry
         {
             string from = kit.SourceFolder.TrimEnd('/'), to = kit.TargetFolder.TrimEnd('/');
             string idFrom = KitRegistration.Identity(from), idTo = KitRegistration.Identity(to);
-            if (byFolder.Contains(to)) throw new InvalidDataException($"player_team_brt already has {to}.");
             var source = byFolder[from].ToArray();
-            if (source.Length == 0) continue;
             string Convert(string s) => s.Replace(from, to, StringComparison.Ordinal).Replace(idFrom, idTo, StringComparison.Ordinal);
+            if (byFolder.Contains(to))
+            {
+                // Repair re-adds a kit into the slot it already had: its rows are exactly the ones this would add, so they
+                // stay. Rows that differ (another source kit) are never merged.
+                var have = byFolder[to].Select(i => bRows[i].Leaf).ToHashSet(StringComparer.Ordinal);
+                if (source.Length > 0 && have.SetEquals(source.Select(i => Convert(bRows[i].Leaf)))) continue;
+                throw new InvalidDataException($"player_team_brt already has {to}.");
+            }
+            if (source.Length == 0) continue;
 
             int probe = source[0];
             ulong key = Key(bRows[probe].Leaf);

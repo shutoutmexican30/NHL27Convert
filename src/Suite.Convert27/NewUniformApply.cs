@@ -162,7 +162,10 @@ public static class NewUniformApply
     /// leftovers (BrokenKitRemoval) and add the uniform fresh in the same slot. If the install fails, the leftovers are
     /// put back exactly as they were, so the game ends either repaired or unchanged.
     /// </summary>
-    public static (bool Ok, string Message) Repair(SuiteSettings settings, ModFile unplanned, Action<string>? progress = null)
+    /// <param name="rebuildComplete">Also rebuild a complete kit in its slot (the user picked one uniform to repair, e.g.
+    /// Anaheim home whose logos sit in the wrong spots). All teams repairs only incomplete installs.</param>
+    public static (bool Ok, string Message) Repair(SuiteSettings settings, ModFile unplanned, Action<string>? progress = null,
+        bool rebuildComplete = false)
     {
         var problems = ModApply.Problems(settings);
         if (problems.Count > 0) return (false, "Repair refused: " + string.Join("; ", problems));
@@ -175,13 +178,15 @@ public static class NewUniformApply
         {
             int variant = InstalledKits.VariantFor(a.SourceKit);
             string folder = $"{TextureName.SkaterPrefix}nhl/{a.Team}/adidas/{TextureName.Numbers[variant]}/";
-            if (InstalledKits.State(index, registries, folder) != InstalledKits.SlotState.Broken) continue;
+            var state = InstalledKits.State(index, registries, folder);
+            if (state == InstalledKits.SlotState.Free || state == InstalledKits.SlotState.Complete && !rebuildComplete) continue;
             var plan = BrokenKitRemoval.Build(index, folder, a.TeamId, variant);
-            progress?.Invoke($"{a.Team} {a.SourceKit}: removing the incomplete kit in variant {variant} ({plan.BundleCount} bundles, {plan.ChunkCount} chunks)");
+            progress?.Invoke($"{a.Team} {a.SourceKit}: removing the {(state == InstalledKits.SlotState.Broken ? "incomplete" : "existing")} kit in variant {variant} ({plan.BundleCount} bundles, {plan.ChunkCount} chunks)");
             broken.Add(a);
             plans.Add(plan);
         }
-        if (broken.Count == 0) return (false, "Nothing needs repair: no chosen uniform's slot holds an incomplete earlier install.");
+        if (broken.Count == 0) return (false, rebuildComplete ? "Nothing to repair: this uniform is not in the game yet. Use Add to game."
+            : "Nothing needs repair: no chosen uniform's slot holds an incomplete earlier install.");
         string removalBackup = BrokenKitRemoval.Apply(target, plans, settings, null,
             s => { progress?.Invoke(s); SuiteLog.Write("repair: " + s); });
         try

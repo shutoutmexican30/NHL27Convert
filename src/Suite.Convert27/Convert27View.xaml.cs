@@ -138,7 +138,7 @@ public partial class Convert27View : UserControl
     async void Repair_Click(object sender, RoutedEventArgs e)
     {
         bool all = AllTeams.IsChecked == true;
-        if (MessageBox.Show($"Repair {(all ? "every team's" : "this")} uniform whose slot holds an incomplete earlier install?\n\n"
+        if (MessageBox.Show($"{(all ? "Repair every team's uniform whose slot holds an incomplete earlier install?" : "Rebuild this uniform in its slot? Its old copy (complete or not) is removed and the uniform is added fresh.")}\n\n"
                 + "The leftovers are removed and the uniform is added fresh in the same slot, with a backup first. "
                 + $"If anything fails the game is put back exactly as it was.\n\nGame: {_vm.Settings.ApplyTargetDir}\nClose the game first.",
                 "Repair broken kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
