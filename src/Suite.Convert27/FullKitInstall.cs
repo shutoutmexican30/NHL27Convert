@@ -360,6 +360,11 @@ public sealed class FullKitInstall
                 var stock = Ps4Codec.DecodeSlices(colorSlot.Res, colorSlot.Stock);
                 var art = InstalledBrandingAudit.LoadArtwork(color.Artwork.Layers, have, colorSlot.Res, ResolveArt, o.Workers);
                 var placement = UniformBrandingLayers.Plan(color, art, stock, capacity, physical.Roles);
+                // Every logo must land in a slot of its own kind, checked against the same stamp the game reads.
+                if (color.RequiredRoles is { } artRoles
+                    && UniformBrandingLayers.Misplaced(artRoles, color.Artwork.Layers.Keys.ToList(), physical.Roles, placement, color.PinnedSlots) is { Count: > 0 } wrong)
+                    throw new InvalidDataException($"{a.Team} {a.SourceKit} {color.TargetSlot[(color.TargetSlot.LastIndexOf('/') + 1)..]}: "
+                        + string.Join("; ", wrong) + ". Fix it in the slot map or the Shoulder patches choice.");
                 foreach (var slot in new[] { colorSlot, normalSlot, coeffSlot })
                 {
                     if (plans.TryGetValue(slot.Chunk, out var existing)

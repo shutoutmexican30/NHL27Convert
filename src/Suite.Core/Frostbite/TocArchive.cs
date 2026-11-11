@@ -133,13 +133,25 @@ public sealed class TocArchive
     }
 
     /// <summary>Rebuilds the lookup section, optionally appending self-contained bundle records and chunk locations.</summary>
-    public byte[] Rebuild(IEnumerable<NewBundle>? newBundles = null, IEnumerable<Chunk>? newChunks = null)
+    /// <param name="removeBundles">Existing bundles to drop from the table (a broken earlier install). Their records stay
+    /// as unreferenced bytes in the opaque record area, so no other record moves.</param>
+    /// <param name="removeChunks">Existing chunk ids to drop with them.</param>
+    public byte[] Rebuild(IEnumerable<NewBundle>? newBundles = null, IEnumerable<Chunk>? newChunks = null,
+        IReadOnlySet<string>? removeBundles = null, IReadOnlySet<Guid>? removeChunks = null)
     {
         const int H = TocFile.HeaderSize;
         var additions = newBundles?.ToList() ?? [];
         var extraChunks = newChunks?.ToList() ?? [];
-        var names = new HashSet<string>(Bundles.Select(b => b.Name), StringComparer.OrdinalIgnoreCase);
-        var ids = new HashSet<Guid>(Chunks.Select(c => c.Id));
+        removeBundles ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        removeChunks ??= new HashSet<Guid>();
+        foreach (var name in removeBundles)
+            if (FindBundle(name) is null) throw new InvalidDataException($"Cannot remove a bundle the TOC does not have: {name}");
+        foreach (var id in removeChunks)
+            if (FindChunk(id) is null) throw new InvalidDataException($"Cannot remove a chunk the TOC does not have: {id}");
+        var keptBundles = Bundles.Where(b => !removeBundles.Contains(b.Name)).ToList();
+        var keptChunks = Chunks.Where(c => !removeChunks.Contains(c.Id)).ToList();
+        var names = new HashSet<string>(keptBundles.Select(b => b.Name), StringComparer.OrdinalIgnoreCase);
+        var ids = new HashSet<Guid>(keptChunks.Select(c => c.Id));
         foreach (var bundle in additions)
         {
             ValidateName(bundle.Name);
@@ -159,9 +171,9 @@ public sealed class TocArchive
         if (tailLength < 0) throw new InvalidDataException("A TOC bundle record lies beyond the file.");
         int tailSource = firstRecord == ulong.MaxValue ? _originalLength : Absolute(checked((uint)firstRecord));
 
-        var allBundles = Bundles.Select(b => new PendingBundle(b.Name, b.SizeAndFlags, b.RecordOffset, null))
+        var allBundles = keptBundles.Select(b => new PendingBundle(b.Name, b.SizeAndFlags, b.RecordOffset, null))
             .Concat(additions.Select(b => new PendingBundle(b.Name, b.SizeAndFlags, 0, b.Record))).ToList();
-        var allChunks = Chunks.Concat(extraChunks).ToList();
+        var allChunks = keptChunks.Concat(extraChunks).ToList();
         var bundlePlacement = Place(allBundles, b => Encoding.ASCII.GetBytes(b.Name.ToLowerInvariant()));
         var chunkPlacement = Place(allChunks, c => c.Id.ToByteArray());
         var sortedBundles = bundlePlacement.Items;

@@ -135,6 +135,30 @@ public partial class Convert27View : UserControl
     async void InstallAllNew_Click(object sender, RoutedEventArgs e) => await InstallAllNew();
     async void AddToGame_Click(object sender, RoutedEventArgs e) => await InstallAllNew(currentOnly: AllTeams.IsChecked != true);
 
+    async void Repair_Click(object sender, RoutedEventArgs e)
+    {
+        bool all = AllTeams.IsChecked == true;
+        if (MessageBox.Show($"Repair {(all ? "every team's" : "this")} uniform whose slot holds an incomplete earlier install?\n\n"
+                + "The leftovers are removed and the uniform is added fresh in the same slot, with a backup first. "
+                + $"If anything fails the game is put back exactly as it was.\n\nGame: {_vm.Settings.ApplyTargetDir}\nClose the game first.",
+                "Repair broken kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        IsEnabled = false;
+        _vm.Busy = true;
+        try
+        {
+            SuiteLog.Write($"repair: clicked ({(all ? "all teams" : _vm.Folder24)})");
+            var (ok, message) = await NewUniformExport.RepairAsync(_vm, currentFolderOnly: !all);
+            SuiteLog.Write($"repair: finished ok={ok}: {message}");
+            _vm.Status = (ok ? "Repaired: " : "Repair not done: ") + message;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("repair: FAILED " + ex);
+            _vm.Status = "Repair failed: " + ex.Message;
+        }
+        finally { _vm.Busy = false; IsEnabled = true; }
+    }
+
     async void UndoLast_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("Restore the game to the backup taken just before the last write?", "Undo last add",

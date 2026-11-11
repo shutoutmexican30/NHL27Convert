@@ -15,6 +15,26 @@ public static class UniformBrandingLayers
 {
     public const double SamePictureLimit = 8;
 
+    /// <summary>
+    /// Logos whose planned slot has a different physical role ("shoulder in the shield slot"), as plain words. Layers the
+    /// user pinned in the slot map are their decision and are not reported. Install refuses a plan with any.
+    /// </summary>
+    public static List<string> Misplaced(IReadOnlyList<string> artRoles, IReadOnlyCollection<int> artLayers,
+        IReadOnlyList<string> physical, UniformLayerPlacement placement, IReadOnlyDictionary<int, int>? pinned = null)
+    {
+        var wrong = new List<string>();
+        foreach (int layer in artLayers.Order())
+        {
+            if (layer >= artRoles.Count || artRoles[layer] is "blank" or "" || placement.BlankSources.Contains(layer)) continue;
+            if (pinned?.ContainsKey(layer) == true) continue;
+            int slot = placement.Destination(layer);
+            string there = slot < physical.Count ? physical[slot] : "no slot";
+            if (there != artRoles[layer])
+                wrong.Add($"{SlotNames.Name(artRoles[layer])} would go in the {SlotNames.Name(there).ToLowerInvariant()} slot");
+        }
+        return wrong;
+    }
+
     /// <summary>Matches identical pictures before assigning unmatched layers; normal and coefficient arrays follow color.</summary>
     /// <param name="capacity">Optional shared slot count when a stock color array has extra slices its companions lack.</param>
     public static UniformLayerPlacement Plan(IReadOnlyDictionary<int, Rgba> artwork, IReadOnlyList<Rgba> stock, int? capacity = null)

@@ -157,6 +157,58 @@ public static class NewUniformApply
         return await Task.Run(() => Install(settings, prepared.Mod, progress), ct);
     }
 
+    /// <summary>
+    /// Repair: for each chosen uniform whose slot (25 home / 24 away) holds an incomplete earlier install, remove those
+    /// leftovers (BrokenKitRemoval) and add the uniform fresh in the same slot. If the install fails, the leftovers are
+    /// put back exactly as they were, so the game ends either repaired or unchanged.
+    /// </summary>
+    public static (bool Ok, string Message) Repair(SuiteSettings settings, ModFile unplanned, Action<string>? progress = null)
+    {
+        var problems = ModApply.Problems(settings);
+        if (problems.Count > 0) return (false, "Repair refused: " + string.Join("; ", problems));
+        string target = Path.GetFullPath(settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
+        var index = BundleIndex.Build(target, progress);
+        var registries = InstalledKits.Registries(index);
+        var broken = new List<NewUniformAddition>();
+        var plans = new List<BrokenKitRemoval.Plan>();
+        foreach (var a in unplanned.Additions ?? [])
+        {
+            int variant = InstalledKits.VariantFor(a.SourceKit);
+            string folder = $"{TextureName.SkaterPrefix}nhl/{a.Team}/adidas/{TextureName.Numbers[variant]}/";
+            if (InstalledKits.State(index, registries, folder) != InstalledKits.SlotState.Broken) continue;
+            var plan = BrokenKitRemoval.Build(index, folder, a.TeamId, variant);
+            progress?.Invoke($"{a.Team} {a.SourceKit}: removing the incomplete kit in variant {variant} ({plan.BundleCount} bundles, {plan.ChunkCount} chunks)");
+            broken.Add(a);
+            plans.Add(plan);
+        }
+        if (broken.Count == 0) return (false, "Nothing needs repair: no chosen uniform's slot holds an incomplete earlier install.");
+        string removalBackup = BrokenKitRemoval.Apply(target, plans, settings, null,
+            s => { progress?.Invoke(s); SuiteLog.Write("repair: " + s); });
+        try
+        {
+            var mod = new ModFile { Name = unplanned.Name, Kind = NewUniformAddition.ModKind, Additions = broken };
+            var prepared = Prepare(settings, mod, progress: progress);
+            if (prepared.Mod?.Additions is not { Count: > 0 } ready || ready.Count != broken.Count)
+                throw new InvalidDataException("After removal not every repaired uniform could be planned in its own slot.");
+            var (ok, message) = Install(settings, prepared.Mod, progress);
+            if (ok) return (true, $"Repaired {string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}"))}. " + message);
+            Restore(target, removalBackup);
+            return (false, message + " The incomplete kit(s) were put back exactly as they were.");
+        }
+        catch (Exception ex)
+        {
+            Restore(target, removalBackup);
+            return (false, ex.Message + " The incomplete kit(s) were put back exactly as they were.");
+        }
+    }
+
+    static void Restore(string target, string backup)
+    {
+        ApplyTarget.RestoreFromBackup(target, backup);
+        var left = ApplyTarget.Compare(target, backup);
+        if (left.Count > 0) throw new InvalidOperationException("Restore left differences: " + string.Join("; ", left.Take(5)));
+    }
+
     /// <summary>The one install path: whole-kit clones, every player_team_brt copy registered, rows written, all read back.</summary>
     static (bool Ok, string Message) Install(SuiteSettings settings, ModFile mod, Action<string>? progress)
     {

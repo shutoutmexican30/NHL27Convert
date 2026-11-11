@@ -7,6 +7,36 @@ namespace Suite.Tests;
 public sealed class TocArchiveTests
 {
     [Fact]
+    public void Removing_bundles_and_chunks_keeps_every_other_record_and_chunk()
+    {
+        string path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "../../../../../Debugging/donor-clone/game/Data/Gen4b/contentsb.toc"));
+        byte[] originalBytes = File.ReadAllBytes(path);
+        var original = TocArchive.Parse(originalBytes);
+        var dropBundles = original.Bundles.Where(b => b.RecordOffset != ulong.MaxValue).Skip(100).Take(3).Select(b => b.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dropChunks = original.Chunks.Skip(50).Take(2).Select(c => c.Id).ToHashSet();
+
+        byte[] rebuiltBytes = original.Rebuild(removeBundles: dropBundles, removeChunks: dropChunks);
+        var rebuilt = TocArchive.Parse(rebuiltBytes);
+
+        Assert.Equal(original.Bundles.Count - 3, rebuilt.Bundles.Count);
+        Assert.Equal(original.Chunks.Count - 2, rebuilt.Chunks.Count);
+        foreach (var name in dropBundles) Assert.Null(rebuilt.FindBundle(name));
+        foreach (var id in dropChunks) Assert.Null(rebuilt.FindChunk(id));
+        foreach (var before in original.Bundles.Where(b => !dropBundles.Contains(b.Name)))
+        {
+            var after = rebuilt.FindBundle(before.Name)!;
+            Assert.Equal(before.SizeAndFlags, after.SizeAndFlags);
+            if (before.RecordOffset == ulong.MaxValue) continue;
+            int oldAt = checked(TocFile.HeaderSize + (int)before.RecordOffset), newAt = checked(TocFile.HeaderSize + (int)after.RecordOffset);
+            Assert.Equal(originalBytes.AsSpan(oldAt, 32).ToArray(), rebuiltBytes.AsSpan(newAt, 32).ToArray());
+        }
+        foreach (var before in original.Chunks.Where(c => !dropChunks.Contains(c.Id))) Assert.Equal(before, rebuilt.FindChunk(before.Id));
+        Assert.Throws<InvalidDataException>(() => original.Rebuild(removeBundles: new HashSet<string> { "no/such/bundle" }));
+    }
+
+    [Fact]
     public void Real_compressed_toc_rebuild_preserves_every_record_and_resolves_hash_collisions()
     {
         string path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,

@@ -392,3 +392,20 @@ public class AllTeamsInstallRuleTests
         Assert.True(RegisteredKitSource.TargetIsPlanned(null, "content/x/adidas/twentyfive/"));
     }
 }
+
+public class MisplacedLogoTests
+{
+    [Fact]
+    public void ALogoInAnotherKindOfSlotIsReportedInPlainWords()
+    {
+        string[] art = ["crest", "shoulder", "shield"];
+        string[] physical = ["crest", "shield", "shoulder"];
+        var straight = new UniformLayerPlacement(new Dictionary<int, int>(), new HashSet<int>());
+        var wrong = UniformBrandingLayers.Misplaced(art, [0, 1, 2], physical, straight);
+        Assert.Equal(["Shoulder patch would go in the nhl shield slot", "NHL shield would go in the shoulder patch slot"], wrong);
+        var right = new UniformLayerPlacement(new Dictionary<int, int> { [1] = 2, [2] = 1 }, new HashSet<int>());
+        Assert.Empty(UniformBrandingLayers.Misplaced(art, [0, 1, 2], physical, right));
+        // A slot-map pin is the user's choice.
+        Assert.Empty(UniformBrandingLayers.Misplaced(art, [0, 1, 2], physical, straight, new Dictionary<int, int> { [1] = 1, [2] = 2 }));
+    }
+}

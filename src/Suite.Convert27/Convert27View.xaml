@@ -105,6 +105,8 @@
             <Button Content="Stamp a sponsor…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a jersey that has no logo slots." />
             <Button Content="Mod list…" Click="ModList_Click" />
             <Button Content="Undo last add" Click="UndoLast_Click" ToolTip="Restore the game to the backup taken just before the last write." />
+            <Button Content="Repair broken kits" Click="Repair_Click"
+                    ToolTip="For uniforms the check marks 'needs repair': remove the incomplete earlier install from its slot and add the uniform fresh in the same slot. Backup first; put back as it was if anything fails." />
           </WrapPanel>
         </Expander>
 
