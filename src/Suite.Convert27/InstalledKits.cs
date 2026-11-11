@@ -68,6 +68,29 @@ public sealed class InstalledKits
         return skipped;
     }
 
+    public enum SlotState { Free, Complete, Broken }
+
+    /// <summary>Each distinct player_team_brt table in the game (Base and Patch).</summary>
+    public static List<byte[]> Registries(BundleIndex index) =>
+        (index.ResByName.GetValueOrDefault(PlayerTeamRegistry.ResourceName) ?? [])
+            .GroupBy(r => (r.Data.Cas, r.Data.Offset)).Select(g => UniformPhysicalLayouts.Decode(BundleIndex.ReadBytes(g.First().Data))).ToList();
+
+    /// <summary>
+    /// Free: nothing in the folder. Complete: a jersey stamp and registered in every player_team_brt table. Broken: assets
+    /// without those (Detroit's 11/08 install shows the black placeholder kit in game).
+    /// </summary>
+    public static SlotState State(BundleIndex index, IReadOnlyList<byte[]> registries, string folder)
+    {
+        string p = folder.TrimEnd('/') + "/";
+        if (!FolderHasAssets(index, p)) return SlotState.Free;
+        bool stamp = index.EbxByName.Keys.Any(n => n.StartsWith(p, StringComparison.Ordinal) && n.Contains("/stamp_jersey_", StringComparison.Ordinal));
+        bool registered = registries.Count > 0 && registries.All(r => PlayerTeamRegistry.Rows(r, p.TrimEnd('/')).Count > 0);
+        return stamp && registered ? SlotState.Complete : SlotState.Broken;
+    }
+
+    /// <summary>The variant a new kit takes: 25 for home, 24 for away (the equipment rows support only these).</summary>
+    public static int VariantFor(string sourceKit) => sourceKit == "away" ? 24 : 25;
+
     /// <summary>True when any EBX or RES lives under the folder (a cloned kit is present).</summary>
     public static bool FolderHasAssets(BundleIndex index, string prefix)
     {

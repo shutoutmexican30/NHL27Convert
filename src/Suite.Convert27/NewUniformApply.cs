@@ -14,9 +14,15 @@ public static class NewUniformApply
         IReadOnlyDictionary<string, string> DatabaseFiles,
         ModFile? Mod = null)
     {
+        /// <summary>Uniforms left out because the game already has them, and ones whose slot needs repair first.</summary>
+        public IReadOnlyList<string> Skipped { get; init; } = [];
+        public IReadOnlyList<string> NeedRepair { get; init; } = [];
         public int CloneCount => AssetPlans.Sum(p => p.Clones.Count);
         public string Summary => AdditionPlan.Summary + " Each uniform is a whole clone of its own team's kit; "
-            + string.Join(", ", AdditionPlan.JerseyRows.ChangedDatabases) + ".";
+            + string.Join(", ", AdditionPlan.JerseyRows.ChangedDatabases) + "."
+            + (Skipped.Count > 0 ? Environment.NewLine + Environment.NewLine + "Already in this game, skipped: " + string.Join(", ", Skipped) + "." : "")
+            + (NeedRepair.Count > 0 ? Environment.NewLine + Environment.NewLine
+                + "Needs repair (an incomplete earlier install holds its slot), left out: " + string.Join(", ", NeedRepair) + "." : "");
     }
 
     public static List<string> SourceProblems(IEnumerable<ModFile> mods)
@@ -68,8 +74,39 @@ public static class NewUniformApply
         var skipped = InstalledKits.Load().SkipPresent(target, mod.Additions, prefix => InstalledKits.FolderHasAssets(index, prefix));
         foreach (var (a, kit) in skipped)
             progress?.Invoke($"{a.Team} {a.SourceKit}: already in this game (variant {kit.Variant}), skipped");
+        // New kits always use variant 25 (home) and 24 (away), the only variants the equipment rows support. A team that
+        // already has a kit there (an earlier add) is skipped instead of being moved to another variant.
+        var registries = InstalledKits.Registries(index);
+        var needRepair = new List<string>();
+        var alreadyIn = skipped.Select(x => $"{x.Addition.Team} {x.Addition.SourceKit}").ToList();
+        foreach (var a in mod.Additions.Where(a => a.TargetVariant == 0).ToList())
+        {
+            int variant = InstalledKits.VariantFor(a.SourceKit);
+            string folder = $"{TextureName.SkaterPrefix}nhl/{a.Team}/adidas/{TextureName.Numbers[variant]}/";
+            switch (InstalledKits.State(index, registries, folder))
+            {
+                case InstalledKits.SlotState.Complete:
+                    progress?.Invoke($"{a.Team} {a.SourceKit}: this game already has a complete kit in variant {variant}, skipped");
+                    alreadyIn.Add($"{a.Team} {a.SourceKit}");
+                    mod.Additions.Remove(a);
+                    break;
+                case InstalledKits.SlotState.Broken:
+                    // An earlier, incomplete install (unregistered, no jersey layout) holds the slot. It is never moved to
+                    // another variant; it must be repaired in place, so it is left out of this batch and named.
+                    needRepair.Add($"{a.Team} {a.SourceKit} (variant {variant})");
+                    progress?.Invoke($"{a.Team} {a.SourceKit}: NEEDS REPAIR - an incomplete earlier install holds variant {variant}; left out of this batch");
+                    mod.Additions.Remove(a);
+                    break;
+                default:
+                    a.TargetVariant = variant;
+                    break;
+            }
+        }
+        if (needRepair.Count > 0) SuiteLog.Write("install: needs repair: " + string.Join(", ", needRepair));
         if (mod.Additions.Count == 0)
-            throw new InvalidDataException("Every chosen uniform is already in this game. Use Undo last add first to add one again.");
+            throw new InvalidDataException(needRepair.Count > 0
+                ? "Nothing to add: the chosen uniforms are already in this game, and these need repair first: " + string.Join(", ", needRepair)
+                : "Every chosen uniform is already in this game. Use Undo last add first to add one again.");
         RegisteredKitSource.Normalize(mod.Additions, index, progress);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var additionPlan = NewUniformAdditionPlanner.Build(mod.Additions, sources, metaPath, Exists);
@@ -89,7 +126,8 @@ public static class NewUniformApply
         }
         return new Prepared(target, additionPlan, assets,
             additionPlan.JerseyRows.ChangedDatabases.ToDictionary(RosterSyncRun.LegacyName,
-                name => Convert.ToBase64String(additionPlan.JerseyRows.Databases[name]), StringComparer.Ordinal), mod);
+                name => Convert.ToBase64String(additionPlan.JerseyRows.Databases[name]), StringComparer.Ordinal), mod)
+        { Skipped = alreadyIn, NeedRepair = needRepair };
     }
 
     public static async Task<(bool Ok, string Message)> ApplyAsync(

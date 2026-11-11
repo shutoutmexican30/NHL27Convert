@@ -357,3 +357,13 @@ public class InstalledKitsTests
         Assert.Single(again);
     }
 }
+
+public class NewKitVariantTests
+{
+    [Fact]
+    public void HomeAlwaysTakes25AndAway24()
+    {
+        Assert.Equal(25, InstalledKits.VariantFor("home"));
+        Assert.Equal(24, InstalledKits.VariantFor("away"));
+    }
+}
