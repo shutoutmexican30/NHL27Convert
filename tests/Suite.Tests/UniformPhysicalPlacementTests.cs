@@ -137,23 +137,28 @@ public sealed class UniformPhysicalPlacementTests
     }
 
     [Fact]
-    public void Sparse_source_pant_ids_preserve_the_intentional_blank_slice()
+    public void Sparse_pant_ids_map_to_slices_in_id_order()
     {
         byte[] xml = Encoding.ASCII.GetBytes("<?xml version=\"1.0\"?><hotspots><garment>"
             + "<hotspot enable=\"1.0\" id=\"8\" type=\"brand\" name=\"logo_team\" r=\"0\" sx=\".1\" sy=\".1\" tx=\".2\" ty=\".2\"/>"
             + "<hotspot enable=\"1.0\" id=\"10\" type=\"brand\" name=\"back_nhl\" r=\"0\" sx=\".1\" sy=\".1\" tx=\".2\" ty=\".2\"/>"
             + "</garment></hotspots>");
-        Assert.Equal(["crest", "blank", "shield"], UniformHotspots.Roles(xml));
+        // Stock Boston five pants: ids 8 and 10 over a 2-slice array. The game reads slices in id order, so a gap is not
+        // a missing slice; growing the array to 3 put the shield where the game never looks, and Boston crashed.
+        Assert.Equal(["crest", "shield"], UniformHotspots.Roles(xml));
     }
 
     [Fact]
-    public void Curated_sparse_layout_is_rejected()
+    public void Curated_sparse_layout_follows_id_order_and_duplicate_ids_are_rejected()
     {
         var layout = new UniformHotspotLayout
         {
             SourceSlot = "stamp_pant_test",
             Branding = [Slot(8, "logo_team", "crest"), Slot(10, "back_nhl", "shield")],
         };
+        Assert.Equal(["crest", "shield"], UniformHotspots.Roles(layout));
+        Assert.Equal(1, UniformHotspots.SliceOf(layout, layout.Branding[1]));
+        layout.Branding.Add(Slot(10, "copy", "sponsor"));
         Assert.Throws<InvalidDataException>(() => UniformHotspots.Roles(layout));
     }
 

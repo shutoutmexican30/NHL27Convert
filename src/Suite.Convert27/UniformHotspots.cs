@@ -29,20 +29,29 @@ public static class UniformHotspots
     }
 
     /// <summary>Returns physical slot roles in array order. Unknown, garment-specific names must be explicitly mapped.</summary>
+    /// <remarks>
+    /// The game maps brand hotspots to array slices in id order, skipping gaps: stock Boston five pants have ids 8 and 10
+    /// over a 2-slice array, Nashville three and Pittsburgh five have five ids up to 13 over 5 slices. Treating id 10 as
+    /// slice 2 grew Boston's new pants to 3 slices with its shield art in a slice the game never reads (Boston crashed).
+    /// </remarks>
     public static IReadOnlyList<string> Roles(ReadOnlySpan<byte> ebx, string sourceSlot = "")
     {
-        var slots = Capture(ebx, sourceSlot).Branding;
-        int count = slots.Count == 0 ? 0 : slots.Max(s => s.Id) - FirstBrandingId + 1;
-        var roles = Enumerable.Repeat("blank", count).ToArray();
-        foreach (var slot in slots)
+        var slots = Capture(ebx, sourceSlot).Branding.OrderBy(s => s.Id).ToList();
+        var roles = new string[slots.Count];
+        for (int i = 0; i < slots.Count; i++)
         {
+            var slot = slots[i];
             string role = slot.Role.Length > 0 ? slot.Role : PositionRole(slot);
             if (role.Length == 0) throw new InvalidDataException(
                 $"Hotspot id {slot.Id} has unknown physical meaning '{slot.Name}'; an explicit role review is required.");
-            roles[slot.Id - FirstBrandingId] = role;
+            roles[i] = role;
         }
         return roles;
     }
+
+    /// <summary>The array slice a hotspot draws from: its position among the layout's brand hotspots in id order.</summary>
+    public static int SliceOf(UniformHotspotLayout layout, UniformHotspotPlacement slot) =>
+        layout.Branding.OrderBy(s => s.Id).ToList().FindIndex(s => s.Id == slot.Id);
 
     /// <summary>
     /// The role of a hotspot whose name says nothing (Toronto and Seattle number theirs), from where it sits on the jersey
@@ -133,13 +142,11 @@ public static class UniformHotspots
     /// <summary>Returns reviewed roles in contiguous physical array order. A sparse override cannot hide an unused logo.</summary>
     public static IReadOnlyList<string> Roles(UniformHotspotLayout layout)
     {
+        // Ids may skip (stock Boston pants: 8 and 10); slices follow id order either way.
         var ordered = layout.Branding.OrderBy(slot => slot.Id).ToArray();
-        for (int i = 0; i < ordered.Length; i++)
-        {
-            Validate(ordered[i]);
-            if (ordered[i].Id != FirstBrandingId + i) throw new InvalidDataException(
-                $"{layout.SourceSlot}: branding hotspot ids must be contiguous from {FirstBrandingId}; id {ordered[i].Id} leaves an unreviewed slot.");
-        }
+        foreach (var slot in ordered) Validate(slot);
+        if (ordered.Select(s => s.Id).Distinct().Count() != ordered.Length)
+            throw new InvalidDataException($"{layout.SourceSlot}: two branding hotspots share an id.");
         return ordered.Select(slot => slot.Role).ToArray();
     }
 

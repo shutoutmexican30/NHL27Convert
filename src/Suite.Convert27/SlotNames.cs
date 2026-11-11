@@ -35,10 +35,9 @@ public static class SlotNames
             var copies = SponsorSlots.Copies(index, stamp);
             var layout = SponsorSlots.WithRoles(copies.OrderByDescending(c => c.Branding.Count).First());
             string garment = arraySlot.Contains("branding_pant_", StringComparison.Ordinal) ? "branding_pant" : "branding_jersey";
-            int count = layout.Branding.Count == 0 ? 0 : layout.Branding.Max(s => s.Id) - UniformHotspots.FirstBrandingId + 1;
-            var names = Enumerable.Repeat("Empty", count).ToArray();
+            var names = new string[layout.Branding.Count];
             foreach (var slot in layout.Branding)
-                names[slot.Id - UniformHotspots.FirstBrandingId] = Name(slot.Role, slot.Role == "shoulder" ? ShoulderPatches.IsLeft(slot) : null,
+                names[UniformHotspots.SliceOf(layout, slot)] = Name(slot.Role, slot.Role == "shoulder" ? ShoulderPatches.IsLeft(slot) : null,
                     slot.Role == "brand" ? "adidas" : null, garment) + (slot.Enabled ? "" : " (off)");
             return names;
         }

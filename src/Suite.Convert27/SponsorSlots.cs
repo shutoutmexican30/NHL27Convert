@@ -154,9 +154,8 @@ public static class SponsorSlots
             string stamp = UniformPhysicalLayouts.StampForArray(arraySlot);
             if (!index.EbxByName.ContainsKey(stamp)) return null;
             var layout = WithRoles(Copies(index, stamp).OrderByDescending(c => c.Branding.Count).First());
-            int count = layout.Branding.Count == 0 ? 0 : layout.Branding.Max(s => s.Id) - UniformHotspots.FirstBrandingId + 1;
-            var roles = Enumerable.Repeat("blank", count).ToArray();
-            foreach (var slot in layout.Branding) roles[slot.Id - UniformHotspots.FirstBrandingId] = slot.Role;
+            var roles = new string[layout.Branding.Count];
+            foreach (var slot in layout.Branding) roles[UniformHotspots.SliceOf(layout, slot)] = slot.Role;
             return roles;
         }
         catch (InvalidDataException) { return null; }

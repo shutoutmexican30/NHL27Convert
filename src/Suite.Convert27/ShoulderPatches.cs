@@ -145,9 +145,9 @@ public static class ShoulderPatches
         var targets = new List<int>();
         foreach (var slot in layout.Branding.Where(s => s.Role == "shoulder").OrderBy(s => IsLeft(s)).ThenBy(s => s.Id))
         {
-            bool keep = WantsSide(choice, IsLeft(slot)) && !targets.Any(t => IsLeft(layout.Branding.First(b => b.Id == t + UniformHotspots.FirstBrandingId)) == IsLeft(slot));
+            bool keep = WantsSide(choice, IsLeft(slot)) && !targets.Any(t => IsLeft(layout.Branding.OrderBy(b => b.Id).ElementAt(t)) == IsLeft(slot));
             slot.Enabled = keep;
-            if (keep) targets.Add(slot.Id - UniformHotspots.FirstBrandingId);
+            if (keep) targets.Add(UniformHotspots.SliceOf(layout, slot));
         }
         if (color.RequiredRoles is { } roles && color.Artwork.Layers is { } layers)
         {
