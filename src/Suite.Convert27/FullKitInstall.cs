@@ -15,7 +15,7 @@ namespace Suite.Convert27;
 /// </summary>
 public sealed class FullKitInstall
 {
-    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0, bool CutExtraLayers = false, string JerseyName = DefaultJerseyName, bool RestoreAfterVerify = false, string? EquipmentSource = null);
+    public sealed record Options(string Target, ModFile Mod, string ArtDir, string? BackupRoot, bool Apply, Action<string> Say, int Workers = 0, bool CutExtraLayers = false, string JerseyName = DefaultJerseyName, bool RestoreAfterVerify = false, string? EquipmentSource = null, bool UseDonor = true);
 
     public const string DefaultJerseyName = "Fanatics 26-27";
 
@@ -117,14 +117,16 @@ public sealed class FullKitInstall
         };
         index = BundleIndex.Build(Game, o.Say);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
-        var mods = RegisteredKitSource.Normalize(o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms."), index, o.Say);
+        var given = o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms.");
+        // Every kit is a renamed clone of one donor (Anaheim's regular home) with the team's NHL 27 art on top.
+        var mods = o.UseDonor ? KitDonor.Retarget(given.ToList(), index, o.Say) : RegisteredKitSource.Normalize(given, index, o.Say);
         // Order matters: the user's matcher decisions first, then one layer per real NHL 27 logo, then any slot still missing.
         var slotMap = SlotMapStore.Load();
         int overrides = MatcherOverrides.Apply(mods, slotMap, o.Say);
         if (overrides > 0) o.Say($"{overrides} manual matcher decision(s) applied");
         DuplicateLogoLayers.Apply(mods, array => SponsorSlots.PhysicalRoles(index, array), o.Say);
         ShoulderPatches.FitArt(mods, slotMap, o.Say);
-        mods = SponsorSlots.AddMissing(mods, index, o.Say);
+        if (!o.UseDonor) mods = SponsorSlots.AddMissing(mods, index, o.Say);
         ShoulderPatches.PlaceSides(mods, slotMap, index, o.Say);
         foreach (var a in mods)
         {
@@ -154,7 +156,7 @@ public sealed class FullKitInstall
         usedRids = index.ResByName.Values.SelectMany(v => v).Select(r => r.Rid).ToHashSet();
         globalChunks = new(LoadGlobalChunks);
 
-        var kits = additionPlan.Additions.Select(a => new KitRegistration(a.SourcePrefix.TrimEnd('/'), a.TargetPrefix.TrimEnd('/'))).ToList();
+        var kits = additionPlan.Additions.Select(a => new KitRegistration(a.SourcePrefix.TrimEnd('/'), a.TargetPrefix.TrimEnd('/'), ReplaceExisting: true)).ToList();
         if (!o.Apply)
         {
             // A dry run checks every kit and lists every problem instead of stopping at the first one.
@@ -517,6 +519,7 @@ public sealed class FullKitInstall
         string pre = a.SourcePrefix.TrimEnd('/') + "/", tgt = a.TargetPrefix.TrimEnd('/') + "/";
         string idFrom = KitRegistration.Identity(pre), idTo = KitRegistration.Identity(tgt);
         string fromWord = pre.TrimEnd('/').Split('/')[^1];
+        string teamFrom = pre.TrimEnd('/').Split('/')[^3], teamTo = tgt.TrimEnd('/').Split('/')[^3];
         string Map(string n) => tgt + n[pre.Length..].Replace(idFrom, idTo, StringComparison.Ordinal);
 
         var kitEbx = index.EbxByName.Where(k => k.Key.StartsWith(pre, StringComparison.Ordinal)).ToList();
@@ -583,6 +586,9 @@ public sealed class FullKitInstall
                 string text = Encoding.ASCII.GetString(raw);
                 if (text.Contains(idFrom + "_", StringComparison.Ordinal) || text.Contains("/" + fromWord + "/", StringComparison.Ordinal))
                     throw new InvalidDataException("Old kit name left in " + mapped);
+                // A donor clone must not keep a path into the donor team's folder (it would load the donor's art).
+                if (teamFrom != teamTo && text.Contains("/nhl/" + teamFrom + "/", StringComparison.Ordinal))
+                    throw new InvalidDataException($"{mapped}: still points into the donor team's folder ({teamFrom}).");
                 var encoded = EncodeLike(stored, raw);
                 Put(1 + i, encoded, "ebx:" + mapped);
                 m.Ebx[i] = e with { Name = mapped, OriginalSize = checked((uint)raw.Length), Sha1 = SHA1.HashData(encoded) };

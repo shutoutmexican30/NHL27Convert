@@ -4,7 +4,7 @@ using System.Text;
 namespace Suite.Core.Frostbite;
 
 /// <summary>One new uniform to register: every row of <paramref name="SourceFolder"/> is mirrored for <paramref name="TargetFolder"/>.</summary>
-public sealed record KitRegistration(string SourceFolder, string TargetFolder)
+public sealed record KitRegistration(string SourceFolder, string TargetFolder, bool ReplaceExisting = false)
 {
     /// <summary>The "team_variant" token inside kit names, e.g. detroit_home from .../detroit/adidas/home.</summary>
     public static string Identity(string folder)
@@ -147,6 +147,7 @@ public static class PlayerTeamRegistry
         var newA = new List<(ulong Name, ulong Folder, ulong Group)>();
         var newB = new List<(ulong Leaf, ulong Folder)>();
         var newC = new List<(uint Lo, uint Hi, uint A, uint B)>();
+        var retired = new HashSet<int>();
         foreach (var kit in kits)
         {
             string from = kit.SourceFolder.TrimEnd('/'), to = kit.TargetFolder.TrimEnd('/');
@@ -159,7 +160,10 @@ public static class PlayerTeamRegistry
                 // stay. Rows that differ (another source kit) are never merged.
                 var have = byFolder[to].Select(i => bRows[i].Leaf).ToHashSet(StringComparer.Ordinal);
                 if (source.Length > 0 && have.SetEquals(source.Select(i => Convert(bRows[i].Leaf)))) continue;
-                throw new InvalidDataException($"player_team_brt already has {to}.");
+                // Repair re-adds the slot from a different source (the donor kit): the old rows stop resolving. Their key
+                // rows are removed; the asset and bundle rows stay as unreferenced entries so no relocation moves.
+                if (!kit.ReplaceExisting) throw new InvalidDataException($"player_team_brt already has {to}.");
+                retired.UnionWith(byFolder[to]);
             }
             if (source.Length == 0) continue;
 
@@ -194,7 +198,7 @@ public static class PlayerTeamRegistry
         }
 
         static int Align(int v) => (v + 15) & ~15;
-        var merged = cRows.Concat(newC).OrderBy(r => r.Hi).ThenBy(r => r.Lo).ToList();
+        var merged = cRows.Where(r => !retired.Contains((int)r.B)).Concat(newC).OrderBy(r => r.Hi).ThenBy(r => r.Lo).ToList();
         int nA2 = t.NA + newA.Count, nB2 = t.NB + newB.Count, nC2 = merged.Count;
         int aAt = Align((int)pool.Length), bAt = Align(aAt + nA2 * 24), cAt = Align(bAt + nB2 * 16), tailAt = Align(cAt + nC2 * 16);
         int tailLength = ds - t.OTail, ds2 = tailAt + tailLength;

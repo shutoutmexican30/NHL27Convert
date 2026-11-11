@@ -98,6 +98,20 @@ public static class NewUniformExport
     }
 
     /// <summary>
+    /// Builds the default Fanatics additions headlessly (no page): the same folders and complete arrays as All teams,
+    /// from the NHL 24/27 indexes, the variant map and the slot map. Tools use this instead of an older saved mod.
+    /// </summary>
+    public static List<NewUniformAddition> BuildDefaultAdditions(Nhl24Catalog catalog24, Nhl27Catalog catalog27, VariantMap variants,
+        SlotMapStore slotMaps, IReadOnlySet<string>? teams = null, string? kit = null)
+    {
+        var project = new MatchProject();
+        return BuildDefaultFolders(catalog24, catalog27, variants)
+            .Where(f => CurrentSource(f, variants) is { } s && (teams is null || teams.Contains(TextureName.Parse(f.Folder24 + "/x").Team ?? ""))
+                && (kit is null || s.Kit == kit))
+            .Select(f => Addition(project, variants, catalog27, slotMaps, f, TextureImages.Nhl27Png)).ToList();
+    }
+
+    /// <summary>
     /// The folder to build a single uniform from. NHL 24 keeps some teams' jersey logo arrays in another set of the same
     /// team (Boston's home uses "five"), so a picked folder without them takes the same structural folder the full set
     /// uses, keeping the picked NHL 27 art. A folder that has its own jersey arrays is used as it is.

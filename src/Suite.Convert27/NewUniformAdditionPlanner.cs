@@ -61,7 +61,8 @@ public static class NewUniformAdditionPlanner
                 throw new InvalidDataException($"{addition.Team}: duplicate {addition.SourceKit} addition in this batch.");
             if (addition.Textures.Count == 0) throw new InvalidDataException($"{addition.Team} {addition.SourceKit}: no source textures were supplied.");
             var parts = addition.SourcePrefix.Trim('/').Split('/');
-            if (parts.Length < 3 || !string.Equals(parts[^3], addition.Team, StringComparison.Ordinal))
+            if (parts.Length < 3 || !string.Equals(parts[^3], addition.Team, StringComparison.Ordinal)
+                    && !string.Equals(addition.SourcePrefix.TrimEnd('/') + "/", KitDonor.Prefix, StringComparison.Ordinal))
                 throw new InvalidDataException($"{addition.Team}: SourcePrefix is not that team's complete uniform folder.");
         }
 

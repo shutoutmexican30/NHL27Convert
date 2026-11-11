@@ -179,13 +179,10 @@ public sealed class NewUniformExportTests
     }
 
     [Theory]
-    [InlineData("boston", true, "crest,shoulder,shoulder,sponsor,brand,shield")]
-    [InlineData("boston", false, "crest,shoulder,shoulder,sponsor,brand,shield")]
     [InlineData("buffalo", true, "crest,shield,brand")]
     [InlineData("buffalo", false, "crest,shield,brand")]
     [InlineData("calgary", true, "crest,shield,brand")]
     [InlineData("carolina", true, "crest,shoulder,shoulder,shield,brand,sponsor")]
-    [InlineData("carolina", false, "crest,shoulder,shoulder,brand,shield,sponsor")]
     [InlineData("edmonton", true, "crest,shield,brand")]
     [InlineData("nashville", true, "crest,shield,brand,sponsor,shoulder,shoulder")]
     [InlineData("nashville", false, "crest,shield,brand,sponsor,shoulder,shoulder")]

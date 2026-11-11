@@ -409,3 +409,22 @@ public class MisplacedLogoTests
         Assert.Empty(UniformBrandingLayers.Misplaced(art, [0, 1, 2], physical, straight, new Dictionary<int, int> { [1] = 1, [2] = 2 }));
     }
 }
+
+public class KitDonorTests
+{
+    [Fact]
+    public void LogosBeyondTheDonorsSpotsAreLeftOffNotAdded()
+    {
+        NewUniformTexture T(string kind) => new()
+        {
+            SourceSlot = KitDonor.Prefix + $"branding_pant_adidas_anaheim_home_{kind}_array",
+            RequiredRoles = ["shield", "crest", "brand"],
+            Artwork = new("", "", new Dictionary<int, string> { [0] = "s.png", [1] = "c.png", [2] = "b.png" }),
+        };
+        var a = new NewUniformAddition { Team = "edmonton", SourceKit = "home", Textures = [T("color"), T("normal")] };
+        // Donor pants: NHL shield and team logo only. The NHL 27 brand mark has no spot of its kind and is left off.
+        Assert.Equal(1, KitDonor.FitToSlots(a, _ => ["shield", "crest"]));
+        Assert.All(a.Textures, t => Assert.Equal(["shield", "crest"], t.RequiredRoles));
+        Assert.All(a.Textures, t => Assert.Equal(2, t.Artwork.Layers!.Count));
+    }
+}
