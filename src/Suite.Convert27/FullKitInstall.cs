@@ -878,6 +878,9 @@ public sealed class FullKitInstall
             string Map(string n) => tgt + n[pre.Length..].Replace(idFrom, idTo, StringComparison.Ordinal);
             string MapBundle(string n) => n.Replace(pre, tgt, StringComparison.Ordinal).Replace(idFrom, idTo, StringComparison.Ordinal);
             string SourceKey(BundleIndex.Bundle b) => b.Toc + "\n" + MapBundle(NameOf(b).Name);
+            // Only the kit's own bundles are cloned (see CloneKit). A copy of a source asset inside another kit's bundle
+            // (left by an earlier broken install, e.g. Montreal arrays inside Detroit's) is not part of this kit.
+            bool OwnBundle(BundleIndex.Bundle b) => NameOf(b).Name.Contains(pre, StringComparison.Ordinal);
             var sourceEbx = index.EbxByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
             var sourceRes = index.ResByName.Where(kv => kv.Key.StartsWith(pre, StringComparison.Ordinal)).SelectMany(kv => kv.Value).ToList();
             var guids = new Dictionary<Guid, Guid>();
@@ -885,7 +888,7 @@ public sealed class FullKitInstall
                 guids[EbxRiff.Parse(Dec(BundleIndex.ReadBytes(e.Data))).FileGuid] = Stable("ebx:" + Map(e.Name));
             var rids = sourceRes.GroupBy(r => r.Rid).ToDictionary(g => g.Key, g => StableRid(Map(g.First().Name)));
 
-            foreach (var source in sourceEbx)
+            foreach (var source in sourceEbx.Where(e => OwnBundle(e.Bundle)))
             {
                 string mapped = Map(source.Name);
                 if (!fresh.EbxByName.TryGetValue(mapped, out var copies)) throw new InvalidDataException("Missing EBX after install: " + mapped);
@@ -917,7 +920,7 @@ public sealed class FullKitInstall
                 assets++;
             }
 
-            foreach (var source in sourceRes)
+            foreach (var source in sourceRes.Where(r => OwnBundle(r.Bundle)))
             {
                 string mapped = Map(source.Name);
                 if (!fresh.ResByName.TryGetValue(mapped, out var copies)) throw new InvalidDataException("Missing RES after install: " + mapped);
