@@ -333,3 +333,27 @@ public class PantsHotspotRoleTests
         Assert.Equal("brand", UniformHotspots.Role("ccmfront"));
     }
 }
+
+/// <summary>All teams skips a uniform the game already has, while its kit is still there.</summary>
+public class InstalledKitsTests
+{
+    [Fact]
+    public void AnAddedUniformIsSkippedUntilItsKitIsGone()
+    {
+        static NewUniformAddition Boston(string kit) => new() { Team = "boston", SourceKit = kit, SourceFolder27 = "nhl/boston/adidas/thirteen" };
+        var record = new InstalledKits();
+        var added = Boston("home");
+        added.TargetPrefix = "nhl/boston/adidas/twentyfive/"; added.TargetVariant = 25;
+        record.Record(@"C:\Game", [added]);
+
+        var batch = new List<NewUniformAddition> { Boston("home"), Boston("away") };
+        var skipped = record.SkipPresent(@"c:\game\", batch, prefix => prefix == "nhl/boston/adidas/twentyfive/");
+        Assert.Single(skipped);
+        Assert.Equal("away", Assert.Single(batch).SourceKit);
+
+        // After an undo the kit's folder is empty, so the uniform can be added again.
+        var again = new List<NewUniformAddition> { Boston("home") };
+        Assert.Empty(record.SkipPresent(@"C:\Game", again, _ => false));
+        Assert.Single(again);
+    }
+}

@@ -85,19 +85,19 @@ public static class RegisteredKitSource
             foreach (var texture in addition.Textures)
             {
                 string mapped = Map(texture.SourceSlot, source, fromId, selected, selectedId);
-                string expectedTarget = NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix);
-                if (!string.IsNullOrWhiteSpace(texture.TargetSlot)
-                    && !string.Equals(texture.TargetSlot, expectedTarget, StringComparison.Ordinal))
+                // Before planning (Add to game) no target exists yet; the planner names it from the corrected source.
+                if (!string.IsNullOrWhiteSpace(texture.TargetSlot) && !string.IsNullOrWhiteSpace(addition.TargetPrefix)
+                    && !string.Equals(texture.TargetSlot, NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix), StringComparison.Ordinal))
                     throw new InvalidDataException($"{texture.SourceSlot}: the same-team source correction would change its target name.");
                 texture.SourceSlot = mapped;
                 texture.Artwork = texture.Artwork with { Slot = mapped };
             }
             foreach (var hotspots in addition.HotspotLayouts)
             {
-                string previousTarget = UniformPhysicalLayouts.TargetStamp(addition, hotspots.SourceSlot);
                 string mapped = Map(hotspots.SourceSlot, source, fromId, selected, selectedId);
-                string mappedTarget = NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix);
-                if (!string.Equals(mappedTarget, previousTarget, StringComparison.Ordinal))
+                if (!string.IsNullOrWhiteSpace(addition.TargetPrefix)
+                    && !string.Equals(NewUniformAdditionPlanner.MapTargetSlot(mapped, selected, addition.TargetPrefix),
+                        UniformPhysicalLayouts.TargetStamp(addition, hotspots.SourceSlot), StringComparison.Ordinal))
                     throw new InvalidDataException($"{hotspots.SourceSlot}: source normalization would change its target stamp.");
                 hotspots.SourceSlot = mapped;
             }

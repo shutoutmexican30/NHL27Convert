@@ -64,6 +64,12 @@ public static class NewUniformApply
             ["initial_experience"] = legacy.Read(RosterSyncRun.LegacyName("initial_experience")),
         };
         var index = BundleIndex.Build(target, progress);
+        // A uniform this game already has is skipped, never added a second time under another variant.
+        var skipped = InstalledKits.Load().SkipPresent(target, mod.Additions, prefix => InstalledKits.FolderHasAssets(index, prefix));
+        foreach (var (a, kit) in skipped)
+            progress?.Invoke($"{a.Team} {a.SourceKit}: already in this game (variant {kit.Variant}), skipped");
+        if (mod.Additions.Count == 0)
+            throw new InvalidDataException("Every chosen uniform is already in this game. Use Undo last add first to add one again.");
         RegisteredKitSource.Normalize(mod.Additions, index, progress);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var additionPlan = NewUniformAdditionPlanner.Build(mod.Additions, sources, metaPath, Exists);
@@ -122,6 +128,12 @@ public static class NewUniformApply
             JerseyName: string.IsNullOrWhiteSpace(settings.NewUniformJerseyName) ? FullKitInstall.DefaultJerseyName : settings.NewUniformJerseyName.Trim(),
             EquipmentSource: Path.Combine(AppContext.BaseDirectory, "data", "nhl27-equipment")), settings);
         if (result.Ok && result.Backup is not null) ModApply.RecordUndo(target, result.Backup);
+        if (result.Ok && mod.Additions is { Count: > 0 } added)
+        {
+            var record = InstalledKits.Load();
+            record.Record(target, added);
+            record.Save();
+        }
         return (result.Ok, result.Message);
     }
 
