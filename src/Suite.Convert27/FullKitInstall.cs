@@ -269,7 +269,7 @@ public sealed class FullKitInstall
         int most = 0;
         foreach (var bundle in (index.EbxByName.GetValueOrDefault(stamp) ?? []).Select(e => e.Bundle).DistinctBy(b => (b.Toc, b.RecordAt)))
         {
-            try { most = Math.Max(most, UniformHotspots.Roles(UniformPhysicalLayouts.ReadStamp(index, stamp, bundle)).Count); }
+            try { most = Math.Max(most, UniformHotspots.Roles(UniformPhysicalLayouts.ReadStamp(index, stamp, bundle), stamp).Count); }
             catch (InvalidDataException) { }
         }
         return most;

@@ -54,13 +54,13 @@ public static class SponsorSlots
     }
 
     /// <summary>The position shared by the most stock jersey stamps for one role.</summary>
-    public static UniformHotspotPlacement? StockPosition(BundleIndex index, string role = Role)
+    public static UniformHotspotPlacement? StockPosition(BundleIndex index, string role = Role, bool pants = false)
     {
         var positions = new List<UniformHotspotPlacement>();
         foreach (var name in index.EbxByName.Keys)
         {
             string leaf = name[(name.LastIndexOf('/') + 1)..];
-            if (!leaf.StartsWith("stamp_jersey_adidas_", StringComparison.Ordinal) || leaf.EndsWith("_player_team_brt", StringComparison.Ordinal)
+            if (!leaf.StartsWith(pants ? "stamp_pant_adidas_" : "stamp_jersey_adidas_", StringComparison.Ordinal) || leaf.EndsWith("_player_team_brt", StringComparison.Ordinal)
                 || leaf.EndsWith("_blueprint", StringComparison.Ordinal) || !name.Contains("/league/nhl/", StringComparison.Ordinal)) continue;
             try
             {
@@ -82,7 +82,8 @@ public static class SponsorSlots
         {
             string source = texture.SourceSlot.Trim().Replace('\\', '/').TrimStart('/');
             string leaf = source[(source.LastIndexOf('/') + 1)..];
-            if (!leaf.StartsWith("branding_jersey_", StringComparison.Ordinal) || !leaf.EndsWith("_color_array", StringComparison.Ordinal)
+            bool pants = leaf.StartsWith("branding_pant_", StringComparison.Ordinal);
+            if (!pants && !leaf.StartsWith("branding_jersey_", StringComparison.Ordinal) || !leaf.EndsWith("_color_array", StringComparison.Ordinal)
                 || texture.RequiredRoles is not { } artRoles || texture.Artwork.Layers is not { Count: > 0 } layers) continue;
             string stamp = UniformPhysicalLayouts.StampForArray(source);
             if (addition.HotspotLayouts.Any(l => l.SourceSlot == stamp) || !index.EbxByName.ContainsKey(stamp)) continue;
@@ -129,7 +130,8 @@ public static class SponsorSlots
                     }
                     if (position is null)
                     {
-                        if (!stockPositions.TryGetValue(role, out position)) stockPositions[role] = position = StockPosition(index, role);
+                        string key = (pants ? "pant:" : "jersey:") + role;
+                        if (!stockPositions.TryGetValue(key, out position)) stockPositions[key] = position = StockPosition(index, role, pants);
                         if (position is null) throw new InvalidDataException($"No stock jersey has a {role} position to copy.");
                     }
                     added.Add((role, position));
@@ -137,8 +139,9 @@ public static class SponsorSlots
             }
             if (added.Count == 0 && !unify) continue;
             addition.HotspotLayouts.Add(WithAdded(copies[0], added));
-            say?.Invoke(added.Count == 0 ? $"{addition.Team} {addition.SourceKit}: the jersey's base and patch layouts were made the same (no slot added)"
-                : $"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => SlotNames.Name(a.Role, a.Role == "shoulder" ? ShoulderPatches.IsLeft(a.Position) : null)))} slot(s) to the jersey");
+            string garmentName = pants ? "pants" : "jersey";
+            say?.Invoke(added.Count == 0 ? $"{addition.Team} {addition.SourceKit}: the {garmentName} base and patch layouts were made the same (no slot added)"
+                : $"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => SlotNames.Name(a.Role, a.Role == "shoulder" ? ShoulderPatches.IsLeft(a.Position) : null, null, pants ? "branding_pant" : null)))} slot(s) to the {garmentName}");
         }
         return additions;
     }
@@ -163,7 +166,8 @@ public static class SponsorSlots
     public static UniformHotspotLayout WithRoles(UniformHotspotLayout stock)
     {
         var branding = stock.Branding.OrderBy(slot => slot.Id).Select(Copy).ToList();
-        foreach (var slot in branding.Where(slot => slot.Role.Length == 0)) slot.Role = UniformHotspots.PositionRole(slot);
+        bool pants = UniformHotspots.IsPants(stock.SourceSlot);
+        foreach (var slot in branding.Where(slot => slot.Role.Length == 0)) slot.Role = UniformHotspots.PositionRole(slot, pants);
         return new UniformHotspotLayout { SourceSlot = stock.SourceSlot, Branding = branding };
     }
 

@@ -29,9 +29,9 @@ public static class UniformHotspots
     }
 
     /// <summary>Returns physical slot roles in array order. Unknown, garment-specific names must be explicitly mapped.</summary>
-    public static IReadOnlyList<string> Roles(ReadOnlySpan<byte> ebx)
+    public static IReadOnlyList<string> Roles(ReadOnlySpan<byte> ebx, string sourceSlot = "")
     {
-        var slots = Capture(ebx, "").Branding;
+        var slots = Capture(ebx, sourceSlot).Branding;
         int count = slots.Count == 0 ? 0 : slots.Max(s => s.Id) - FirstBrandingId + 1;
         var roles = Enumerable.Repeat("blank", count).ToArray();
         foreach (var slot in slots)
@@ -48,13 +48,25 @@ public static class UniformHotspots
     /// The role of a hotspot whose name says nothing (Toronto and Seattle number theirs), from where it sits on the jersey
     /// texture: tags at the hem, shoulders turned sideways, and the front logos by size and height. Empty when unclear.
     /// </summary>
-    public static string PositionRole(UniformHotspotPlacement slot)
+    public static string PositionRole(UniformHotspotPlacement slot) => PositionRole(slot, false);
+
+    /// <summary>
+    /// Pants (<paramref name="pants"/>) have their own map: the team logo sits at the top of the leg (translate Y below
+    /// 0.15) and the NHL shield, upside down, at about (0.37, 0.49). 35 stock pants name that shield 'branding0'.
+    /// </summary>
+    public static string PositionRole(UniformHotspotPlacement slot, bool pants)
     {
         if (!double.TryParse(slot.Rotation, System.Globalization.CultureInfo.InvariantCulture, out double r)
             || !double.TryParse(slot.ScaleX, System.Globalization.CultureInfo.InvariantCulture, out double sx)
             || !double.TryParse(slot.TranslateX, System.Globalization.CultureInfo.InvariantCulture, out double tx)
             || !double.TryParse(slot.TranslateY, System.Globalization.CultureInfo.InvariantCulture, out double ty)) return "";
         r = ((r % 360) + 360) % 360;
+        if (pants)
+        {
+            if (ty < 0.15) return "crest";
+            if (Math.Abs(r - 180) < 20 && ty > 0.4 && ty < 0.6 && sx <= 0.06) return "shield";
+            return "";
+        }
         bool sideways = Math.Abs(r - 90) < 20 || Math.Abs(r - 270) < 20;
         bool upsideDown = Math.Abs(r - 180) < 20;
         if (ty > 0.9) return "epw_tag";
@@ -85,6 +97,8 @@ public static class UniformHotspots
         if (n.Length == 0) return "";
         if (n.Contains("shoulder")) return "shoulder";
         if (n.Contains("sponsor")) return "sponsor";
+        if (n.Contains("ccm")) return "brand";
+        if (n.Contains("nhl") && n.Contains("shield")) return "shield";
         if (n.Contains("primegreen") || n.Contains("primagreen") || n.Contains("endplastic") || n == "bottom" || n.EndsWith("tag")) return "epw_tag";
         if (n.Contains("nhl") && (n.Contains("collar") || n.Contains("collor") || n.Contains("back") || n == "nhl")) return "shield";
         if ((n.Contains("adidas") || n.Contains("addias")) && (n.Contains("back") || n == "adidas" || n.EndsWith("logo"))) return "brand";
@@ -96,6 +110,7 @@ public static class UniformHotspots
     public static UniformHotspotLayout Capture(ReadOnlySpan<byte> ebx, string sourceSlot)
     {
         var document = Document(ebx, out _, out _);
+        bool pants = IsPants(document, sourceSlot);
         return new UniformHotspotLayout
         {
             SourceSlot = sourceSlot,
@@ -110,7 +125,7 @@ public static class UniformHotspots
                 TranslateX = node.GetAttribute("tx"),
                 TranslateY = node.GetAttribute("ty"),
                 Enabled = node.GetAttribute("enable") == "1.0",
-            }).Select(slot => { if (slot.Role.Length == 0) slot.Role = PositionRole(slot); return slot; })
+            }).Select(slot => { if (slot.Role.Length == 0) slot.Role = PositionRole(slot, pants); return slot; })
             .OrderBy(slot => slot.Id).ToList(),
         };
     }
@@ -218,6 +233,13 @@ public static class UniformHotspots
             if (!double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || !double.IsFinite(value))
                 throw new InvalidDataException($"Hotspot id {slot.Id} has an invalid coordinate or rotation.");
     }
+
+    /// <summary>True for a pants stamp: by its asset name, or by its garment element when the name is not given.</summary>
+    public static bool IsPants(string sourceSlot) => sourceSlot.Contains("stamp_pant_", StringComparison.Ordinal);
+
+    static bool IsPants(XmlDocument document, string sourceSlot) => IsPants(sourceSlot)
+        || document.DocumentElement?.ChildNodes.Cast<XmlNode>().FirstOrDefault(n => n.NodeType == XmlNodeType.Element) is { } garment
+            && garment.Name.Contains("pant", StringComparison.OrdinalIgnoreCase);
 
     static IEnumerable<XmlElement> BrandNodes(XmlDocument document) => document.GetElementsByTagName("hotspot")
         .Cast<XmlElement>().Where(n => n.GetAttribute("type") == "brand").ToArray();

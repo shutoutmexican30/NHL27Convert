@@ -314,3 +314,22 @@ public class ShoulderPatchesTests
         Assert.Equal("NHL shield", Suite.Convert27.SlotNames.Name("shield"));
     }
 }
+
+/// <summary>Pants hotspots have their own position map (Washington 'branding1', Edmonton 'ccmfront', 35 'branding0' shields).</summary>
+public class PantsHotspotRoleTests
+{
+    static UniformHotspotPlacement P(string name, string r, string s, string tx, string ty) =>
+        new() { Id = 9, Name = name, Rotation = r, ScaleX = s, ScaleY = s, TranslateX = tx, TranslateY = ty, Enabled = true };
+
+    [Fact]
+    public void PantsPositionsHaveTheirOwnRoles()
+    {
+        Assert.Equal("crest", UniformHotspots.PositionRole(P("branding1", "180.0", "0.1", "0.151", "0.0556"), true));
+        Assert.Equal("crest", UniformHotspots.PositionRole(P("frontrightedmonton0", "0.0", "0.056", "0.1561", "0.0617"), true));
+        Assert.Equal("shield", UniformHotspots.PositionRole(P("branding0", "180.0", "0.04", "0.3709", "0.4949"), true));
+        // The same shield position on a jersey reads as a sponsor, so the garment matters.
+        Assert.Equal("sponsor", UniformHotspots.PositionRole(P("branding0", "180.0", "0.04", "0.3709", "0.4949"), false));
+        Assert.Equal("shield", UniformHotspots.Role("NHLShieldEmbroidered"));
+        Assert.Equal("brand", UniformHotspots.Role("ccmfront"));
+    }
+}

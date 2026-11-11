@@ -64,7 +64,7 @@ public static class UniformPhysicalLayouts
             expected = UniformHotspots.Capture(sourceRaw, sourceStamp);
             // An untouched source can intentionally skip a slice (for example pant ids 8 and 10).
             // Preserve that sparse physical layout instead of applying the curated-replacement contiguity rule.
-            physical = UniformHotspots.Roles(sourceRaw);
+            physical = UniformHotspots.Roles(sourceRaw, sourceStamp);
         }
         if (physical.Count > capacity) throw new InvalidDataException(
             $"{sourceStamp}: {physical.Count} physical logo positions do not fit {capacity} texture-array slots. "
@@ -79,7 +79,7 @@ public static class UniformPhysicalLayouts
             var actual = UniformHotspots.Capture(targetRaw, targetStamp);
             if (!SameLayout(actual, expected)) throw new InvalidDataException(
                 $"{targetStamp}: installed physical hotspots do not match the reviewed source/override layout.");
-            int actualCount = replacement is null ? UniformHotspots.Roles(targetRaw).Count : physical.Count;
+            int actualCount = replacement is null ? UniformHotspots.Roles(targetRaw, targetStamp).Count : physical.Count;
             if (actualCount > capacity) throw new InvalidDataException($"{targetStamp}: hotspots exceed its array capacity.");
         }
         return new UniformPhysicalLayout(sourceStamp, targetStamp, roles, replacement);
