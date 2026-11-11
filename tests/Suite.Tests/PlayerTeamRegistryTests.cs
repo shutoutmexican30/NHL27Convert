@@ -84,11 +84,15 @@ public class PlayerTeamRegistryTests
     }
 
     [Fact]
-    public void AnAlreadyRegisteredKitIsRefused()
+    public void ReAddingTheSameKitIntoItsSlotKeepsItsRowsAndAddsNothing()
     {
+        // Repair removes a slot's bundles and adds the same kit again; its registration rows are already exactly right.
         var (raw, meta) = Sample();
         var once = PlayerTeamRegistry.Register(raw, meta, [new KitRegistration(From, To)]);
-        Assert.Throws<InvalidDataException>(() => PlayerTeamRegistry.Register(once.Raw, once.Meta, [new KitRegistration(From, To)]));
+        var again = PlayerTeamRegistry.Register(once.Raw, once.Meta, [new KitRegistration(From, To)]);
+        Assert.Equal(0, again.Assets);
+        Assert.Equal(0, again.Bundles);
+        Assert.Equal(PlayerTeamRegistry.Rows(once.Raw, To).Count, PlayerTeamRegistry.Rows(again.Raw, To).Count);
     }
 
     [Fact]
