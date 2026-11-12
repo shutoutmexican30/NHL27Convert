@@ -34,6 +34,15 @@ public static class FontRemap
         var (t, b, l, r) = Bands[band];
         int w = img.Width, h = img.Height, y0 = (int)(h * t), y1 = Math.Min(h, (int)(h * b)), x0 = (int)(w * l), x1 = Math.Min(w, (int)(w * r));
         bool vertical = band == 4;
+        if (!vertical)
+        {
+            // A fixed band edge can cut through the bottom of the row above (Florida's big digits end at 46.1%): that
+            // row's last pixels then count as the top of this row's glyphs, the NHL 27 glyphs are stretched up to touch
+            // the row above, and the game shows a gold sliver of the next glyph under the "1". Edges move to the
+            // nearest empty row.
+            y0 = EmptyRow(img, y0, x0, x1);
+            y1 = EmptyRow(img, y1, x0, x1);
+        }
         var boxes = new List<Box>();
         int outer0 = vertical ? y0 : x0, outer1 = vertical ? y1 : x1;
         int start = -1;
@@ -64,6 +73,22 @@ public static class FontRemap
         var across = kept.Select(x => vertical ? x.Height : x.Width).Order().ToList();
         int median = across.Count == 0 ? 0 : across[across.Count / 2];
         return kept.Where(x => (vertical ? x.Height : x.Width) >= median * 0.25).ToList();
+    }
+
+    /// <summary>The empty row (no ink between x0 and x1) nearest to y, within 3% of the sheet; y itself when none.</summary>
+    static int EmptyRow(Rgba img, int y, int x0, int x1)
+    {
+        if (y <= 0 || y >= img.Height) return y;
+        int reach = Math.Max(1, img.Height * 3 / 100);
+        for (int d = 0; d <= reach; d++)
+            foreach (int c in new[] { y + d, y - d })
+            {
+                if (c <= 0 || c >= img.Height) continue;
+                bool ink = false;
+                for (int x = x0; x < x1 && !ink; x++) ink = Ink(img, x, c);
+                if (!ink) return c;
+            }
+        return y;
     }
 
     /// <summary>Each NHL 27 glyph fitted into the matching NHL 24 box; null when any band's glyph count differs.</summary>

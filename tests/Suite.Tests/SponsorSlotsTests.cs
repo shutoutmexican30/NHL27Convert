@@ -482,6 +482,18 @@ public class FontRemapTests
         Assert.Equal(15 + 11 + 5 + 5 + 2 + 10 + 10, pairs!.Count);
         Assert.All(pairs, p => Assert.Equal(p.From.Y1, p.To.Y1));
     }
+
+    [Fact]
+    public void A_row_running_past_the_band_edge_does_not_stretch_the_row_below()
+    {
+        // Florida's big 0-4 end just past 46% of the sheet; the 5-9 row below must keep its own top (no gold sliver).
+        int s = 512; var px = new byte[s * s * 4];
+        void Box(int x1, int y1, int x2, int y2) { for (int y = y1; y <= y2; y++) for (int x = x1; x <= x2; x++) px[(y * s + x) * 4 + 3] = 255; }
+        for (int i = 0; i < 5; i++) { Box(4 + i * 80, 110, 64 + i * 80, 238); Box(4 + i * 80, 250, 64 + i * 80, 360); }
+        var img = new Rgba(s, s, px);
+        Assert.All(FontRemap.Glyphs(img, 3), g => Assert.Equal(250, g.Y1));
+        Assert.All(FontRemap.Glyphs(img, 2), g => Assert.Equal(238, g.Y2));
+    }
 }
 
 public class Nhl24MapConversionTests
