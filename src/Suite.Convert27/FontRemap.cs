@@ -55,11 +55,21 @@ public static class FontRemap
             if (any && start < 0) start = i;
             if (!any && start >= 0)
             {
-                // Tighten the other axis.
-                int a0 = int.MaxValue, a1 = -1;
-                for (int k = start; k < i; k++)
-                for (int j = vertical ? x0 : y0; j < (vertical ? x1 : y1); j++)
-                    if (vertical ? Ink(img, j, k) : Ink(img, k, j)) { a0 = Math.Min(a0, j); a1 = Math.Max(a1, j); }
+                // Tighten the other axis to the longest unbroken run of ink: a sliver of the row above or below that
+                // reaches into this band (Florida's 0-4 end inside the 5-9 band) is not part of the glyph.
+                int a0 = int.MaxValue, a1 = -1, runStart = -1;
+                for (int j = vertical ? x0 : y0; j <= (vertical ? x1 : y1); j++)
+                {
+                    bool any2 = false;
+                    if (j < (vertical ? x1 : y1))
+                        for (int k = start; k < i && !any2; k++) any2 = vertical ? Ink(img, j, k) : Ink(img, k, j);
+                    if (any2 && runStart < 0) runStart = j;
+                    if (!any2 && runStart >= 0)
+                    {
+                        if (j - 1 - runStart > a1 - a0) { a0 = runStart; a1 = j - 1; }
+                        runStart = -1;
+                    }
+                }
                 var box = vertical ? new Box(a0, start, a1, i - 1) : new Box(start, a0, i - 1, a1);
                 boxes.Add(box);
                 start = -1;

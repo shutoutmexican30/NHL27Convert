@@ -67,7 +67,11 @@ public static class KitDonor
             // glyph for glyph, the team's NHL 24 font is used.
             var nhl27Fonts = kept.Where(t => t.SourceSlot[(t.SourceSlot.LastIndexOf('/') + 1)..].StartsWith("font_", StringComparison.Ordinal)).ToList();
             foreach (var t in nhl27Fonts) { kept.Remove(t); covered.Remove(t.SourceSlot); }
-            if (RemappedFont(index, a, nhl27Fonts) is { Count: > 0 } remapped)
+            // Only a team whose lettering changed (Arizona → Utah Mammoth) takes NHL 27's glyphs. Everyone else keeps the
+            // NHL 24 font sheets byte for byte: fitting NHL 27's colour glyphs over NHL 24's stitch (normal) sheet put
+            // Florida's digits above their top stitching and a gold sliver under the "1".
+            bool renamed = a.SourceFolder27 is { } folder27 && !folder27.Contains($"/nhl/{a.Team}/", StringComparison.Ordinal);
+            if (renamed && RemappedFont(index, a, nhl27Fonts) is { Count: > 0 } remapped)
             {
                 kept.AddRange(remapped);
                 foreach (var t in remapped) covered.Add(t.SourceSlot);
