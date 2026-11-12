@@ -428,3 +428,34 @@ public class KitDonorTests
         Assert.All(a.Textures, t => Assert.Equal(2, t.Artwork.Layers!.Count));
     }
 }
+
+public class HemFitTests
+{
+    static Rgba Hem(params (double From, byte Shade)[] bands)
+    {
+        int w = 4, h = 1000; var px = new byte[w * h * 4];
+        for (int y = 0; y < h; y++)
+        {
+            byte shade = bands.Last(b => y >= b.From * h).Shade;
+            for (int x = 0; x < w; x++) { int at = (y * w + x) * 4; px[at] = px[at + 1] = px[at + 2] = shade; px[at + 3] = 255; }
+        }
+        return new Rgba(w, h, px);
+    }
+
+    [Fact]
+    public void ALowHemIsMovedUpSoItsLastBandShows()
+    {
+        // Boston thirteen: last gold band starts at 95.8% — below what NHL 24's jersey shows.
+        var boston = Hem((0, 250), (0.908, 120), (0.958, 200));
+        Assert.Equal(0.958, HemFit.LastChange(boston)!.Value, 3);
+        var moved = HemFit.Remap(boston, 0.958);
+        Assert.Equal(HemFit.LastEdge, HemFit.LastChange(moved)!.Value, 2);
+    }
+
+    [Fact]
+    public void AHemThatFitsIsLeftAlone()
+    {
+        var edmonton = Hem((0, 250), (0.902, 120), (0.946, 30));
+        Assert.True(HemFit.LastChange(edmonton) <= HemFit.LastEdge);
+    }
+}

@@ -199,10 +199,20 @@ public static class NewUniformApply
             if (ok)
             {
                 // Like Add to game, the repaired uniforms go on the mod list as a saved mod.
-                // One mod per repair, named for its uniforms, so a repair never replaces another mod on the list.
-                string saved = prepared.AdditionPlan.ToMod("NHL 27 repaired " + string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}")),
-                    "Uniforms rebuilt by Repair in their own variant slots.").Save();
-                progress?.Invoke("mod saved to " + saved);
+                // One mod per repair, named for its uniforms (short for big batches), so a repair never replaces another
+                // mod on the list. The game is already repaired and read back here: a failed save never undoes it.
+                string label = broken.Count <= 3 ? string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}"))
+                    : $"{broken.Count} uniforms {DateTime.Now:yyyy-MM-dd HHmm}";
+                string saved;
+                try
+                {
+                    saved = prepared.AdditionPlan.ToMod("NHL 27 repaired " + label, "Uniforms rebuilt by Repair in their own variant slots.").Save();
+                    progress?.Invoke("mod saved to " + saved);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                {
+                    saved = "(not saved: " + ex.Message + ")";
+                }
                 return (true, $"Repaired {string.Join(", ", broken.Select(a => $"{a.Team} {a.SourceKit}"))}. " + message + " Saved mod: " + saved);
             }
             Restore(target, removalBackup);

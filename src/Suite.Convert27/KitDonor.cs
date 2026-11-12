@@ -44,6 +44,7 @@ public static class KitDonor
             a.HotspotLayouts.Clear();
             a.SourcePrefix = Prefix;
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
+            HemFit.Apply(a, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
             if (fitted > 0) say?.Invoke($"{a.Team} {a.SourceKit}: {fitted} logo layer(s) have no spot of their kind on the donor and were left off");
             var covered = kept.Select(t => t.SourceSlot).ToHashSet(StringComparer.Ordinal);
