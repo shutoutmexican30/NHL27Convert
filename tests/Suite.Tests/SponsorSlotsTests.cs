@@ -637,3 +637,33 @@ public class FabricZoneMapTests
         Assert.Equal(10, o.Pixels[0]);
     }
 }
+
+public class StandardTagTests
+{
+    static NewUniformAddition Kit(string team, string png) => new()
+    {
+        Team = team, SourceKit = "home",
+        Textures =
+        [
+            new NewUniformTexture
+            {
+                SourceSlot = $"content/x/branding_jersey_adidas_{team}_home_color_array",
+                RequiredRoles = ["crest", "epw_tag"],
+                Artwork = new TextureReplacement("s", "", new Dictionary<int, string> { [0] = png, [1] = png }),
+            },
+        ],
+    };
+
+    [Fact]
+    public void The_standard_back_hem_tag_never_comes_from_chicago()
+    {
+        string png = Path.GetTempFileName();
+        try
+        {
+            Assert.Null(KitDonor.FindStandardTag([Kit("chicago", png)]));
+            var found = KitDonor.FindStandardTag([Kit("chicago", png), Kit("seattle", png)]);
+            Assert.Equal(png, found!["color"]);
+        }
+        finally { File.Delete(png); }
+    }
+}

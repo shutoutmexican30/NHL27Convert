@@ -22,6 +22,7 @@ public static class KitDonor
         string toId = KitRegistration.Identity(Prefix);
         var donorRes = index.ResByName.Keys.Where(n => n.StartsWith(Prefix, StringComparison.Ordinal)).ToHashSet(StringComparer.Ordinal);
         if (donorRes.Count == 0) throw new InvalidDataException("The donor kit (Anaheim home) is not in this game.");
+        RememberStandardTag(additions);
         foreach (var a in additions)
         {
             string source = a.SourcePrefix.Trim().TrimEnd('/') + "/";
@@ -154,6 +155,13 @@ public static class KitDonor
             var tag = t.RequiredRoles is { } roles && t.Artwork.Layers is { } art
                 ? roles.Select((r, i) => (r, i)).Where(x => x.r == SlotRoles.EpwRole && art.ContainsKey(x.i)).Select(x => art[x.i]).FirstOrDefault()
                 : null;
+            // Every kit carries the End Plastic Waste back-hem tag (Chicago's 100 tag replaces it through the slot map).
+            // NHL 27's Florida kits lack the layer but keep its stitched outline, which showed as an empty rectangle.
+            if (tag is null && t.SourceSlot.Contains("branding_jersey_", StringComparison.Ordinal) && StandardTag(ArrayKind(t.SourceSlot)) is { } standard)
+            {
+                tag = standard;
+                if (ArrayKind(t.SourceSlot) == "color") say?.Invoke($"{a.Team} {a.SourceKit}: NHL 27 has no End Plastic Waste tag layer; the standard tag goes on the back hem");
+            }
             var layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear);
             var newRoles = Enumerable.Repeat("blank", slots).ToList();
             if (tag is not null) { layers[0] = tag; newRoles[0] = SlotRoles.EpwRole; }
@@ -188,6 +196,39 @@ public static class KitDonor
             emptied++;
         }
         say?.Invoke($"{a.Team} {a.SourceKit}: logos painted on from NHL 27's finished textures ({swapped} textures); {emptied} logo arrays left empty");
+    }
+
+    static string ArrayKind(string slot) => slot.EndsWith("_normal_array", StringComparison.Ordinal) ? "normal"
+        : slot.EndsWith("_coeff_array", StringComparison.Ordinal) ? "coeff" : "color";
+
+    static string StandardTagPath(string kind) => Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "standard-epw")), $"epw_{kind}.png");
+
+    static string? StandardTag(string kind) => File.Exists(StandardTagPath(kind)) ? StandardTagPath(kind) : null;
+
+    /// <summary>Keeps one NHL 27 End Plastic Waste tag (colour, normal, coefficient layers) for kits that lack it.</summary>
+    static void RememberStandardTag(IEnumerable<NewUniformAddition> additions)
+    {
+        if (FindStandardTag(additions) is { } found)
+            foreach (var (kind, png) in found) File.Copy(png, StandardTagPath(kind), overwrite: true);
+    }
+
+    /// <summary>The first kit's End Plastic Waste tag layers by array kind (never Chicago's 100 tag); null if none.</summary>
+    public static Dictionary<string, string>? FindStandardTag(IEnumerable<NewUniformAddition> additions)
+    {
+        foreach (var a in additions)
+        {
+            if (a.Team == "chicago") continue; // Chicago's tag slot holds its 100th-season tag
+            var arrays = a.Textures.Where(t => t.SourceSlot.Contains("branding_jersey_", StringComparison.Ordinal) && t.SourceSlot.EndsWith("_array", StringComparison.Ordinal)).ToList();
+            var found = new Dictionary<string, string>();
+            foreach (var t in arrays)
+            {
+                if (t.RequiredRoles is not { } roles || t.Artwork.Layers is not { } art) continue;
+                int i = roles.IndexOf(SlotRoles.EpwRole);
+                if (i >= 0 && art.TryGetValue(i, out var png) && File.Exists(png)) found[ArrayKind(t.SourceSlot)] = png;
+            }
+            if (found.ContainsKey("color")) return found;
+        }
+        return null;
     }
 
     /// <summary>The team's own NHL 24 jersey sheet (plain if it has one, else its painted sheet) for the hem edges.</summary>
