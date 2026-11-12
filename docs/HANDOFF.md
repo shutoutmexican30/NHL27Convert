@@ -799,7 +799,7 @@ Fanatics donor-kit rules (all in the tool, all with tests, 2026-11-12):
 - CAS growth (open): every install/repair appends the cloned kit data to the donor's CAS
   (`nhl_installpackage_05/cas_05.cas`, where Anaheim home lives) and never reclaims the old copy. A file may not pass
   4 GB; the install then stops and restores (the test copy hit this after ~6 full rebuilds). A full 64-kit install adds
-  roughly 0.6–0.7 GB there. Fix to build: spill to a fresh CAS (record location words) or compact unreferenced data.
+  about 0.85 GB there (measured 1.27 → 2.12 GB). Fix to build: spill to a fresh CAS (record location words) or compact unreferenced data.
 
 ## Convert 27 page (built)
 
