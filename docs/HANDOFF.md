@@ -779,6 +779,24 @@ The no-cross-game rule for mesh-UV-addressed jersey/pant/sock colour/normal/coef
 - hem fitting (`HemFit`) and, later, sock fitting per team. Chest sponsors are put on the right chest (`SponsorSide`).
 Nothing else crosses: any other kit route still follows the rule.
 
+Fanatics donor-kit rules (all in the tool, all with tests, 2026-11-12):
+- Coefficient: base slot = donor stock base coeff; finished slot = donor stock *finished* coeff (packed differently:
+  base 126/127/255/0, finished 127/27/0/255) with the donor's logo areas set to plain fabric.
+- Fabric zones: NHL 27 zone shapes in NHL 24 values; a zoneless NHL 27 sheet (Vegas home) keeps NHL 24's zones minus the
+  Adidas yoke (73). Converted alpha is final (no rule-11 "auto" at encode). No kit may carry zone 73.
+- Hems (`HemFit`): front (bottom) and back (top, mirrored) move together, only when NHL 27's last stripe runs past the
+  team's NHL 24 hem; the target is never above 0.948 / 0.04 (a high NHL 24 hem is a design, not a limit).
+- Socks (`SockFit`): the NHL 27 stripe block moves up when it ends lower than the team's NHL 24 block (never above 70%).
+  NHL 27 sock weave masks (`*_knee_weave` etc., Vegas/LA) have no NHL 24 slot and are left out.
+- Logos NHL 27 keeps only as layers (`UnpaintedLayers`): chest sponsors and pants team logos go in the donor slot of the
+  same role when the finished sheet does not show them; the shield never fills a team-logo slot. Chest sponsors sit on
+  the player's right chest (`SponsorSide`).
+- Back-hem tag: every kit gets NHL 27's own End Plastic Waste layer (found by picture in its NHL 27 layers), else the
+  standard one; it goes to the donor's tag hotspot (not slice 0). Chicago home keeps its 100 tag via the slot map.
+- Numbers/letters: the team's own NHL 24 font sheets byte for byte; only a renamed team (Arizona → Utah) gets NHL 27's
+  glyphs fitted into NHL 24's layout (`FontRemap`). Number/name/captain spots come from the team's NHL 24 stamp.
+- `FanaticsKitCheck` runs after every donor install and prints `KIT CHECK OK/FAIL` per kit from the installed files.
+
 ## Convert 27 page (built)
 
 - Pick NHL 24 team + folder; NHL 27 folder is proposed (confidence + reason) and editable.
