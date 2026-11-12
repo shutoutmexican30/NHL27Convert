@@ -113,7 +113,21 @@ public static class KitDonor
             if (png is null || !File.Exists(png)) continue;
             var target = a.Textures.FirstOrDefault(t => t.SourceSlot == baseSlot);
             if (garment == "jersey" && target?.Artwork.Source is { } plainPng) plainJersey[kind] = plainPng;
-            if (kind == "color" && target?.Artwork.Source is { } plainColor) sheets[garment] = (png, plainColor);
+            if (kind == "color" && target?.Artwork.Source is { } plainColor)
+            {
+                sheets[garment] = (png, plainColor);
+                var finishedArt = ImageIO.Load(png);
+                var zones = ImageIO.Load(plainColor);
+                if (zones.Width == finishedArt.Width && zones.Height == finishedArt.Height)
+                {
+                    var px = (byte[])finishedArt.Pixels.Clone();
+                    for (int i = 3; i < px.Length; i += 4) px[i] = zones.Pixels[i];
+                    string withZones = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "nhl27-zones")), $"{a.Team}_{a.SourceKit}_{garment}_color.png");
+                    ImageIO.SavePng(new Rgba(finishedArt.Width, finishedArt.Height, px), withZones);
+                    png = withZones;
+                    if (finished is not null) finished.Artwork = finished.Artwork with { Source = withZones };
+                }
+            }
             if (target is null) a.Textures.Add(target = new NewUniformTexture { SourceSlot = baseSlot, Artwork = new TextureReplacement(baseSlot, png) });
             else target.Artwork = target.Artwork with { Source = png };
             swapped++;
@@ -230,7 +244,7 @@ public static class KitDonor
                 var art = ImageIO.Load(t.Artwork.Source);
                 if (art.Width != donor.Width || art.Height != donor.Height) continue;
                 string png = Path.Combine(dir, $"{a.Team}_{a.SourceKit}_{garment}_{variant}{kind}.png");
-                ImageIO.SavePng(ConvertMap(art, donor, kind == "normal"), png);
+                ImageIO.SavePng(ConvertMap(art, donor, kind == "normal", flattenShading: garment == "jersey"), png);
                 t.Artwork = t.Artwork with { Source = png };
                 converted++;
             }
@@ -248,17 +262,73 @@ public static class KitDonor
         say?.Invoke($"{a.Team} {a.SourceKit}: {converted} NHL 27 colour/normal maps converted to NHL 24's fabric alpha and fold shading; coefficient maps stock");
     }
 
-    /// <summary>NHL 27 map in NHL 24's packing: colour keeps RGB and takes NHL 24's alpha; a normal keeps X/Y and takes NHL 24's blue and alpha.</summary>
-    public static Rgba ConvertMap(Rgba nhl27, Rgba nhl24, bool normal)
+    /// <summary>
+    /// NHL 27 map in NHL 24's packing. Colour keeps RGB; its alpha keeps NHL 27's fabric-zone shapes with NHL 24's zone
+    /// values (<see cref="ZoneMap"/>), so a Fanatics jersey has no Adidas shoulder-yoke zone (the dimples) and no marbling.
+    /// A normal keeps X/Y (NHL 27's seams and hem stitching) and takes NHL 24's alpha and blue; with
+    /// <paramref name="flattenShading"/> the blue is the donor's plain-fabric level everywhere, so the Adidas yoke seams
+    /// baked into the donor's fold shading do not show on a Fanatics jersey.
+    /// </summary>
+    public static Rgba ConvertMap(Rgba nhl27, Rgba nhl24, bool normal, bool flattenShading = false)
     {
         if (nhl27.Width != nhl24.Width || nhl27.Height != nhl24.Height) throw new ArgumentException("map sizes differ");
         var px = (byte[])nhl27.Pixels.Clone();
+        var zones = normal ? null : ZoneMap(nhl27, nhl24);
+        byte flat = Mode(nhl24, 2);
         for (int i = 0; i < px.Length; i += 4)
         {
-            if (normal) px[i + 2] = nhl24.Pixels[i + 2];
-            px[i + 3] = nhl24.Pixels[i + 3];
+            if (normal)
+            {
+                px[i + 2] = flattenShading ? flat : nhl24.Pixels[i + 2];
+                px[i + 3] = nhl24.Pixels[i + 3];
+            }
+            else px[i + 3] = nhl24.Pixels[i + 3] == 255 ? (byte)255 : zones![px[i + 3]];
         }
         return new Rgba(nhl27.Width, nhl27.Height, px);
+    }
+
+    static byte Mode(Rgba image, int channel)
+    {
+        var counts = new int[256];
+        for (int i = channel; i < image.Pixels.Length; i += 4) counts[image.Pixels[i]]++;
+        return (byte)Array.IndexOf(counts, counts.Max());
+    }
+
+    /// <summary>
+    /// NHL 27 fabric-zone value → NHL 24 zone value. Each real NHL 27 zone (at least 0.3% of the sheet) takes the NHL 24
+    /// zone it overlaps most on the same sheet layout: body → body, side panels → side panels, collar → collar, 255 → 255.
+    /// The two games use different value scales (NHL 27 bodies are 64, 42, 51 or 36; NHL 24's is 36) and NHL 27's
+    /// Fanatics jerseys have no shoulder-yoke zone. Edge pixels between zones take the nearest real zone's value.
+    /// </summary>
+    public static byte[] ZoneMap(Rgba nhl27, Rgba nhl24)
+    {
+        int n = nhl27.Width * nhl27.Height;
+        var count27 = new int[256];
+        var overlap = new int[256, 256];
+        var count24 = new int[256];
+        for (int i = 3; i < nhl27.Pixels.Length; i += 4) { count27[nhl27.Pixels[i]]++; count24[nhl24.Pixels[i]]++; overlap[nhl27.Pixels[i], nhl24.Pixels[i]]++; }
+        var levels27 = Enumerable.Range(0, 256).Where(v => count27[v] >= n * 0.003).ToList();
+        var levels24 = Enumerable.Range(0, 256).Where(v => count24[v] >= n * 0.003).ToList();
+        int body27 = Array.IndexOf(count27, count27.Max()), body24 = Array.IndexOf(count24, count24.Max());
+        var target = new Dictionary<int, int>();
+        foreach (int v in levels27)
+        {
+            if (v == 255) target[v] = 255;
+            else if (v == body27) target[v] = body24;
+            else
+            {
+                // The non-body NHL 24 zone this NHL 27 zone overlaps most; plain body when it overlaps none enough.
+                var best = levels24.Where(z => z != body24 && z != 255).OrderByDescending(z => overlap[v, z]).FirstOrDefault(-1);
+                target[v] = best >= 0 && overlap[v, best] >= count27[v] * 0.2 ? best : body24;
+            }
+        }
+        var map = new byte[256];
+        for (int v = 0; v < 256; v++)
+        {
+            int nearest = levels27.Count == 0 ? body27 : levels27.OrderBy(l => Math.Abs(l - v)).First();
+            map[v] = (byte)(target.TryGetValue(nearest, out int t) ? t : body24);
+        }
+        return map;
     }
 
     /// <summary>The same texture from the team's regular NHL 24 kit (home or away), decoded to a PNG the install can use.</summary>

@@ -769,9 +769,12 @@ The no-cross-game rule for mesh-UV-addressed jersey/pant/sock colour/normal/coef
 64 NHL 27 Fanatics kits installed through the Anaheim-home donor (`KitDonor`, painted mode). The owner picked
 "NHL 27 jerseys, NHL 24 shine" for the detail NHL 27's sheets carry. The maps are converted, not copied
 (`KitDonor.ConvertToNhl24` / `ConvertMap`):
-- colour: NHL 27 finished RGB + the donor's NHL 24 fabric-zone alpha (rule 11). NHL 27's own alpha uses other zone
-  values and caused NJ away's grey marbling;
-- normal: NHL 27 X/Y + the donor's NHL 24 blue (fold/AO shading) and alpha. NHL 27 leaves blue at 255;
+- colour: NHL 27 finished RGB; alpha = NHL 27's plain-sheet fabric-zone shapes with NHL 24 zone values (`ZoneMap`:
+  each NHL 27 zone takes the NHL 24 zone it overlaps most; body 64/42/51/36 → 36, side panels → 109, collar → 146,
+  255 kept). NHL 27's finished sheets have alpha 255 everywhere (NJ away's grey marbling); the donor's Adidas zones
+  add a shoulder-yoke zone (73) that Fanatics jerseys do not have (shoulder dimples). Pants zones are identical;
+- normal: NHL 27 X/Y (Fanatics seams and hem stitching) + the donor's alpha; the jersey's blue (NHL 24 fold shading,
+  which carries the Adidas yoke seams) is flattened to the donor's plain-fabric level. NHL 27 leaves blue at 255;
 - coeff: the donor's stock base coefficient for both base and finished slots (rule 10);
 - hem fitting (`HemFit`) and, later, sock fitting per team. Chest sponsors are put on the right chest (`SponsorSide`).
 Nothing else crosses: any other kit route still follows the rule.

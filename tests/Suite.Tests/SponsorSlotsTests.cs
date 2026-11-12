@@ -558,3 +558,38 @@ public class UnpaintedLayersTests
         Assert.Empty(Suite.Convert27.UnpaintedLayers.Place(true, pants, ["shield"], [0], finished, plain));
     }
 }
+
+public class FabricZoneMapTests
+{
+    // 10x10 sheets: NHL 24 has body 36, a shoulder-yoke row 73, side panels 109 (column 0) and a collar 146 (column 9).
+    static Suite.Core.Rgba Zones(Func<int, int, byte> zone)
+    {
+        var px = new byte[400];
+        for (int y = 0; y < 10; y++) for (int x = 0; x < 10; x++) px[(y * 10 + x) * 4 + 3] = zone(x, y);
+        return new Suite.Core.Rgba(10, 10, px);
+    }
+
+    [Fact]
+    public void Nhl27_zone_shapes_take_nhl24_values_and_no_yoke()
+    {
+        var nhl24 = Zones((x, y) => x == 0 ? (byte)109 : x == 9 ? (byte)146 : y == 2 ? (byte)73 : (byte)36);
+        var nhl27 = Zones((x, y) => x == 0 ? (byte)127 : x == 9 ? (byte)191 : (byte)64);
+        var map = Suite.Convert27.KitDonor.ZoneMap(nhl27, nhl24);
+        Assert.Equal(36, map[64]);
+        Assert.Equal(109, map[127]);
+        Assert.Equal(146, map[191]);
+        Assert.Equal(36, map[70]); // an edge value takes the nearest real zone
+        var converted = Suite.Convert27.KitDonor.ConvertMap(nhl27, nhl24, normal: false);
+        Assert.Equal(36, converted.Pixels[(2 * 10 + 5) * 4 + 3]); // where NHL 24 had the yoke, NHL 27's body stays body
+    }
+
+    [Fact]
+    public void Jersey_shading_is_flattened_to_the_donors_plain_fabric_level()
+    {
+        var nhl24 = new Suite.Core.Rgba(2, 2, [0, 0, 170, 255, 0, 0, 170, 255, 0, 0, 170, 255, 0, 0, 40, 255]);
+        var nhl27 = new Suite.Core.Rgba(2, 2, [10, 20, 255, 255, 10, 20, 255, 255, 10, 20, 255, 255, 10, 20, 255, 255]);
+        var o = Suite.Convert27.KitDonor.ConvertMap(nhl27, nhl24, normal: true, flattenShading: true);
+        Assert.All(Enumerable.Range(0, 4), i => Assert.Equal(170, o.Pixels[i * 4 + 2]));
+        Assert.Equal(10, o.Pixels[0]);
+    }
+}
