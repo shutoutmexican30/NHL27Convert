@@ -667,3 +667,14 @@ public class StandardTagTests
         finally { File.Delete(png); }
     }
 }
+
+public class FanaticsFabricDefaultTests
+{
+    [Fact]
+    public void Every_kit_added_through_the_tool_gets_the_fanatics_fabric_by_default()
+    {
+        // Donor install + painted NHL 27 sheets is the route that converts NHL 27's Fanatics fabric zones and seams.
+        Assert.True(new FullKitInstall.Options("t", new ModFile(), "a", null, false, _ => { }).UseDonor);
+        Assert.True(KitDonor.PaintedLogos);
+    }
+}
