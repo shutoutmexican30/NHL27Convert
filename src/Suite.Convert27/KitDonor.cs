@@ -53,7 +53,7 @@ public static class KitDonor
                 if (index.EbxByName.ContainsKey(donorStamp) && index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
             }
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
-            if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalRoles(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array"))?.Count, say);
+            if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalSpots(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array")), say);
             if (HemFit.Enabled) HemFit.Apply(a, say);
             if (PaintedLogos) ConvertToNhl24(a, index, donorRes, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
@@ -92,11 +92,12 @@ public static class KitDonor
     /// </summary>
     public static bool PaintedLogos = true;
 
-    static void UsePaintedTextures(NewUniformAddition a, IReadOnlySet<string> donorRes, Func<string, int?> physical, Action<string>? say)
+    static void UsePaintedTextures(NewUniformAddition a, IReadOnlySet<string> donorRes, Func<string, IReadOnlyList<UnpaintedLayers.Spot>?> physical, Action<string>? say)
     {
         string toId = KitRegistration.Identity(Prefix);
         int swapped = 0;
         var plainJersey = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sheets = new Dictionary<string, (string Finished, string Plain)>(StringComparer.Ordinal);
         foreach (string garment in new[] { "jersey", "pant" })
         foreach (string kind in new[] { "color", "normal", "coeff" })
         {
@@ -112,6 +113,7 @@ public static class KitDonor
             if (png is null || !File.Exists(png)) continue;
             var target = a.Textures.FirstOrDefault(t => t.SourceSlot == baseSlot);
             if (garment == "jersey" && target?.Artwork.Source is { } plainPng) plainJersey[kind] = plainPng;
+            if (kind == "color" && target?.Artwork.Source is { } plainColor) sheets[garment] = (png, plainColor);
             if (target is null) a.Textures.Add(target = new NewUniformTexture { SourceSlot = baseSlot, Artwork = new TextureReplacement(baseSlot, png) });
             else target.Artwork = target.Artwork with { Source = png };
             swapped++;
@@ -121,11 +123,13 @@ public static class KitDonor
         // (Anaheim) logos.
         string clear = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "donor-team-art")), "transparent-512.png");
         if (!File.Exists(clear)) ImageIO.SavePng(new Rgba(512, 512, new byte[512 * 512 * 4]), clear);
-        int emptied = 0;
+        int emptied = 0, unpainted = 0;
+        var placements = new Dictionary<(bool, string), Dictionary<int, int>>();
         foreach (var t in a.Textures.Where(t => t.SourceSlot[(t.SourceSlot.LastIndexOf('/') + 1)..].StartsWith("branding_", StringComparison.Ordinal)
                      && t.SourceSlot.EndsWith("_array", StringComparison.Ordinal)))
         {
-            int slots = physical(t.SourceSlot) ?? 0;
+            var spots = physical(t.SourceSlot);
+            int slots = spots?.Count ?? 0;
             if (slots == 0) throw new InvalidDataException($"{t.SourceSlot}: the donor's logo slot count is unknown.");
             // The back-hem tag is a decal on the back hem; NHL 27's finished textures do not paint it, so its layer stays
             // (End Plastic Waste, or Chicago's 100th-season tag that the owner put in that spot).
@@ -135,6 +139,31 @@ public static class KitDonor
             var layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear);
             var newRoles = Enumerable.Repeat("blank", slots).ToList();
             if (tag is not null) { layers[0] = tag; newRoles[0] = SlotRoles.EpwRole; }
+            // Logos NHL 27 keeps only as layers (Seattle's and Toronto's chest patches, LA's pants logo) go in the
+            // donor's slot of the same role. Normal and coefficient arrays follow the colour array's choice.
+            bool pants = t.SourceSlot.Contains("branding_pant_", StringComparison.Ordinal);
+            bool colorArray = t.SourceSlot.EndsWith("_color_array", StringComparison.Ordinal);
+            if (t.RequiredRoles is { } srcRoles && t.Artwork.Layers is { } srcArt && spots is not null
+                && sheets.TryGetValue(pants ? "pant" : "jersey", out var sheet) && File.Exists(sheet.Finished) && File.Exists(sheet.Plain))
+            {
+                var key = (pants, sheet.Finished);
+                if (!placements.TryGetValue(key, out var place))
+                {
+                    var colors = a.Textures.FirstOrDefault(x => x.SourceSlot.Contains(pants ? "branding_pant_" : "branding_jersey_", StringComparison.Ordinal)
+                        && x.SourceSlot.EndsWith("_color_array", StringComparison.Ordinal));
+                    placements[key] = place = UnpaintedLayers.Place(pants, spots, colors?.RequiredRoles ?? srcRoles,
+                        (colors?.Artwork.Layers ?? srcArt).Keys.ToList(), ImageIO.Load(sheet.Finished), ImageIO.Load(sheet.Plain));
+                }
+                foreach (var (slot, layer) in place)
+                {
+                    if (!srcArt.TryGetValue(layer, out var layerArt) || (tag is not null && slot == 0)) continue;
+                    layers[slot] = layerArt;
+                    newRoles[slot] = spots[slot].Role;
+                    if (!colorArray) continue;
+                    unpainted++;
+                    say?.Invoke($"{a.Team} {a.SourceKit}: NHL 27's {(pants ? "pants" : "jersey")} {spots[slot].Role} is a separate layer, not painted on the sheet; placed in the donor's {spots[slot].Role} spot");
+                }
+            }
             t.Artwork = t.Artwork with { Layers = layers };
             t.RequiredRoles = newRoles;
             t.PinnedSlots = null;

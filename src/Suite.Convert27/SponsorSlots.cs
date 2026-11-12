@@ -162,6 +162,23 @@ public static class SponsorSlots
     }
 
     /// <summary>A copy in which numbered or misspelled stock slots keep their names but take their role from their position.</summary>
+    /// <summary>Each donor logo slot's role and sheet position (x, 1 - y of its hotspot), by array slice.</summary>
+    public static IReadOnlyList<UnpaintedLayers.Spot>? PhysicalSpots(BundleIndex index, string arraySlot)
+    {
+        try
+        {
+            string stamp = UniformPhysicalLayouts.StampForArray(arraySlot);
+            if (!index.EbxByName.ContainsKey(stamp)) return null;
+            var layout = WithRoles(Copies(index, stamp).OrderByDescending(c => c.Branding.Count).First());
+            var spots = new UnpaintedLayers.Spot[layout.Branding.Count];
+            static double D(string s) => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var slot in layout.Branding)
+                spots[UniformHotspots.SliceOf(layout, slot)] = new(slot.Role, D(slot.TranslateX), 1 - D(slot.TranslateY), D(slot.ScaleX));
+            return spots;
+        }
+        catch (Exception e) when (e is InvalidDataException or FormatException) { return null; }
+    }
+
     public static UniformHotspotLayout WithRoles(UniformHotspotLayout stock)
     {
         var branding = stock.Branding.OrderBy(slot => slot.Id).Select(Copy).ToList();

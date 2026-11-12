@@ -510,3 +510,51 @@ public class Nhl24MapConversionTests
             new Suite.Core.Rgba(1, 1, new byte[4]), normal: false));
     }
 }
+
+public class UnpaintedLayersTests
+{
+    static Suite.Core.Rgba Sheet(int w, Action<byte[], int> paint)
+    {
+        var px = new byte[w * w * 4];
+        for (int i = 0; i < px.Length; i += 4) { px[i] = 20; px[i + 1] = 30; px[i + 2] = 60; px[i + 3] = 64; }
+        paint(px, w);
+        return new Suite.Core.Rgba(w, w, px);
+    }
+
+    static void Box(byte[] px, int w, int x1, int y1, int x2, int y2)
+    {
+        for (int y = y1; y < y2; y++) for (int x = x1; x < x2; x++) { int at = (y * w + x) * 4; px[at] = 250; px[at + 1] = 250; px[at + 2] = 250; }
+    }
+
+    static readonly Suite.Convert27.UnpaintedLayers.Spot[] Jersey =
+    [
+        new("crest", .5, .7, .2), new("shield", .5, .58, .03), new("brand", .5, .44, .03), new("epw_tag", .39, .02, .02),
+        new("shoulder", .39, .5, .08), new("shoulder", .61, .5, .08), new("sponsor", .43, .61, .05),
+    ];
+
+    [Fact]
+    public void A_sponsor_layer_the_sheet_does_not_paint_goes_in_the_donors_sponsor_spot()
+    {
+        var plain = Sheet(200, (_, _) => { });
+        var place = Suite.Convert27.UnpaintedLayers.Place(false, Jersey, ["crest", "shield", "sponsor", "epw_tag"], [0, 1, 2, 3], plain, plain);
+        Assert.Equal(new Dictionary<int, int> { [6] = 2 }, place);
+    }
+
+    [Fact]
+    public void A_painted_chest_sponsor_is_not_added_twice()
+    {
+        var plain = Sheet(200, (_, _) => { });
+        var finished = Sheet(200, (px, w) => Box(px, w, 70, 115, 90, 128));
+        Assert.Empty(Suite.Convert27.UnpaintedLayers.Place(false, Jersey, ["crest", "sponsor"], [0, 1], finished, plain));
+    }
+
+    [Fact]
+    public void Pants_get_the_team_logo_never_the_shield()
+    {
+        var plain = Sheet(200, (_, _) => { });
+        var finished = Sheet(200, (px, w) => Box(px, w, 95, 95, 105, 105)); // only the shield is painted
+        Suite.Convert27.UnpaintedLayers.Spot[] pants = [new("shield", .5, .5, .05), new("crest", .3, .3, .1)];
+        Assert.Equal(new Dictionary<int, int> { [1] = 1 }, Suite.Convert27.UnpaintedLayers.Place(true, pants, ["shield", "crest"], [0, 1], finished, plain));
+        Assert.Empty(Suite.Convert27.UnpaintedLayers.Place(true, pants, ["shield"], [0], finished, plain));
+    }
+}
