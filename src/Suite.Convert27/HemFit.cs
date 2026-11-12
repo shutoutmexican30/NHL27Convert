@@ -14,6 +14,13 @@ public static class HemFit
 {
     public const double HemTop = 0.90, LastEdge = 0.948;
 
+    /// <summary>
+    /// Off (owner's in-game check, 2026-11-12): shifting the hem by measured percentages left Boston's hem solid gold
+    /// with the black-white-black stripes gone. Where NHL 24's model shows the hem has to come from the two models'
+    /// UVs, not from guesses on the texture, so the texture is installed unshifted until that transfer exists.
+    /// </summary>
+    public static bool Enabled = true;
+
     /// <summary>Where the last colour change of the hem is, down the middle of the texture (0..1), or null.</summary>
     public static double? LastChange(Rgba image)
     {
@@ -23,16 +30,24 @@ public static class HemFit
         for (int y = from + 1; y < image.Height; y++)
         {
             var c = Quantize(image, x, y);
-            if (c != prev) { last = y; prev = c; }
+            if (Differs(c, prev)) { last = y; prev = c; }
         }
         return last is null ? null : (double)last.Value / image.Height;
     }
 
-    static (int, int, int) Quantize(Rgba image, int x, int y)
+    static (int R, int G, int B) Quantize(Rgba image, int x, int y)
     {
         int at = (y * image.Width + x) * 4;
-        return (image.Pixels[at] / 48, image.Pixels[at + 1] / 48, image.Pixels[at + 2] / 48);
+        return (image.Pixels[at], image.Pixels[at + 1], image.Pixels[at + 2]);
     }
+
+    /// <summary>
+    /// A stripe edge, not shading inside one band: Boston fourteen's bottom gold has a lighter lower part
+    /// ((255,174,0) to (255,179,66)), which the old 48-step buckets read as the hem's last stripe and moved the whole
+    /// hem away. A real edge changes colour by far more than that.
+    /// </summary>
+    static bool Differs((int R, int G, int B) a, (int R, int G, int B) b) =>
+        Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B) > 120;
 
     /// <summary>The image with its hem moved up so <paramref name="edge"/> lands at <see cref="LastEdge"/>.</summary>
     public static Rgba Remap(Rgba image, double edge)
