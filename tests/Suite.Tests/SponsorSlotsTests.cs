@@ -459,3 +459,54 @@ public class HemFitTests
         Assert.True(HemFit.LastChange(edmonton) <= HemFit.LastEdge);
     }
 }
+
+public class FontRemapTests
+{
+    static Rgba Sheet(int shift)
+    {
+        int s = 512; var px = new byte[s * s * 4];
+        void Box(int x1, int y1, int x2, int y2) { for (int y = y1; y <= y2; y++) for (int x = x1; x <= x2; x++) px[(y * s + x) * 4 + 3] = 255; }
+        for (int i = 0; i < 15; i++) Box(4 + i * 32 + shift, 4, 4 + i * 32 + shift + 20, 40);       // A-O
+        for (int i = 0; i < 11; i++) Box(4 + i * 36 + shift, 54, 4 + i * 36 + shift + 20, 90);      // P-Z
+        for (int i = 0; i < 5; i++) { Box(4 + i * 80 + shift, 110, 4 + i * 80 + shift + 60, 230); Box(4 + i * 80 + shift, 240, 4 + i * 80 + shift + 60, 360); }
+        Box(440 + shift / 2, 60, 500, 180); Box(440 + shift / 2, 200, 500, 310);                         // C, A
+        for (int i = 0; i < 10; i++) { Box(4 + i * 48 + shift, 372, 4 + i * 48 + shift + 30, 430); Box(4 + i * 48 + shift, 444, 4 + i * 48 + shift + 30, 505); }
+        return new Rgba(s, s, px);
+    }
+
+    [Fact]
+    public void EveryNhl27GlyphLandsInItsNhl24Box()
+    {
+        var pairs = FontRemap.Map(Sheet(6), Sheet(0));
+        Assert.NotNull(pairs);
+        Assert.Equal(15 + 11 + 5 + 5 + 2 + 10 + 10, pairs!.Count);
+        Assert.All(pairs, p => Assert.Equal(p.From.Y1, p.To.Y1));
+    }
+}
+
+public class Nhl24MapConversionTests
+{
+    static Suite.Core.Rgba Solid(byte r, byte g, byte b, byte a) =>
+        new(2, 2, Enumerable.Range(0, 16).Select(i => (i % 4) switch { 0 => r, 1 => g, 2 => b, _ => a }).ToArray());
+
+    [Fact]
+    public void Colour_keeps_nhl27_rgb_and_takes_nhl24_fabric_alpha()
+    {
+        var o = Suite.Convert27.KitDonor.ConvertMap(Solid(200, 10, 30, 68), Solid(1, 2, 3, 58), normal: false);
+        Assert.Equal(new byte[] { 200, 10, 30, 58 }, o.Pixels[..4]);
+    }
+
+    [Fact]
+    public void Normal_keeps_nhl27_xy_and_takes_nhl24_fold_shading()
+    {
+        var o = Suite.Convert27.KitDonor.ConvertMap(Solid(120, 140, 255, 255), Solid(128, 128, 90, 200), normal: true);
+        Assert.Equal(new byte[] { 120, 140, 90, 200 }, o.Pixels[..4]);
+    }
+
+    [Fact]
+    public void Different_sizes_are_refused()
+    {
+        Assert.Throws<ArgumentException>(() => Suite.Convert27.KitDonor.ConvertMap(Solid(0, 0, 0, 0),
+            new Suite.Core.Rgba(1, 1, new byte[4]), normal: false));
+    }
+}

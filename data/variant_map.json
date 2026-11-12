@@ -211,8 +211,8 @@
    },
    "nhl27": {
     "folder": "chicago",
-    "homeVariant": 10,
-    "home": "ten",
+    "homeVariant": 14,
+    "home": "fourteen",
     "awayVariant": 11,
     "away": "eleven",
     "homeExists": true,
@@ -3313,8 +3313,8 @@
   },
   {
    "index": 123,
-   "name24": "Chicoutimi Saguen\u00e9ens",
-   "name27": "Chicoutimi Saguen\u00e9ens",
+   "name24": "Chicoutimi Saguenéens",
+   "name27": "Chicoutimi Saguenéens",
    "nhl24": {
     "folder": "chicoutimi",
     "awayVariant": 0,
@@ -3433,10 +3433,10 @@
   },
   {
    "index": 128,
-   "name24": "Qu\u00e9bec Remparts",
-   "name27": "Qu\u00e9bec Remparts",
+   "name24": "Québec Remparts",
+   "name27": "Québec Remparts",
    "nhl24": {
-    "folder": "qu\u00e9bec",
+    "folder": "québec",
     "awayVariant": 0,
     "away": "home",
     "homeVariant": 1,
@@ -3445,7 +3445,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "qu\u00e9bec",
+    "folder": "québec",
     "awayVariant": 0,
     "away": "home",
     "homeVariant": 1,
@@ -3457,8 +3457,8 @@
   },
   {
    "index": 129,
-   "name24": "Rimouski Oc\u00e9anic",
-   "name27": "Rimouski Oc\u00e9anic",
+   "name24": "Rimouski Océanic",
+   "name27": "Rimouski Océanic",
    "nhl24": {
     "folder": "rimouski",
     "awayVariant": 0,
@@ -4318,10 +4318,10 @@
   },
   {
    "index": 165,
-   "name24": "Djurg\u00e5rden Hockey",
+   "name24": "Djurgården Hockey",
    "name27": "MODO Hockey",
    "nhl24": {
-    "folder": "djurg\u00e5rden",
+    "folder": "djurgården",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4390,10 +4390,10 @@
   },
   {
    "index": 168,
-   "name24": "Bryn\u00e4s IF",
+   "name24": "Brynäs IF",
    "name27": "IK Oskarshamn",
    "nhl24": {
-    "folder": "bryn\u00e4s",
+    "folder": "brynäs",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4438,10 +4438,10 @@
   },
   {
    "index": 170,
-   "name24": "S\u00f6dert\u00e4lje SK",
-   "name27": "S\u00f6dert\u00e4lje SK",
+   "name24": "Södertälje SK",
+   "name27": "Södertälje SK",
    "nhl24": {
-    "folder": "s\u00f6dert\u00e4lje",
+    "folder": "södertälje",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4450,7 +4450,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "s\u00f6dert\u00e4lje",
+    "folder": "södertälje",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4559,7 +4559,7 @@
   {
    "index": 175,
    "name24": "Nybro Vikings IF",
-   "name27": "V\u00e4xj\u00f6 Lakers",
+   "name27": "Växjö Lakers",
    "nhl24": {
     "folder": "nybro",
     "homeVariant": 0,
@@ -4570,7 +4570,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "v\u00e4xj\u00f6",
+    "folder": "växjö",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4583,7 +4583,7 @@
   {
    "index": 176,
    "name24": "MODO Hockey",
-   "name27": "Djurg\u00e5rden Hockey",
+   "name27": "Djurgården Hockey",
    "nhl24": {
     "folder": "modo",
     "homeVariant": 0,
@@ -4594,7 +4594,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "djurg\u00e5rden",
+    "folder": "djurgården",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4630,10 +4630,10 @@
   },
   {
    "index": 178,
-   "name24": "F\u00e4rjestad BK",
-   "name27": "F\u00e4rjestad BK",
+   "name24": "Färjestad BK",
+   "name27": "Färjestad BK",
    "nhl24": {
-    "folder": "f\u00e4rjestads",
+    "folder": "färjestads",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4642,7 +4642,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "f\u00e4rjestads",
+    "folder": "färjestads",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4654,10 +4654,10 @@
   },
   {
    "index": 179,
-   "name24": "Fr\u00f6lunda HC",
-   "name27": "Fr\u00f6lunda HC",
+   "name24": "Frölunda HC",
+   "name27": "Frölunda HC",
    "nhl24": {
-    "folder": "fr\u00f6lunda",
+    "folder": "frölunda",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4666,7 +4666,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "fr\u00f6lunda",
+    "folder": "frölunda",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4702,10 +4702,10 @@
   },
   {
    "index": 181,
-   "name24": "Link\u00f6ping HC",
-   "name27": "Link\u00f6ping HC",
+   "name24": "Linköping HC",
+   "name27": "Linköping HC",
    "nhl24": {
-    "folder": "link\u00f6pings",
+    "folder": "linköpings",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4714,7 +4714,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "link\u00f6pings",
+    "folder": "linköpings",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4726,10 +4726,10 @@
   },
   {
    "index": 182,
-   "name24": "Lule\u00e5 Hockey",
-   "name27": "Lule\u00e5 Hockey",
+   "name24": "Luleå Hockey",
+   "name27": "Luleå Hockey",
    "nhl24": {
-    "folder": "lule\u00e5",
+    "folder": "luleå",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4738,7 +4738,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "lule\u00e5",
+    "folder": "luleå",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4750,8 +4750,8 @@
   },
   {
    "index": 183,
-   "name24": "Malm\u04e7 Redhawks",
-   "name27": "Malm\u04e7 Redhawks",
+   "name24": "Malmӧ Redhawks",
+   "name27": "Malmӧ Redhawks",
    "nhl24": {
     "folder": "malmo",
     "homeVariant": 0,
@@ -4799,7 +4799,7 @@
   {
    "index": 185,
    "name24": "IK Oskarshamn",
-   "name27": "Bryn\u00e4s IF",
+   "name27": "Brynäs IF",
    "nhl24": {
     "folder": "oskarshamn",
     "homeVariant": 0,
@@ -4810,7 +4810,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "bryn\u00e4s",
+    "folder": "brynäs",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4870,10 +4870,10 @@
   },
   {
    "index": 188,
-   "name24": "Timr\u00e5 IK",
-   "name27": "Timr\u00e5 IK",
+   "name24": "Timrå IK",
+   "name27": "Timrå IK",
    "nhl24": {
-    "folder": "timr\u00e5",
+    "folder": "timrå",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4882,7 +4882,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "timr\u00e5",
+    "folder": "timrå",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4894,10 +4894,10 @@
   },
   {
    "index": 189,
-   "name24": "V\u00e4xj\u00f6 Lakers",
+   "name24": "Växjö Lakers",
    "name27": "Jokerit Helsinki",
    "nhl24": {
-    "folder": "v\u00e4xj\u00f6",
+    "folder": "växjö",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4918,10 +4918,10 @@
   },
   {
    "index": 190,
-   "name24": "Porin \u00c4ss\u00e4t",
-   "name27": "Porin \u00c4ss\u00e4t",
+   "name24": "Porin Ässät",
+   "name27": "Porin Ässät",
    "nhl24": {
-    "folder": "\u00e4ss\u00e4t",
+    "folder": "ässät",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4930,7 +4930,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "\u00e4ss\u00e4t",
+    "folder": "ässät",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -4966,8 +4966,8 @@
   },
   {
    "index": 192,
-   "name24": "HPK H\u00e4meenlinna",
-   "name27": "HPK H\u00e4meenlinna",
+   "name24": "HPK Hämeenlinna",
+   "name27": "HPK Hämeenlinna",
    "nhl24": {
     "folder": "hpk",
     "homeVariant": 0,
@@ -5038,8 +5038,8 @@
   },
   {
    "index": 195,
-   "name24": "JYP Jyv\u00e4skyl\u00e4",
-   "name27": "JYP Jyv\u00e4skyl\u00e4",
+   "name24": "JYP Jyväskylä",
+   "name27": "JYP Jyväskylä",
    "nhl24": {
     "folder": "jyp",
     "homeVariant": 0,
@@ -5086,10 +5086,10 @@
   },
   {
    "index": 197,
-   "name24": "Oulun K\u00e4rp\u00e4t",
-   "name27": "Oulun K\u00e4rp\u00e4t",
+   "name24": "Oulun Kärpät",
+   "name27": "Oulun Kärpät",
    "nhl24": {
-    "folder": "k\u00e4rp\u00e4t",
+    "folder": "kärpät",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5098,7 +5098,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "k\u00e4rp\u00e4t",
+    "folder": "kärpät",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5302,10 +5302,10 @@
   },
   {
    "index": 207,
-   "name24": "D\u00fcsseldorfer EG",
+   "name24": "Düsseldorfer EG",
    "name27": "Krefeld Pinguine",
    "nhl24": {
-    "folder": "d\u00fcsseldorf",
+    "folder": "düsseldorf",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5326,8 +5326,8 @@
   },
   {
    "index": 208,
-   "name24": "Eisb\u00e4ren Berlin",
-   "name27": "Eisb\u00e4ren Berlin",
+   "name24": "Eisbären Berlin",
+   "name27": "Eisbären Berlin",
    "nhl24": {
     "folder": "eisbaren",
     "homeVariant": 0,
@@ -5422,10 +5422,10 @@
   },
   {
    "index": 212,
-   "name24": "K\u00f6lner Haie",
-   "name27": "K\u00f6lner Haie",
+   "name24": "Kölner Haie",
+   "name27": "Kölner Haie",
    "nhl24": {
-    "folder": "k\u00f6lner",
+    "folder": "kölner",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5434,7 +5434,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "k\u00f6lner",
+    "folder": "kölner",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5494,10 +5494,10 @@
   },
   {
    "index": 215,
-   "name24": "EHC M\u00fcnchen",
-   "name27": "EHC M\u00fcnchen",
+   "name24": "EHC München",
+   "name27": "EHC München",
    "nhl24": {
-    "folder": "m\u00fcnchen",
+    "folder": "münchen",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5506,7 +5506,7 @@
     "awayExists": false
    },
    "nhl27": {
-    "folder": "m\u00fcnchen",
+    "folder": "münchen",
     "homeVariant": 0,
     "home": "home",
     "awayVariant": 1,
@@ -5686,8 +5686,8 @@
   },
   {
    "index": 223,
-   "name24": "Ryt\u00ed\u0159i Kladno",
-   "name27": "Ryt\u00ed\u0159i Kladno",
+   "name24": "Rytíři Kladno",
+   "name27": "Rytíři Kladno",
    "nhl24": {
     "folder": "kladno",
     "awayVariant": 0,
@@ -5710,8 +5710,8 @@
   },
   {
    "index": 224,
-   "name24": "Bil\u00ed Tyg\u0159i Liberec",
-   "name27": "Bil\u00ed Tyg\u0159i Liberec",
+   "name24": "Bilí Tygři Liberec",
+   "name27": "Bilí Tygři Liberec",
    "nhl24": {
     "folder": "liberec",
     "awayVariant": 0,
@@ -5758,8 +5758,8 @@
   },
   {
    "index": 226,
-   "name24": "BK Mlad\u00e1 Boleslav",
-   "name27": "BK Mlad\u00e1 Boleslav",
+   "name24": "BK Mladá Boleslav",
+   "name27": "BK Mladá Boleslav",
    "nhl24": {
     "folder": "mladaboleslav",
     "awayVariant": 0,
@@ -5854,8 +5854,8 @@
   },
   {
    "index": 230,
-   "name24": "HC SKODA Plze\u0148",
-   "name27": "HC SKODA Plze\u0148",
+   "name24": "HC SKODA Plzeň",
+   "name27": "HC SKODA Plzeň",
    "nhl24": {
     "folder": "plzen",
     "awayVariant": 0,
@@ -5902,8 +5902,8 @@
   },
   {
    "index": 232,
-   "name24": "HC Ocel\u00e1\u0159i T\u0159inec",
-   "name27": "HC Ocel\u00e1\u0159i T\u0159inec",
+   "name24": "HC Oceláři Třinec",
+   "name27": "HC Oceláři Třinec",
    "nhl24": {
     "folder": "trinec",
     "awayVariant": 0,
@@ -5926,8 +5926,8 @@
   },
   {
    "index": 233,
-   "name24": "HC V\u00edtkovice Ridera",
-   "name27": "HC V\u00edtkovice Ridera",
+   "name24": "HC Vítkovice Ridera",
+   "name27": "HC Vítkovice Ridera",
    "nhl24": {
     "folder": "vitkovice",
     "awayVariant": 0,
@@ -6094,8 +6094,8 @@
   },
   {
    "index": 240,
-   "name24": "HC Fribourg-Gott\u00e9ron",
-   "name27": "HC Fribourg-Gott\u00e9ron",
+   "name24": "HC Fribourg-Gottéron",
+   "name27": "HC Fribourg-Gottéron",
    "nhl24": {
     "folder": "fribourg",
     "awayVariant": 1,
@@ -6118,8 +6118,8 @@
   },
   {
    "index": 241,
-   "name24": "Gen\u00e8ve-Servette HC",
-   "name27": "Gen\u00e8ve-Servette HC",
+   "name24": "Genève-Servette HC",
+   "name27": "Genève-Servette HC",
    "nhl24": {
     "folder": "geneveservette",
     "awayVariant": 1,
@@ -6670,10 +6670,10 @@
   },
   {
    "index": 266,
-   "name24": "HC Ko\u0161ice",
+   "name24": "HC Košice",
    "name27": "GKS Tychy",
    "nhl24": {
-    "folder": "hcko\u0161ice",
+    "folder": "hckošice",
     "homeVariant": 10,
     "home": "ten",
     "awayVariant": 11,

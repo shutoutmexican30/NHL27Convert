@@ -119,10 +119,14 @@ public sealed class FullKitInstall
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var given = o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms.");
         // Every kit is a renamed clone of one donor (Anaheim's regular home) with the team's NHL 27 art on top.
+        // The user's manual matcher decisions are read from the NHL 27 layer files, so they apply before the donor step
+        // replaces painted-on logo layers.
+        var slotMapEarly = SlotMapStore.Load();
+        if (o.UseDonor) MatcherOverrides.Apply(given, slotMapEarly, o.Say);
         var mods = o.UseDonor ? KitDonor.Retarget(given.ToList(), index, o.Say) : RegisteredKitSource.Normalize(given, index, o.Say);
         // Order matters: the user's matcher decisions first, then one layer per real NHL 27 logo, then any slot still missing.
         var slotMap = SlotMapStore.Load();
-        int overrides = MatcherOverrides.Apply(mods, slotMap, o.Say);
+        int overrides = o.UseDonor ? 0 : MatcherOverrides.Apply(mods, slotMap, o.Say);
         if (overrides > 0) o.Say($"{overrides} manual matcher decision(s) applied");
         DuplicateLogoLayers.Apply(mods, array => SponsorSlots.PhysicalRoles(index, array), o.Say);
         ShoulderPatches.FitArt(mods, slotMap, o.Say);

@@ -43,7 +43,7 @@ public sealed class NewUniformExportTests
         Assert.Contains(selected, f => f.Folder24 == "content/character/skater/league/nhl/winnipeg/adidas/home"
             && f.Folder27 == "content/character/skater/league/nhl/winnipeg/adidas/ten");
         Assert.Contains(selected, f => f.Folder24 == "content/character/skater/league/nhl/chicago/adidas/home"
-            && f.Folder27 == "content/character/skater/league/nhl/chicago/adidas/ten");
+            && f.Folder27 == "content/character/skater/league/nhl/chicago/adidas/fourteen");
         Assert.DoesNotContain(selected, f => f.Folder24.Contains("/atlantic/", StringComparison.Ordinal));
     }
 

@@ -46,11 +46,26 @@ public static class KitDonor
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
             if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalRoles(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array"))?.Count, say);
             if (HemFit.Enabled) HemFit.Apply(a, say);
+            if (PaintedLogos) ConvertToNhl24(a, index, donorRes, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
             if (fitted > 0) say?.Invoke($"{a.Team} {a.SourceKit}: {fitted} logo layer(s) have no spot of their kind on the donor and were left off");
             var covered = kept.Select(t => t.SourceSlot).ToHashSet(StringComparer.Ordinal);
             // Team pieces NHL 27 has no art for (the helmet logo) come from the team's own NHL 24 kit, never the donor's.
-            foreach (var name in donorRes.Where(n => !covered.Contains(n) && n[(n.LastIndexOf('/') + 1)..].StartsWith("helmetlogo_", StringComparison.Ordinal)).ToList())
+            // Number/letter fonts: NHL 27's sheets place the glyphs differently (Detroit: the captain's C and A sit further
+            // right, extra ' . - glyphs), so on NHL 24's lettering they come out clipped. Every team keeps its own NHL 24 font.
+            // NHL 27's own glyphs are cut out and fitted into the NHL 24 sheet's glyph boxes (FontRemap), so a team whose
+            // lettering changed (Utah: Coyotes to Mammoth) still gets NHL 27's numbers; if the sheets cannot be matched
+            // glyph for glyph, the team's NHL 24 font is used.
+            var nhl27Fonts = kept.Where(t => t.SourceSlot[(t.SourceSlot.LastIndexOf('/') + 1)..].StartsWith("font_", StringComparison.Ordinal)).ToList();
+            foreach (var t in nhl27Fonts) { kept.Remove(t); covered.Remove(t.SourceSlot); }
+            if (RemappedFont(index, a, nhl27Fonts) is { Count: > 0 } remapped)
+            {
+                kept.AddRange(remapped);
+                foreach (var t in remapped) covered.Add(t.SourceSlot);
+                say?.Invoke($"{a.Team} {a.SourceKit}: NHL 27 numbers and letters fitted into NHL 24's font layout ({remapped.Count} maps)");
+            }
+            foreach (var name in donorRes.Where(n => !covered.Contains(n) && (n[(n.LastIndexOf('/') + 1)..].StartsWith("helmetlogo_", StringComparison.Ordinal)
+                         || n[(n.LastIndexOf('/') + 1)..].StartsWith("font_", StringComparison.Ordinal))).ToList())
                 if (OwnTeamTexture(index, a, name) is { } own) { kept.Add(own); covered.Add(name); say?.Invoke($"{a.Team} {a.SourceKit}: {name[(name.LastIndexOf('/') + 1)..]} uses the team's own NHL 24 art"); }
             var stock = donorRes.Where(n => !covered.Contains(n) && (n.EndsWith("_color", StringComparison.Ordinal) || n.EndsWith("_color_array", StringComparison.Ordinal))
                     && !n[(n.LastIndexOf('/') + 1)..].StartsWith("branding_", StringComparison.Ordinal))
@@ -72,6 +87,7 @@ public static class KitDonor
     {
         string toId = KitRegistration.Identity(Prefix);
         int swapped = 0;
+        var plainJersey = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (string garment in new[] { "jersey", "pant" })
         foreach (string kind in new[] { "color", "normal", "coeff" })
         {
@@ -86,10 +102,12 @@ public static class KitDonor
             }
             if (png is null || !File.Exists(png)) continue;
             var target = a.Textures.FirstOrDefault(t => t.SourceSlot == baseSlot);
+            if (garment == "jersey" && target?.Artwork.Source is { } plainPng) plainJersey[kind] = plainPng;
             if (target is null) a.Textures.Add(target = new NewUniformTexture { SourceSlot = baseSlot, Artwork = new TextureReplacement(baseSlot, png) });
             else target.Artwork = target.Artwork with { Source = png };
             swapped++;
         }
+        SponsorSide.Apply(a, plainJersey, say);
         // Every donor logo slot gets an explicit transparent layer: an array with no art would keep the donor's own
         // (Anaheim) logos.
         string clear = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "donor-team-art")), "transparent-512.png");
@@ -100,12 +118,109 @@ public static class KitDonor
         {
             int slots = physical(t.SourceSlot) ?? 0;
             if (slots == 0) throw new InvalidDataException($"{t.SourceSlot}: the donor's logo slot count is unknown.");
-            t.Artwork = t.Artwork with { Layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear) };
-            t.RequiredRoles = Enumerable.Repeat("blank", slots).ToList();
+            // The back-hem tag is a decal on the back hem; NHL 27's finished textures do not paint it, so its layer stays
+            // (End Plastic Waste, or Chicago's 100th-season tag that the owner put in that spot).
+            var tag = t.RequiredRoles is { } roles && t.Artwork.Layers is { } art
+                ? roles.Select((r, i) => (r, i)).Where(x => x.r == SlotRoles.EpwRole && art.ContainsKey(x.i)).Select(x => art[x.i]).FirstOrDefault()
+                : null;
+            var layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear);
+            var newRoles = Enumerable.Repeat("blank", slots).ToList();
+            if (tag is not null) { layers[0] = tag; newRoles[0] = SlotRoles.EpwRole; }
+            t.Artwork = t.Artwork with { Layers = layers };
+            t.RequiredRoles = newRoles;
             t.PinnedSlots = null;
             emptied++;
         }
         say?.Invoke($"{a.Team} {a.SourceKit}: logos painted on from NHL 27's finished textures ({swapped} textures); {emptied} logo arrays left empty");
+    }
+
+    static Rgba? OwnTeamImage(BundleIndex index, NewUniformAddition a, string donorName)
+    {
+        string own = $"content/character/skater/league/nhl/{a.Team}/adidas/{a.SourceKit}/";
+        string ownName = own + donorName[Prefix.Length..].Replace(KitRegistration.Identity(Prefix), KitRegistration.Identity(own), StringComparison.Ordinal);
+        if (!index.ResByName.ContainsKey(ownName)) return null;
+        try { var slot = TextureSlots.Read(index.Game, index, ownName); return Ps4Codec.DecodeSlices(slot.Res, slot.Stock)[0]; }
+        catch (InvalidDataException) { return null; }
+    }
+
+    /// <summary>NHL 27's font maps redrawn in the team's NHL 24 font layout; empty when the glyphs cannot be matched.</summary>
+    static List<NewUniformTexture> RemappedFont(BundleIndex index, NewUniformAddition a, List<NewUniformTexture> nhl27Fonts)
+    {
+        var result = new List<NewUniformTexture>();
+        var color27 = nhl27Fonts.FirstOrDefault(t => t.SourceSlot.EndsWith("_color", StringComparison.Ordinal));
+        if (color27 is null || !File.Exists(color27.Artwork.Source) || OwnTeamImage(index, a, color27.SourceSlot) is not { } own24) return result;
+        var pairs = FontRemap.Map(ImageIO.Load(color27.Artwork.Source), own24);
+        if (pairs is null) return result;
+        string dir = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "font-remap"));
+        foreach (var t in nhl27Fonts)
+        {
+            if (!File.Exists(t.Artwork.Source) || OwnTeamImage(index, a, t.SourceSlot) is not { } fill) continue;
+            var source = ImageIO.Load(t.Artwork.Source);
+            if (source.Width != ImageIO.Load(color27.Artwork.Source).Width) continue;
+            string png = Path.Combine(dir, $"{a.Team}_{a.SourceKit}_" + Path.GetFileName(t.Artwork.Source));
+            ImageIO.SavePng(FontRemap.Apply(source, fill, pairs, fill), png);
+            result.Add(new NewUniformTexture { SourceSlot = t.SourceSlot, Artwork = new TextureReplacement(t.SourceSlot, png) });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// NHL 27's garment maps converted to how NHL 24 reads them (NJ away's grey marbling, 2026-11-12):
+    /// colour alpha is NHL 24's fabric-zone map (rule 11; NHL 27 uses other values and zones), so the donor's alpha is put
+    /// back; NHL 27 normals keep only X/Y and leave blue at 255, where NHL 24 keeps its fold shading, so the donor's blue
+    /// (and alpha) go back in; coefficient maps stay the donor's stock base coefficient (rule 10).
+    /// </summary>
+    static void ConvertToNhl24(NewUniformAddition a, BundleIndex index, IReadOnlySet<string> donorRes, Action<string>? say)
+    {
+        string toId = KitRegistration.Identity(Prefix);
+        string dir = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "nhl24-maps"));
+        Rgba? Donor(string slot)
+        {
+            if (!donorRes.Contains(slot)) return null;
+            try { var s = TextureSlots.Read(index.Game, index, slot); return Ps4Codec.DecodeSlices(s.Res, s.Stock)[0]; }
+            catch (InvalidDataException) { return null; }
+        }
+        int converted = 0;
+        foreach (string garment in new[] { "jersey", "pant", "sock" })
+        foreach (string variant in new[] { "base_", "" })
+        {
+            foreach (string kind in new[] { "color", "normal" })
+            {
+                string slot = $"{Prefix}{garment}_adidas_{toId}_{variant}{kind}";
+                var t = a.Textures.FirstOrDefault(x => x.SourceSlot == slot);
+                if (t is null || !File.Exists(t.Artwork.Source) || Donor(slot) is not { } donor) continue;
+                var art = ImageIO.Load(t.Artwork.Source);
+                if (art.Width != donor.Width || art.Height != donor.Height) continue;
+                string png = Path.Combine(dir, $"{a.Team}_{a.SourceKit}_{garment}_{variant}{kind}.png");
+                ImageIO.SavePng(ConvertMap(art, donor, kind == "normal"), png);
+                t.Artwork = t.Artwork with { Source = png };
+                converted++;
+            }
+            // Rule 10: coefficient maps stay stock. The donor's base coefficient (fabric only, no donor logos) fills both.
+            string coeffSlot = $"{Prefix}{garment}_adidas_{toId}_{variant}coeff";
+            if (!donorRes.Contains(coeffSlot)) continue;
+            a.Textures.RemoveAll(x => x.SourceSlot == coeffSlot);
+            if (variant == "" && Donor($"{Prefix}{garment}_adidas_{toId}_base_coeff") is { } stockCoeff)
+            {
+                string png = Path.Combine(dir, $"{garment}_donor_base_coeff.png");
+                if (!File.Exists(png)) ImageIO.SavePng(stockCoeff, png);
+                a.Textures.Add(new NewUniformTexture { SourceSlot = coeffSlot, Artwork = new TextureReplacement(coeffSlot, png) });
+            }
+        }
+        say?.Invoke($"{a.Team} {a.SourceKit}: {converted} NHL 27 colour/normal maps converted to NHL 24's fabric alpha and fold shading; coefficient maps stock");
+    }
+
+    /// <summary>NHL 27 map in NHL 24's packing: colour keeps RGB and takes NHL 24's alpha; a normal keeps X/Y and takes NHL 24's blue and alpha.</summary>
+    public static Rgba ConvertMap(Rgba nhl27, Rgba nhl24, bool normal)
+    {
+        if (nhl27.Width != nhl24.Width || nhl27.Height != nhl24.Height) throw new ArgumentException("map sizes differ");
+        var px = (byte[])nhl27.Pixels.Clone();
+        for (int i = 0; i < px.Length; i += 4)
+        {
+            if (normal) px[i + 2] = nhl24.Pixels[i + 2];
+            px[i + 3] = nhl24.Pixels[i + 3];
+        }
+        return new Rgba(nhl27.Width, nhl27.Height, px);
     }
 
     /// <summary>The same texture from the team's regular NHL 24 kit (home or away), decoded to a PNG the install can use.</summary>
