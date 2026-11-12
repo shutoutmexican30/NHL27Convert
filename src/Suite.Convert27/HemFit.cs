@@ -92,11 +92,15 @@ public static class HemFit
     public static (double From, double To)?[] Plan(Rgba nhl27, Rgba? reference)
     {
         var result = new (double, double)?[2];
-        double? front = LastChange(nhl27), frontTarget = reference is null ? LastEdge : LastChange(reference) ?? LastEdge;
-        if (front is { } f && f > frontTarget + 0.002) result[0] = (f, frontTarget.Value);
+        // The team's NHL 24 hem only proves how far down its jersey shows; a hem drawn higher (Arizona 92.5%, St. Louis
+        // 92.4%) is that kit's design, not a limit, so the target is never above NHL 24's usual edge.
+        double frontTarget = Math.Max(LastEdge, reference is null ? 0 : LastChange(reference) ?? 0);
+        double? front = LastChange(nhl27);
+        if (front is { } f && f > frontTarget + 0.002) result[0] = (f, frontTarget);
         var flipped = Flip(nhl27);
-        double? back = LastChange(flipped), backTarget = reference is null ? LastEdge + 0.012 : LastChange(Flip(reference)) ?? LastEdge + 0.012;
-        if (back is { } b && b > backTarget + 0.002) result[1] = (b, backTarget.Value);
+        double backTarget = Math.Max(LastEdge + 0.012, reference is null ? 0 : LastChange(Flip(reference)) ?? 0);
+        double? back = LastChange(flipped);
+        if (back is { } b && b > backTarget + 0.002) result[1] = (b, backTarget);
         return result;
     }
 

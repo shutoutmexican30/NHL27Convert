@@ -464,6 +464,17 @@ public class HemFitTests
     }
 
     [Fact]
+    public void A_high_nhl24_hem_design_is_not_a_target()
+    {
+        // St. Louis: NHL 24's Blues hem stripes end at 92.4%; NHL 27's at 96.5% only move to NHL 24's usual 94.8%.
+        var nhl27 = Hem((0, 200), (0.023, 120), (0.092, 250), (0.908, 120), (0.965, 200));
+        var nhl24 = Hem((0, 200), (0.064, 120), (0.092, 250), (0.908, 120), (0.924, 200));
+        var plan = HemFit.Plan(nhl27, nhl24);
+        Assert.Equal(HemFit.LastEdge, plan[0]!.Value.To, 3);
+        Assert.Equal(HemFit.LastEdge + 0.012, plan[1]!.Value.To, 3);
+    }
+
+    [Fact]
     public void ALowHemIsMovedUpSoItsLastBandShows()
     {
         // Boston thirteen: last gold band starts at 95.8% — below what NHL 24's jersey shows.
