@@ -99,7 +99,7 @@ public static class FanaticsKitCheck
     {
         if (a.Width != b.Width || a.Height != b.Height) return true;
         int n = 0;
-        for (int i = 3; i < a.Pixels.Length; i += 4) if ((a.Pixels[i] > 24) != (b.Pixels[i] > 24)) n++;
+        for (int i = 3; i < a.Pixels.Length; i += 4) if ((a.Pixels[i] > 64) != (b.Pixels[i] > 64)) n++; // faint edges (alpha ~20) flip with re-encoding
         return n > a.Width * a.Height * 0.002;
     }
 }
