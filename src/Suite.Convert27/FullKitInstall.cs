@@ -217,6 +217,19 @@ public sealed class FullKitInstall
                 if (left.Count > 0) throw new InvalidOperationException("Rollback differences: " + string.Join("; ", left.Take(10)));
             });
         o.Say($"INSTALLED AND READ BACK: {additionPlan.Additions.Count} kits, {bundleCount} bundles, {ebxCount} EBX, {resCount} RES. Backup: {backup}");
+        if (o.UseDonor && !o.RestoreAfterVerify)
+        {
+            // The owner's kit rules, read back from the installed files (FanaticsKitCheck). Reported, never undone.
+            var after = BundleIndex.Build(Game);
+            int failing = 0;
+            foreach (var a in additionPlan.Additions)
+            {
+                var issues = FanaticsKitCheck.Check(Game, after, a.TargetPrefix, a.Team, a.SourceKit);
+                if (issues.Count > 0) failing++;
+                o.Say($"KIT CHECK {(issues.Count == 0 ? "OK  " : "FAIL")} {a.Team} {a.SourceKit}{(issues.Count == 0 ? "" : ": " + string.Join("; ", issues))}");
+            }
+            o.Say($"KIT CHECK: {additionPlan.Additions.Count - failing} of {additionPlan.Additions.Count} kits pass");
+        }
         if (o.RestoreAfterVerify)
         {
             ApplyTarget.RestoreFromBackup(Game, backup);
