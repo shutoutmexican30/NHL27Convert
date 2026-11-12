@@ -1,0 +1,61 @@
+{
+  "comment": "League salary-cap values patched into NHL 24 1.60 (game-UPDATE\\eboot.bin) as shadPS4 runtime memory patches. Edit the four values, then run tools\\CapPatch. Sites were read off the 1.60 eboot (188,338,041 bytes): each 'stock' is the int32 the site holds before patching and is checked byte for byte before anything is written. See docs\\CAP_CONTRACTS_FINDINGS.md.",
+  "name": "Salary cap 2026-27",
+  "appVer": "01.60",
+  "ebootSize": 188338041,
+  "codeFileOffset": "0x51D80",
+  "values": {
+    "floor": 76900000,
+    "cap": 104000000,
+    "minSalary": 850000,
+    "maxSalary": 20800000
+  },
+  "groups": [
+    {
+      "name": "defaults",
+      "comment": "Static init: movabs rax, (cap << 32 | floor) at vaddr 0x880434D, stored to the runtime globals 0xBEBE0C0 (floor) / 0xBEBE0C4 (cap).",
+      "sites": [
+        { "field": "floor", "fileOffset": "0x88560CF", "stock": 61700000 },
+        { "field": "cap", "fileOffset": "0x88560D3", "stock": 83500000 }
+      ]
+    },
+    {
+      "name": "min-max fallbacks",
+      "comment": "Eleven inline pairs mov reg, 16700000 / mov reg, 775000, used when the league-settings pointer 0xBEBE0F0 is null.",
+      "sites": [
+        { "field": "maxSalary", "fileOffset": "0x82A8BA8", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82A8BB7", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82D3502", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82D3507", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82D3580", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82D3585", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82D377A", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82D377F", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82E9B5E", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82E9B63", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82E9F5E", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82E9F63", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82EAC17", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82EABF9", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x82EB169", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x82EB15E", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x8312581", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x831257C", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x83135F7", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x8313604", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x8316FF0", "stock": 16700000 },
+        { "field": "minSalary", "fileOffset": "0x8316FF5", "stock": 775000 }
+      ]
+    },
+    {
+      "name": "read-only defaults table",
+      "comment": "Rodata block cap, floor, 0, min, max, 950000. No direct code reference was found; patched so no stock copy is left.",
+      "sites": [
+        { "field": "cap", "fileOffset": "0x90C7F5C", "stock": 83500000 },
+        { "field": "floor", "fileOffset": "0x90C7F60", "stock": 61700000 },
+        { "field": "minSalary", "fileOffset": "0x90C7F68", "stock": 775000 },
+        { "field": "maxSalary", "fileOffset": "0x90C7F6C", "stock": 16700000 }
+      ]
+    }
+  ]
+}

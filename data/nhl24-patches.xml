@@ -5,7 +5,10 @@
 
   Drop this file in <emulator folder>\user\patches\ and start with the memory patcher enabled
   (shadPS4 style: nhl24.exe -p nhl24.xml). Addresses use the patch repository convention
-  Address = 0x400000 + eboot.bin file offset.
+  Address = 0x400000 + virtual address = 0x400000 + eboot.bin file offset - 0x51D80 (the 1.60 SELF puts the
+  code+rodata segment at file 0x51D80 = vaddr 0). Checked against the live emulator: its working replay entry
+  0x068E0770 is the je at file 0x065324F0. The comments below still name eboot.bin FILE offsets.
+  (Before 2026-11-12 this file used 0x4000000 + file offset, which pointed every entry at the wrong bytes.)
 
   Where this comes from: a byte diff of the repack's patched game-UPDATE\eboot.bin against the untouched
   eboot.bin.orig kept beside it (188,338,041 bytes; 21 differing bytes in 7 runs). The two runs inside the
@@ -17,68 +20,202 @@
   repack's source.
 -->
 <Patch>
-
   <!-- 0x065324F0: 74 to EB. je to jmp: always take the branch. Same technique the upstream project uses
        for its synchronous replay compression fix, at a different address. -->
   <Metadata Name="Repack A - force the branch at 0x065324F0 (je to jmp)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x0A5324F0" Value="0xEB"/>
+      <Line Type="byte" Address="0x068E0770" Value="0xEB" />
     </PatchList>
   </Metadata>
-
   <!-- 0x05C30524: 8A 86 6E 01 00 00 to 31 C0 90 90 90 90. mov al,[rsi+0x16E] to xor eax,eax + 4 nops,
        so the value read there is always 0. Consistent with switching one effect off. -->
   <Metadata Name="Repack B - zero the byte read at [rsi+0x16E] (0x05C30524)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x09C30524" Value="0x31"/>
-      <Line Type="byte" Address="0x09C30525" Value="0xC0"/>
-      <Line Type="byte" Address="0x09C30526" Value="0x90"/>
-      <Line Type="byte" Address="0x09C30527" Value="0x90"/>
-      <Line Type="byte" Address="0x09C30528" Value="0x90"/>
-      <Line Type="byte" Address="0x09C30529" Value="0x90"/>
+      <Line Type="byte" Address="0x05FDE7A4" Value="0x31" />
+      <Line Type="byte" Address="0x05FDE7A5" Value="0xC0" />
+      <Line Type="byte" Address="0x05FDE7A6" Value="0x90" />
+      <Line Type="byte" Address="0x05FDE7A7" Value="0x90" />
+      <Line Type="byte" Address="0x05FDE7A8" Value="0x90" />
+      <Line Type="byte" Address="0x05FDE7A9" Value="0x90" />
     </PatchList>
   </Metadata>
-
   <!-- 0x04DD0FC7: 0F B6 8B 6E 01 to 31 C9 0F 1F 44. movzx ecx,[rbx+0x16E] to xor ecx,ecx + nops:
        the same 0x16E field, read through another register, forced to 0. -->
   <Metadata Name="Repack C - zero the byte read at [rbx+0x16E] (0x04DD0FC7)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x08DD0FC7" Value="0x31"/>
-      <Line Type="byte" Address="0x08DD0FC8" Value="0xC9"/>
-      <Line Type="byte" Address="0x08DD0FC9" Value="0x0F"/>
-      <Line Type="byte" Address="0x08DD0FCA" Value="0x1F"/>
-      <Line Type="byte" Address="0x08DD0FCB" Value="0x44"/>
+      <Line Type="byte" Address="0x0517F247" Value="0x31" />
+      <Line Type="byte" Address="0x0517F248" Value="0xC9" />
+      <Line Type="byte" Address="0x0517F249" Value="0x0F" />
+      <Line Type="byte" Address="0x0517F24A" Value="0x1F" />
+      <Line Type="byte" Address="0x0517F24B" Value="0x44" />
     </PatchList>
   </Metadata>
-
   <!-- 0x05AC37E5: 0F 85 8B 17 to 66 0F 1F 44. jne rel32 to a multi-byte nop: the conditional jump is
        removed, execution always falls through. -->
   <Metadata Name="Repack D - remove the conditional jump at 0x05AC37E5 (jne to nop)" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x09AC37E5" Value="0x66"/>
-      <Line Type="byte" Address="0x09AC37E6" Value="0x0F"/>
-      <Line Type="byte" Address="0x09AC37E7" Value="0x1F"/>
-      <Line Type="byte" Address="0x09AC37E8" Value="0x44"/>
+      <Line Type="byte" Address="0x05E71A65" Value="0x66" />
+      <Line Type="byte" Address="0x05E71A66" Value="0x0F" />
+      <Line Type="byte" Address="0x05E71A67" Value="0x1F" />
+      <Line Type="byte" Address="0x05E71A68" Value="0x44" />
     </PatchList>
   </Metadata>
-
   <!-- 0x01E9819B: 01 to 00. A single flag byte, no instruction decode involved. Off by default: nothing in
        the repack's readme says what it toggles, so enable it only if a symptom needs it. -->
   <Metadata Name="Repack flag byte at 0x01E9819B (01 to 00), purpose unknown" isEnabled="false" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x05E9819B" Value="0x00"/>
+      <Line Type="byte" Address="0x0224641B" Value="0x00" />
     </PatchList>
   </Metadata>
-
   <!-- Reference only, NOT code: the repack's language/loc edits inside the resource area. Leave disabled;
        patch text on disk, because the game can reload that data at runtime. -->
   <Metadata Name="Repack loc data edits (resource area) - disabled, use the on-disk edition" isEnabled="false" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
-      <Line Type="byte" Address="0x0D059F50" Value="0x00"/>
-      <Line Type="byte" Address="0x0D059F51" Value="0x0F"/>
-      <Line Type="byte" Address="0x0D059F54" Value="0x70"/>
-      <Line Type="byte" Address="0x0D059F55" Value="0x08"/>
+      <Line Type="byte" Address="0x094081D0" Value="0x00" />
+      <Line Type="byte" Address="0x094081D1" Value="0x0F" />
+      <Line Type="byte" Address="0x094081D4" Value="0x70" />
+      <Line Type="byte" Address="0x094081D5" Value="0x08" />
     </PatchList>
   </Metadata>
-
+  <!-- Static init: movabs rax, (cap << 32 | floor) at vaddr 0x880434D, stored to the runtime globals 0xBEBE0C0 (floor) / 0xBEBE0C4 (cap). -->
+  <Metadata Name="Salary cap 2026-27 - defaults" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <!-- file 0x088560CF floor: 61,700,000 -> 76,900,000 -->
+      <Line Type="byte" Address="0x08C04350" Value="0x66" />
+      <Line Type="byte" Address="0x08C04351" Value="0x95" />
+      <Line Type="byte" Address="0x08C04352" Value="0x04" />
+      <!-- file 0x088560D3 cap: 83,500,000 -> 104,000,000 -->
+      <Line Type="byte" Address="0x08C04353" Value="0x00" />
+      <Line Type="byte" Address="0x08C04354" Value="0xEA" />
+      <Line Type="byte" Address="0x08C04355" Value="0x32" />
+      <Line Type="byte" Address="0x08C04356" Value="0x06" />
+    </PatchList>
+  </Metadata>
+  <!-- Eleven inline pairs mov reg, 16700000 / mov reg, 775000, used when the league-settings pointer 0xBEBE0F0 is null. -->
+  <Metadata Name="Salary cap 2026-27 - min-max fallbacks" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <!-- file 0x082A8BA8 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x08656E28" Value="0x00" />
+      <Line Type="byte" Address="0x08656E29" Value="0x62" />
+      <Line Type="byte" Address="0x08656E2A" Value="0x3D" />
+      <Line Type="byte" Address="0x08656E2B" Value="0x01" />
+      <!-- file 0x082A8BB7 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x08656E37" Value="0x50" />
+      <Line Type="byte" Address="0x08656E38" Value="0xF8" />
+      <Line Type="byte" Address="0x08656E39" Value="0x0C" />
+      <!-- file 0x082D3502 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x08681782" Value="0x00" />
+      <Line Type="byte" Address="0x08681783" Value="0x62" />
+      <Line Type="byte" Address="0x08681784" Value="0x3D" />
+      <Line Type="byte" Address="0x08681785" Value="0x01" />
+      <!-- file 0x082D3507 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x08681787" Value="0x50" />
+      <Line Type="byte" Address="0x08681788" Value="0xF8" />
+      <Line Type="byte" Address="0x08681789" Value="0x0C" />
+      <!-- file 0x082D3580 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x08681800" Value="0x00" />
+      <Line Type="byte" Address="0x08681801" Value="0x62" />
+      <Line Type="byte" Address="0x08681802" Value="0x3D" />
+      <Line Type="byte" Address="0x08681803" Value="0x01" />
+      <!-- file 0x082D3585 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x08681805" Value="0x50" />
+      <Line Type="byte" Address="0x08681806" Value="0xF8" />
+      <Line Type="byte" Address="0x08681807" Value="0x0C" />
+      <!-- file 0x082D377A maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086819FA" Value="0x00" />
+      <Line Type="byte" Address="0x086819FB" Value="0x62" />
+      <Line Type="byte" Address="0x086819FC" Value="0x3D" />
+      <Line Type="byte" Address="0x086819FD" Value="0x01" />
+      <!-- file 0x082D377F minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086819FF" Value="0x50" />
+      <Line Type="byte" Address="0x08681A00" Value="0xF8" />
+      <Line Type="byte" Address="0x08681A01" Value="0x0C" />
+      <!-- file 0x082E9B5E maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x08697DDE" Value="0x00" />
+      <Line Type="byte" Address="0x08697DDF" Value="0x62" />
+      <Line Type="byte" Address="0x08697DE0" Value="0x3D" />
+      <Line Type="byte" Address="0x08697DE1" Value="0x01" />
+      <!-- file 0x082E9B63 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x08697DE3" Value="0x50" />
+      <Line Type="byte" Address="0x08697DE4" Value="0xF8" />
+      <Line Type="byte" Address="0x08697DE5" Value="0x0C" />
+      <!-- file 0x082E9F5E maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086981DE" Value="0x00" />
+      <Line Type="byte" Address="0x086981DF" Value="0x62" />
+      <Line Type="byte" Address="0x086981E0" Value="0x3D" />
+      <Line Type="byte" Address="0x086981E1" Value="0x01" />
+      <!-- file 0x082E9F63 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086981E3" Value="0x50" />
+      <Line Type="byte" Address="0x086981E4" Value="0xF8" />
+      <Line Type="byte" Address="0x086981E5" Value="0x0C" />
+      <!-- file 0x082EAC17 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x08698E97" Value="0x00" />
+      <Line Type="byte" Address="0x08698E98" Value="0x62" />
+      <Line Type="byte" Address="0x08698E99" Value="0x3D" />
+      <Line Type="byte" Address="0x08698E9A" Value="0x01" />
+      <!-- file 0x082EABF9 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x08698E79" Value="0x50" />
+      <Line Type="byte" Address="0x08698E7A" Value="0xF8" />
+      <Line Type="byte" Address="0x08698E7B" Value="0x0C" />
+      <!-- file 0x082EB169 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086993E9" Value="0x00" />
+      <Line Type="byte" Address="0x086993EA" Value="0x62" />
+      <Line Type="byte" Address="0x086993EB" Value="0x3D" />
+      <Line Type="byte" Address="0x086993EC" Value="0x01" />
+      <!-- file 0x082EB15E minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086993DE" Value="0x50" />
+      <Line Type="byte" Address="0x086993DF" Value="0xF8" />
+      <Line Type="byte" Address="0x086993E0" Value="0x0C" />
+      <!-- file 0x08312581 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086C0801" Value="0x00" />
+      <Line Type="byte" Address="0x086C0802" Value="0x62" />
+      <Line Type="byte" Address="0x086C0803" Value="0x3D" />
+      <Line Type="byte" Address="0x086C0804" Value="0x01" />
+      <!-- file 0x0831257C minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086C07FC" Value="0x50" />
+      <Line Type="byte" Address="0x086C07FD" Value="0xF8" />
+      <Line Type="byte" Address="0x086C07FE" Value="0x0C" />
+      <!-- file 0x083135F7 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086C1877" Value="0x00" />
+      <Line Type="byte" Address="0x086C1878" Value="0x62" />
+      <Line Type="byte" Address="0x086C1879" Value="0x3D" />
+      <Line Type="byte" Address="0x086C187A" Value="0x01" />
+      <!-- file 0x08313604 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086C1884" Value="0x50" />
+      <Line Type="byte" Address="0x086C1885" Value="0xF8" />
+      <Line Type="byte" Address="0x086C1886" Value="0x0C" />
+      <!-- file 0x08316FF0 maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x086C5270" Value="0x00" />
+      <Line Type="byte" Address="0x086C5271" Value="0x62" />
+      <Line Type="byte" Address="0x086C5272" Value="0x3D" />
+      <Line Type="byte" Address="0x086C5273" Value="0x01" />
+      <!-- file 0x08316FF5 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x086C5275" Value="0x50" />
+      <Line Type="byte" Address="0x086C5276" Value="0xF8" />
+      <Line Type="byte" Address="0x086C5277" Value="0x0C" />
+    </PatchList>
+  </Metadata>
+  <!-- Rodata block cap, floor, 0, min, max, 950000. No direct code reference was found; patched so no stock copy is left. -->
+  <Metadata Name="Salary cap 2026-27 - read-only defaults table" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
+    <PatchList>
+      <!-- file 0x090C7F5C cap: 83,500,000 -> 104,000,000 -->
+      <Line Type="byte" Address="0x094761DC" Value="0x00" />
+      <Line Type="byte" Address="0x094761DD" Value="0xEA" />
+      <Line Type="byte" Address="0x094761DE" Value="0x32" />
+      <Line Type="byte" Address="0x094761DF" Value="0x06" />
+      <!-- file 0x090C7F60 floor: 61,700,000 -> 76,900,000 -->
+      <Line Type="byte" Address="0x094761E1" Value="0x66" />
+      <Line Type="byte" Address="0x094761E2" Value="0x95" />
+      <Line Type="byte" Address="0x094761E3" Value="0x04" />
+      <!-- file 0x090C7F68 minSalary: 775,000 -> 850,000 -->
+      <Line Type="byte" Address="0x094761E8" Value="0x50" />
+      <Line Type="byte" Address="0x094761E9" Value="0xF8" />
+      <Line Type="byte" Address="0x094761EA" Value="0x0C" />
+      <!-- file 0x090C7F6C maxSalary: 16,700,000 -> 20,800,000 -->
+      <Line Type="byte" Address="0x094761EC" Value="0x00" />
+      <Line Type="byte" Address="0x094761ED" Value="0x62" />
+      <Line Type="byte" Address="0x094761EE" Value="0x3D" />
+      <Line Type="byte" Address="0x094761EF" Value="0x01" />
+    </PatchList>
+  </Metadata>
 </Patch>

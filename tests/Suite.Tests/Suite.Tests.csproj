@@ -19,6 +19,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <None Include="..\..\data\logo_refs.json" Link="data\logo_refs.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\salary_cap.json" Link="data\salary_cap.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\nhl24-patches.xml" Link="data\nhl24-patches.xml" CopyToOutputDirectory="PreserveNewest" />
     <!-- The scorebug tests rewrite the real style movies in memory (never on disk). -->
     <None Include="..\..\data\scorebug\*.gfx" Link="data\scorebug\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
