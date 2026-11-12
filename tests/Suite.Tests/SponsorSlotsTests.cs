@@ -443,6 +443,27 @@ public class HemFitTests
     }
 
     [Fact]
+    public void A_hem_that_matches_the_teams_nhl24_hem_is_not_moved()
+    {
+        // Florida: NHL 27's front hem (96.4%) and back hem (top 2.2%) are exactly where NHL 24's Florida has them.
+        var florida = Hem((0, 30), (0.022, 160), (0.908, 160), (0.964, 30));
+        Assert.All(HemFit.Plan(florida, florida), p => Assert.Null(p));
+    }
+
+    [Fact]
+    public void Front_and_back_hems_move_together_to_the_teams_nhl24_hem()
+    {
+        // Boston: NHL 27 front 95.8% / back 2.8%; NHL 24 Boston 94.8% / 4.0%. Moving only the front stepped the stripe at the seams.
+        var nhl27 = Hem((0, 200), (0.028, 120), (0.092, 250), (0.908, 120), (0.958, 200));
+        var nhl24 = Hem((0, 200), (0.040, 120), (0.092, 250), (0.908, 120), (0.948, 200));
+        var plan = HemFit.Plan(nhl27, nhl24);
+        Assert.NotNull(plan[0]); Assert.NotNull(plan[1]);
+        var fitted = HemFit.Fit(nhl27, plan);
+        Assert.Equal(0.948, HemFit.LastChange(fitted)!.Value, 2);
+        Assert.Equal(1 - 0.040, HemFit.LastChange(HemFit.Flip(fitted))!.Value, 2);
+    }
+
+    [Fact]
     public void ALowHemIsMovedUpSoItsLastBandShows()
     {
         // Boston thirteen: last gold band starts at 95.8% — below what NHL 24's jersey shows.

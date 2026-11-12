@@ -50,7 +50,10 @@ public static class HemFit
         Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B) > 120;
 
     /// <summary>The image with its hem moved up so <paramref name="edge"/> lands at <see cref="LastEdge"/>.</summary>
-    public static Rgba Remap(Rgba image, double edge)
+    public static Rgba Remap(Rgba image, double edge) => Remap(image, edge, LastEdge);
+
+    /// <summary>The image with its bottom hem moved so <paramref name="edge"/> lands at <paramref name="target"/>.</summary>
+    public static Rgba Remap(Rgba image, double edge, double target)
     {
         int w = image.Width, h = image.Height;
         var output = new byte[image.Pixels.Length];
@@ -59,8 +62,8 @@ public static class HemFit
         for (int y = top; y < h; y++)
         {
             double v = (double)y / h, source;
-            if (v <= LastEdge) source = HemTop + (v - HemTop) * (edge - HemTop) / (LastEdge - HemTop);
-            else source = edge + (v - LastEdge) * (1 - edge) / (1 - LastEdge);
+            if (v <= target) source = HemTop + (v - HemTop) * (edge - HemTop) / (target - HemTop);
+            else source = edge + (v - target) * (1 - edge) / (1 - target);
             int sy = Math.Clamp((int)Math.Round(source * h), 0, h - 1);
             Array.Copy(image.Pixels, sy * w * 4, output, y * w * 4, w * 4);
         }
@@ -71,22 +74,64 @@ public static class HemFit
     /// Moves the hem of every jersey texture (colour, normal, coefficient; base and finished) of an addition when its
     /// base colour's hem runs lower than NHL 24 shows. Returns the edge that was moved, or null when nothing changed.
     /// </summary>
-    public static double? Apply(NewUniformAddition addition, Action<string>? say = null)
+    /// <summary>The image upside down: the back panel's hem is at the top of the jersey sheet, mirrored.</summary>
+    public static Rgba Flip(Rgba image)
+    {
+        int w = image.Width, h = image.Height;
+        var output = new byte[image.Pixels.Length];
+        for (int y = 0; y < h; y++) Array.Copy(image.Pixels, y * w * 4, output, (h - 1 - y) * w * 4, w * 4);
+        return new Rgba(w, h, output);
+    }
+
+    /// <summary>
+    /// Front (bottom of the sheet) and back (top, mirrored) hem edges to move: each only when NHL 27's last stripe runs
+    /// further toward the sheet edge than the team's own NHL 24 kit (<paramref name="reference"/>) puts it. Florida's NHL 27
+    /// hem matches its NHL 24 hem exactly and must stay; moving only the front (the first version) put a step in the
+    /// stripe at the side seams. Without a reference, NHL 24's usual edges are used (0.948 / 0.04).
+    /// </summary>
+    public static (double From, double To)?[] Plan(Rgba nhl27, Rgba? reference)
+    {
+        var result = new (double, double)?[2];
+        double? front = LastChange(nhl27), frontTarget = reference is null ? LastEdge : LastChange(reference) ?? LastEdge;
+        if (front is { } f && f > frontTarget + 0.002) result[0] = (f, frontTarget.Value);
+        var flipped = Flip(nhl27);
+        double? back = LastChange(flipped), backTarget = reference is null ? LastEdge + 0.012 : LastChange(Flip(reference)) ?? LastEdge + 0.012;
+        if (back is { } b && b > backTarget + 0.002) result[1] = (b, backTarget.Value);
+        return result;
+    }
+
+    public static Rgba Fit(Rgba image, (double From, double To)?[] plan)
+    {
+        if (plan[0] is { } front) image = Remap(image, front.From, front.To);
+        if (plan[1] is { } back) image = Flip(Remap(Flip(image), back.From, back.To));
+        return image;
+    }
+
+    public static double? Apply(NewUniformAddition addition, Action<string>? say = null) => Apply(addition, null, say);
+
+    public static double? Apply(NewUniformAddition addition, Rgba? reference, Action<string>? say = null)
     {
         static string Leaf(string s) => s[(s.LastIndexOf('/') + 1)..];
         var jersey = addition.Textures.Where(t => Leaf(t.SourceSlot).StartsWith("jersey_", StringComparison.Ordinal)
             && !t.SourceSlot.EndsWith("_array", StringComparison.Ordinal) && File.Exists(t.Artwork.Source)).ToList();
         var baseColor = jersey.FirstOrDefault(t => Leaf(t.SourceSlot).EndsWith("_base_color", StringComparison.Ordinal))
             ?? jersey.FirstOrDefault(t => Leaf(t.SourceSlot).EndsWith("_color", StringComparison.Ordinal));
-        if (baseColor is null || LastChange(ImageIO.Load(baseColor.Artwork.Source)) is not { } edge || edge <= LastEdge + 0.002) return null;
+        if (baseColor is null) return null;
+        var art = ImageIO.Load(baseColor.Artwork.Source);
+        if (reference is not null && (reference.Width != art.Width || reference.Height != art.Height)) reference = null;
+        var plan = Plan(art, reference);
+        if (plan[0] is null && plan[1] is null) return null;
         string dir = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "hem-fit"));
+        string tag = $"{plan[0]?.From:0.000}-{plan[0]?.To:0.000}_{plan[1]?.From:0.000}-{plan[1]?.To:0.000}_";
         foreach (var t in jersey)
         {
-            string png = Path.Combine(dir, $"{edge:0.000}_" + Path.GetFileName(t.Artwork.Source));
-            ImageIO.SavePng(Remap(ImageIO.Load(t.Artwork.Source), edge), png);
+            string png = Path.Combine(dir, tag + Path.GetFileName(t.Artwork.Source));
+            ImageIO.SavePng(Fit(ImageIO.Load(t.Artwork.Source), plan), png);
             t.Artwork = t.Artwork with { Source = png };
         }
-        say?.Invoke($"{addition.Team} {addition.SourceKit}: hem stripes ran to {edge:P1} of the texture; moved up to fit NHL 24's jersey ({jersey.Count} textures)");
-        return edge;
+        say?.Invoke($"{addition.Team} {addition.SourceKit}: hem stripes moved to the team's NHL 24 hem"
+            + (plan[0] is { } f ? $"; front {f.From:P1} to {f.To:P1}" : "") + (plan[1] is { } b ? $"; back {1 - b.From:P1} to {1 - b.To:P1}" : "")
+            + $" ({jersey.Count} textures)");
+        return plan[0]?.From ?? plan[1]?.From;
     }
 }

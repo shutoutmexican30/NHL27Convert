@@ -54,7 +54,7 @@ public static class KitDonor
             }
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
             if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalSpots(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array")), say);
-            if (HemFit.Enabled) HemFit.Apply(a, say);
+            if (HemFit.Enabled) HemFit.Apply(a, HemReference(index, a), say);
             if (PaintedLogos) ConvertToNhl24(a, index, donorRes, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
             if (fitted > 0) say?.Invoke($"{a.Team} {a.SourceKit}: {fitted} logo layer(s) have no spot of their kind on the donor and were left off");
@@ -184,6 +184,13 @@ public static class KitDonor
             emptied++;
         }
         say?.Invoke($"{a.Team} {a.SourceKit}: logos painted on from NHL 27's finished textures ({swapped} textures); {emptied} logo arrays left empty");
+    }
+
+    /// <summary>The team's own NHL 24 jersey sheet (plain if it has one, else its painted sheet) for the hem edges.</summary>
+    static Rgba? HemReference(BundleIndex index, NewUniformAddition a)
+    {
+        string toId = KitRegistration.Identity(Prefix);
+        return OwnTeamImage(index, a, $"{Prefix}jersey_adidas_{toId}_base_color") ?? OwnTeamImage(index, a, $"{Prefix}jersey_adidas_{toId}_color");
     }
 
     static Rgba? OwnTeamImage(BundleIndex index, NewUniformAddition a, string donorName)
