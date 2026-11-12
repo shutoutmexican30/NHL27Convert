@@ -690,3 +690,54 @@ public class FanaticsFabricDefaultTests
         Assert.True(KitDonor.PaintedLogos);
     }
 }
+
+public class SockFitTests
+{
+    static Rgba Sock(params (double From, byte Shade)[] bands)
+    {
+        int w = 4, h = 1000; var px = new byte[w * h * 4];
+        for (int y = 0; y < h; y++)
+        {
+            byte shade = bands.Last(b => y >= b.From * h).Shade;
+            for (int x = 0; x < w; x++) { int at = (y * w + x) * 4; px[at] = px[at + 1] = px[at + 2] = shade; px[at + 3] = 255; }
+        }
+        return new Rgba(w, h, px);
+    }
+
+    [Fact]
+    public void Low_stripes_move_up_to_the_teams_nhl24_stripes()
+    {
+        // Boston: NHL 27 stripes 61-79%, NHL 24 Boston 54-70.6%.
+        var nhl27 = Sock((0, 30), (0.61, 250), (0.70, 30), (0.79, 250), (0.80, 30));
+        var nhl24 = Sock((0, 30), (0.54, 250), (0.62, 30), (0.706, 250), (0.71, 30));
+        var plan = SockFit.Plan(nhl27, nhl24);
+        Assert.NotNull(plan);
+        Assert.Equal(0.71, plan!.Value.To, 3);
+        Assert.Equal(0.71, SockFit.Band(SockFit.Remap(nhl27, plan.Value.From, plan.Value.To))!.Value.Last, 2);
+    }
+
+    [Fact]
+    public void Socks_that_fit_or_high_nhl24_designs_are_not_targets()
+    {
+        var same = Sock((0, 30), (0.55, 250), (0.72, 30));
+        Assert.Null(SockFit.Plan(same, same));
+        // Arizona's NHL 24 stripes end at 65.8%: Utah's 75.4% only goes to the usual 70%.
+        var utah = Sock((0, 30), (0.584, 250), (0.754, 30));
+        var coyotes = Sock((0, 30), (0.567, 250), (0.658, 30));
+        Assert.Equal(SockFit.UsualEnd, SockFit.Plan(utah, coyotes)!.Value.To, 3);
+    }
+}
+
+public class FinishedCoeffTests
+{
+    [Fact]
+    public void Donor_logo_areas_in_the_finished_coefficient_become_plain_fabric()
+    {
+        // 2x2: three plain pixels (127,27,0,255), one logo pixel (90,200,10,255) where the donor's colour shows a logo.
+        var coeff = new Rgba(2, 2, [127, 27, 0, 255, 127, 27, 0, 255, 127, 27, 0, 255, 90, 200, 10, 255]);
+        var plain = new Rgba(2, 2, [10, 10, 10, 255, 10, 10, 10, 255, 10, 10, 10, 255, 10, 10, 10, 255]);
+        var finished = new Rgba(2, 2, [10, 10, 10, 255, 10, 10, 10, 255, 10, 10, 10, 255, 250, 250, 250, 255]);
+        var o = KitDonor.WithoutLogos(coeff, finished, plain);
+        Assert.Equal(new byte[] { 127, 27, 0, 255 }, o.Pixels[12..16]);
+    }
+}

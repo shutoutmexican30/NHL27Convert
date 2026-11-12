@@ -56,6 +56,7 @@ public static class KitDonor
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
             if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalSpots(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array")), say);
             if (HemFit.Enabled) HemFit.Apply(a, HemReference(index, a), say);
+            if (HemFit.Enabled) SockFit.Apply(a, OwnTeamImage(index, a, $"{Prefix}sock_adidas_{toId}_color") ?? OwnTeamImage(index, a, $"{Prefix}sock_adidas_{toId}_base_color"), say);
             if (PaintedLogos) ConvertToNhl24(a, index, donorRes, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
             if (fitted > 0) say?.Invoke($"{a.Team} {a.SourceKit}: {fitted} logo layer(s) have no spot of their kind on the donor and were left off");
@@ -339,10 +340,14 @@ public static class KitDonor
             string coeffSlot = $"{Prefix}{garment}_adidas_{toId}_{variant}coeff";
             if (!donorRes.Contains(coeffSlot)) continue;
             a.Textures.RemoveAll(x => x.SourceSlot == coeffSlot);
-            if (variant == "" && Donor($"{Prefix}{garment}_adidas_{toId}_base_coeff") is { } stockCoeff)
+            // The finished coefficient is packed differently from the base one (NHL 24 Anaheim: base 126/127/255/0,
+            // finished 127/27/0/255), so it keeps the donor's own stock finished map, with the donor's baked-in logo
+            // areas set back to plain fabric so no Anaheim logo shows in the shine.
+            if (variant == "" && Donor(coeffSlot) is { } stockFinished
+                && Donor($"{Prefix}{garment}_adidas_{toId}_color") is { } donorColor && Donor($"{Prefix}{garment}_adidas_{toId}_base_color") is { } donorPlain)
             {
-                string png = Path.Combine(dir, $"{garment}_donor_base_coeff.png");
-                if (!File.Exists(png)) ImageIO.SavePng(stockCoeff, png);
+                string png = Path.Combine(dir, $"{garment}_donor_coeff_without_logos.png");
+                if (!File.Exists(png)) ImageIO.SavePng(WithoutLogos(stockFinished, donorColor, donorPlain), png);
                 a.Textures.Add(new NewUniformTexture { SourceSlot = coeffSlot, Artwork = new TextureReplacement(coeffSlot, png) });
             }
         }
@@ -377,6 +382,23 @@ public static class KitDonor
             else px[i + 3] = nhl24.Pixels[i + 3] == 255 ? (byte)255 : zones![px[i + 3]];
         }
         return new Rgba(nhl27.Width, nhl27.Height, px);
+    }
+
+    /// <summary>
+    /// <paramref name="coeff"/> with every pixel where the donor's finished colour shows a logo (it differs from its plain
+    /// colour) set to the map's most common value, i.e. plain fabric.
+    /// </summary>
+    public static Rgba WithoutLogos(Rgba coeff, Rgba finished, Rgba plain)
+    {
+        if (coeff.Width != finished.Width || coeff.Height != finished.Height || plain.Width != finished.Width || plain.Height != finished.Height) return coeff;
+        var px = (byte[])coeff.Pixels.Clone();
+        var fabric = new byte[] { Mode(coeff, 0), Mode(coeff, 1), Mode(coeff, 2), Mode(coeff, 3) };
+        for (int i = 0; i < px.Length; i += 4)
+        {
+            int d = Math.Abs(finished.Pixels[i] - plain.Pixels[i]) + Math.Abs(finished.Pixels[i + 1] - plain.Pixels[i + 1]) + Math.Abs(finished.Pixels[i + 2] - plain.Pixels[i + 2]);
+            if (d > 60) fabric.CopyTo(px, i);
+        }
+        return new Rgba(coeff.Width, coeff.Height, px);
     }
 
     /// <summary>NHL 24's Adidas shoulder-yoke fabric zone (the dimpled mesh); Fanatics jerseys have none.</summary>
