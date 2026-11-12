@@ -628,6 +628,18 @@ public class FabricZoneMapTests
     }
 
     [Fact]
+    public void A_sheet_without_zones_takes_nhl24_zones_without_the_yoke()
+    {
+        // Vegas home: NHL 27's plain sheet is alpha 255 everywhere.
+        var nhl24 = Zones((x, y) => x == 0 ? (byte)109 : y == 2 ? (byte)73 : (byte)36);
+        var nhl27 = Zones((_, _) => 255);
+        var o = Suite.Convert27.KitDonor.ConvertMap(nhl27, nhl24, normal: false);
+        Assert.Equal(36, o.Pixels[(2 * 10 + 5) * 4 + 3]);
+        Assert.Equal(109, o.Pixels[(5 * 10 + 0) * 4 + 3]);
+        Assert.Equal(36, o.Pixels[(5 * 10 + 5) * 4 + 3]);
+    }
+
+    [Fact]
     public void Jersey_shading_is_flattened_to_the_donors_plain_fabric_level()
     {
         var nhl24 = new Suite.Core.Rgba(2, 2, [0, 0, 170, 255, 0, 0, 170, 255, 0, 0, 170, 255, 0, 0, 40, 255]);

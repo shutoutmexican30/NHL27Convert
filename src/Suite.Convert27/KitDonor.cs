@@ -361,6 +361,10 @@ public static class KitDonor
         if (nhl27.Width != nhl24.Width || nhl27.Height != nhl24.Height) throw new ArgumentException("map sizes differ");
         var px = (byte[])nhl27.Pixels.Clone();
         var zones = normal ? null : ZoneMap(nhl27, nhl24);
+        // A sheet without fabric zones (Vegas home's NHL 27 plain sheet is alpha 255 everywhere) keeps NHL 24's zone
+        // shapes, with the Adidas shoulder yoke turned into plain body fabric (no dimples on a Fanatics kit).
+        bool noZones = !normal && HasNoZones(nhl27);
+        byte body24 = Mode(nhl24, 3);
         byte flat = Mode(nhl24, 2);
         for (int i = 0; i < px.Length; i += 4)
         {
@@ -369,9 +373,20 @@ public static class KitDonor
                 px[i + 2] = flattenShading ? flat : nhl24.Pixels[i + 2];
                 px[i + 3] = nhl24.Pixels[i + 3];
             }
+            else if (noZones) px[i + 3] = nhl24.Pixels[i + 3] == AdidasYoke ? body24 : nhl24.Pixels[i + 3];
             else px[i + 3] = nhl24.Pixels[i + 3] == 255 ? (byte)255 : zones![px[i + 3]];
         }
         return new Rgba(nhl27.Width, nhl27.Height, px);
+    }
+
+    /// <summary>NHL 24's Adidas shoulder-yoke fabric zone (the dimpled mesh); Fanatics jerseys have none.</summary>
+    public const byte AdidasYoke = 73;
+
+    static bool HasNoZones(Rgba image)
+    {
+        var counts = new int[256];
+        for (int i = 3; i < image.Pixels.Length; i += 4) counts[image.Pixels[i]]++;
+        return counts.Count(c => c >= image.Width * image.Height * 0.003) < 2;
     }
 
     static byte Mode(Rgba image, int channel)
