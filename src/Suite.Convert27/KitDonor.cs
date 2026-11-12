@@ -245,7 +245,8 @@ public static class KitDonor
                 if (art.Width != donor.Width || art.Height != donor.Height) continue;
                 string png = Path.Combine(dir, $"{a.Team}_{a.SourceKit}_{garment}_{variant}{kind}.png");
                 ImageIO.SavePng(ConvertMap(art, donor, kind == "normal", flattenShading: garment == "jersey"), png);
-                t.Artwork = t.Artwork with { Source = png };
+                // The converted alpha is final: rule 11's "auto" would put the donor's Adidas zones back at encode time.
+                t.Artwork = t.Artwork with { Source = png, Alpha = null };
                 converted++;
             }
             // Rule 10: coefficient maps stay stock. The donor's base coefficient (fabric only, no donor logos) fills both.
