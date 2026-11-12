@@ -445,8 +445,10 @@ public sealed class FullKitInstall
                     keepStock = layerPlan.KeepStock.ToHashSet();
                 }
                 string baseKey = TexturePayloadCache.Key(slot, copy, out var stockForAlpha);
-                bool blankUnused = blankable && copy.Layers is { Count: > 0 }
-                    && Enumerable.Range(0, have).Any(layer => !copy.Layers.ContainsKey(layer) && !keepStock.Contains(layer));
+                // Every logo slot without art is blanked, including an array whose layers are all deliberately empty
+                // (painted-on donor kits): an untouched slice would show the donor's own logo.
+                bool blankUnused = blankable
+                    && Enumerable.Range(0, have).Any(layer => !(copy.Layers?.ContainsKey(layer) ?? false) && !keepStock.Contains(layer));
                 // Blanked output is not interchangeable with TextureSlots' preserve-unused-layers output, even when
                 // their source artwork is identical. Give it a separate content-addressed cache namespace.
                 string key = blankUnused ? Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(baseKey + ":full-kit-blank-v3-" + arrayRole + ":" + string.Join(",", keepStock.Order())))) : baseKey;
@@ -458,7 +460,7 @@ public sealed class FullKitInstall
                     if (blankUnused)
                     {
                         var blank = UniformBrandingLayers.Blank(slot.Res.Width, slot.Res.Height, arrayRole);
-                        var unused = Enumerable.Range(0, have).Where(layer => !copy.Layers!.ContainsKey(layer) && !keepStock.Contains(layer)).ToDictionary(layer => layer, _ => blank);
+                        var unused = Enumerable.Range(0, have).Where(layer => !(copy.Layers?.ContainsKey(layer) ?? false) && !keepStock.Contains(layer)).ToDictionary(layer => layer, _ => blank);
                         raw = Ps4Codec.Build(slot.Res, raw, unused, codecThreads);
                     }
                     cache.Store(key, raw, keepPayload: true);

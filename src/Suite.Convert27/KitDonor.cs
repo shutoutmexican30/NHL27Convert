@@ -44,6 +44,7 @@ public static class KitDonor
             a.HotspotLayouts.Clear();
             a.SourcePrefix = Prefix;
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
+            if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalRoles(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array"))?.Count, say);
             HemFit.Apply(a, say);
             int fitted = FitToSlots(a, array => SponsorSlots.PhysicalRoles(index, array));
             if (fitted > 0) say?.Invoke($"{a.Team} {a.SourceKit}: {fitted} logo layer(s) have no spot of their kind on the donor and were left off");
@@ -57,6 +58,54 @@ public static class KitDonor
             if (stock.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: WARNING keeps the donor's own {string.Join(", ", stock)} (no NHL 27 or team art for them)");
         }
         return additions;
+    }
+
+    /// <summary>
+    /// Owner, 2026-11-12: "follow the NHL 27 layout to a T". NHL 27 ships every jersey and pants twice: plain, and
+    /// finished with each logo painted in NHL 27's own spot and size (same 2048 layout, plus finished normal and
+    /// coefficient maps so the logos keep their stitched look). The donor's base textures take the finished ones and its
+    /// logo layers are left empty, so every logo sits exactly where NHL 27 puts it and nothing is painted twice.
+    /// </summary>
+    public static bool PaintedLogos = true;
+
+    static void UsePaintedTextures(NewUniformAddition a, IReadOnlySet<string> donorRes, Func<string, int?> physical, Action<string>? say)
+    {
+        string toId = KitRegistration.Identity(Prefix);
+        int swapped = 0;
+        foreach (string garment in new[] { "jersey", "pant" })
+        foreach (string kind in new[] { "color", "normal", "coeff" })
+        {
+            string baseSlot = $"{Prefix}{garment}_adidas_{toId}_base_{kind}", finishedSlot = $"{Prefix}{garment}_adidas_{toId}_{kind}";
+            if (!donorRes.Contains(baseSlot)) continue;
+            var finished = a.Textures.FirstOrDefault(t => t.SourceSlot == finishedSlot);
+            string? png = finished?.Artwork.Source;
+            if (png is null)
+            {
+                var plain = a.Textures.FirstOrDefault(t => t.SourceSlot == baseSlot)?.Artwork.Source;
+                png = plain?.Replace($"_base_{kind}.png", $"_{kind}.png", StringComparison.Ordinal);
+            }
+            if (png is null || !File.Exists(png)) continue;
+            var target = a.Textures.FirstOrDefault(t => t.SourceSlot == baseSlot);
+            if (target is null) a.Textures.Add(target = new NewUniformTexture { SourceSlot = baseSlot, Artwork = new TextureReplacement(baseSlot, png) });
+            else target.Artwork = target.Artwork with { Source = png };
+            swapped++;
+        }
+        // Every donor logo slot gets an explicit transparent layer: an array with no art would keep the donor's own
+        // (Anaheim) logos.
+        string clear = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "donor-team-art")), "transparent-512.png");
+        if (!File.Exists(clear)) ImageIO.SavePng(new Rgba(512, 512, new byte[512 * 512 * 4]), clear);
+        int emptied = 0;
+        foreach (var t in a.Textures.Where(t => t.SourceSlot[(t.SourceSlot.LastIndexOf('/') + 1)..].StartsWith("branding_", StringComparison.Ordinal)
+                     && t.SourceSlot.EndsWith("_array", StringComparison.Ordinal)))
+        {
+            int slots = physical(t.SourceSlot) ?? 0;
+            if (slots == 0) throw new InvalidDataException($"{t.SourceSlot}: the donor's logo slot count is unknown.");
+            t.Artwork = t.Artwork with { Layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear) };
+            t.RequiredRoles = Enumerable.Repeat("blank", slots).ToList();
+            t.PinnedSlots = null;
+            emptied++;
+        }
+        say?.Invoke($"{a.Team} {a.SourceKit}: logos painted on from NHL 27's finished textures ({swapped} textures); {emptied} logo arrays left empty");
     }
 
     /// <summary>The same texture from the team's regular NHL 24 kit (home or away), decoded to a PNG the install can use.</summary>
