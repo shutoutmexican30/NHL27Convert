@@ -157,14 +157,19 @@ public static class KitDonor
                 : null;
             // Every kit carries the End Plastic Waste back-hem tag (Chicago's 100 tag replaces it through the slot map).
             // NHL 27's Florida kits lack the layer but keep its stitched outline, which showed as an empty rectangle.
-            if (tag is null && t.SourceSlot.Contains("branding_jersey_", StringComparison.Ordinal) && StandardTag(ArrayKind(t.SourceSlot)) is { } standard)
+            bool jerseyArray = t.SourceSlot.Contains("branding_jersey_", StringComparison.Ordinal);
+            if (tag is null && jerseyArray)
             {
-                tag = standard;
-                if (ArrayKind(t.SourceSlot) == "color") say?.Invoke($"{a.Team} {a.SourceKit}: NHL 27 has no End Plastic Waste tag layer; the standard tag goes on the back hem");
+                // The matcher leaves NHL 27's tag layer out of the addition (no NHL 24 Adidas counterpart), so it is
+                // read from the kit's own NHL 27 layers; a kit without one (Florida) gets the standard tag.
+                tag = OwnNhl27Tag(a, ArrayKind(t.SourceSlot)) ?? StandardTag(ArrayKind(t.SourceSlot));
+                if (tag is not null && ArrayKind(t.SourceSlot) == "color")
+                    say?.Invoke($"{a.Team} {a.SourceKit}: End Plastic Waste tag on the back hem ({(tag == StandardTag("color") ? "standard tag" : "NHL 27's own")})");
             }
             var layers = Enumerable.Range(0, slots).ToDictionary(i => i, _ => clear);
             var newRoles = Enumerable.Repeat("blank", slots).ToList();
-            if (tag is not null) { layers[0] = tag; newRoles[0] = SlotRoles.EpwRole; }
+            int tagSlot = spots?.ToList().FindIndex(x => x.Role == SlotRoles.EpwRole) ?? -1;
+            if (tag is not null && tagSlot >= 0) { layers[tagSlot] = tag; newRoles[tagSlot] = SlotRoles.EpwRole; }
             // Logos NHL 27 keeps only as layers (Seattle's and Toronto's chest patches, LA's pants logo) go in the
             // donor's slot of the same role. Normal and coefficient arrays follow the colour array's choice.
             bool pants = t.SourceSlot.Contains("branding_pant_", StringComparison.Ordinal);
@@ -182,7 +187,7 @@ public static class KitDonor
                 }
                 foreach (var (slot, layer) in place)
                 {
-                    if (!srcArt.TryGetValue(layer, out var layerArt) || (tag is not null && slot == 0)) continue;
+                    if (!srcArt.TryGetValue(layer, out var layerArt) || (tag is not null && slot == tagSlot)) continue;
                     layers[slot] = layerArt;
                     newRoles[slot] = spots[slot].Role;
                     if (!colorArray) continue;
@@ -208,8 +213,37 @@ public static class KitDonor
     /// <summary>Keeps one NHL 27 End Plastic Waste tag (colour, normal, coefficient layers) for kits that lack it.</summary>
     static void RememberStandardTag(IEnumerable<NewUniformAddition> additions)
     {
-        if (FindStandardTag(additions) is { } found)
+        var found = FindStandardTag(additions);
+        if (found is null)
+            foreach (var a in additions.Where(a => a.Team != "chicago"))
+                if (OwnNhl27Tag(a, "color") is { } color)
+                {
+                    found = new() { ["color"] = color };
+                    foreach (string kind in new[] { "normal", "coeff" }) if (OwnNhl27Tag(a, kind) is { } other) found[kind] = other;
+                    break;
+                }
+        if (found is not null)
             foreach (var (kind, png) in found) File.Copy(png, StandardTagPath(kind), overwrite: true);
+    }
+
+    /// <summary>The kit's own NHL 27 End Plastic Waste layer (decoded PNG) for an array kind, found by its picture.</summary>
+    static string? OwnNhl27Tag(NewUniformAddition a, string kind)
+    {
+        if (a.SourceFolder27 is not { } folder) return null;
+        var parts = folder.TrimEnd('/').Split('/');
+        if (parts.Length < 3) return null;
+        string team27 = parts[^3], variant = parts[^1];
+        string dir = Path.Combine(SuitePaths.Local, "nhl27png");
+        string stem = folder.TrimEnd('/').Replace('/', '_') + $"_branding_jersey_adidas_{team27}_{variant}_";
+        for (int i = 0; i < 12; i++)
+        {
+            string color = Path.Combine(dir, $"{stem}{i}_color.png");
+            if (!File.Exists(color)) continue;
+            if (SlotRoles.KnownLogo(color) != "patch_epw") continue;
+            string wanted = Path.Combine(dir, $"{stem}{i}_{kind}.png");
+            return File.Exists(wanted) ? wanted : null;
+        }
+        return null;
     }
 
     /// <summary>The first kit's End Plastic Waste tag layers by array kind (never Chicago's 100 tag); null if none.</summary>
