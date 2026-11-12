@@ -247,17 +247,38 @@ public sealed class UniformPhysicalPlacementTests
         Assert.Throws<InvalidDataException>(() => UniformHotspots.Roles(wrong));
     }
 
+    [Fact]
+    public void Donor_stamp_takes_the_teams_number_spots_and_keeps_its_logo_spots()
+    {
+        var donor = StampFixture();
+        var team = StampFixture(numberTx: ".398200");
+        var output = UniformHotspots.CopyFontPlacement(donor, team);
+        string xml = Encoding.ASCII.GetString(output);
+        Assert.Contains("tx=\".398200\"", xml);
+        Assert.DoesNotContain("tx=\".7711\"", xml);
+        Assert.True(UniformPhysicalLayouts.SameLayout(UniformHotspots.Capture(output, "content/test/stamp_jersey_test"),
+            UniformHotspots.Capture(donor, "content/test/stamp_jersey_test")));
+        Assert.Equal(EbxRiff.Parse(donor).FileGuid, EbxRiff.Parse(output).FileGuid);
+    }
+
+    [Fact]
+    public void Same_number_spots_leave_the_stamp_untouched()
+    {
+        var donor = StampFixture();
+        Assert.Equal(donor, UniformHotspots.CopyFontPlacement(donor, StampFixture()));
+    }
+
     static UniformHotspotPlacement Slot(int id, string name, string role, string r = "0", string sx = ".1",
         string sy = ".1", string tx = ".2", string ty = ".2") => new()
     {
         Id = id, Name = name, Role = role, Rotation = r, ScaleX = sx, ScaleY = sy, TranslateX = tx, TranslateY = ty,
     };
 
-    static byte[] StampFixture(bool duplicateFontId = false, int padding = 1600, bool legacy = false)
+    static byte[] StampFixture(bool duplicateFontId = false, int padding = 1600, bool legacy = false, string numberTx = ".7711")
     {
         const string name = "content/test/stamp_jersey_test";
         string xml = "<?xml version=\"1.0\"?><hotspots><garment>"
-            + "<hotspot enable=\"1.0\" id=\"1\" type=\"font\" name=\"number\" r=\"0\" sx=\".2\" sy=\".2\" tx=\".7711\" ty=\".4\"/>"
+            + "<hotspot enable=\"1.0\" id=\"1\" type=\"font\" name=\"number\" r=\"0\" sx=\".2\" sy=\".2\" tx=\"" + numberTx + "\" ty=\".4\"/>"
             + (legacy
                 ? "<hotspot enable=\"1.0\" id=\"8\" name=\"mainlogo\" r=\"5\" r=\"180\" sx=\".19\" sy=\".19\" tx=\".5\" ty=\".28\"/>"
                 : "<hotspot enable=\"1.0\" id=\"8\" type=\"brand\" name=\"mainlogo\" r=\"180\" sx=\".19\" sy=\".19\" tx=\".5\" ty=\".28\"/>")

@@ -43,6 +43,15 @@ public static class KitDonor
             a.Textures = kept;
             a.HotspotLayouts.Clear();
             a.SourcePrefix = Prefix;
+            // Numbers, name and captain letter sit where the team's own NHL 24 kit puts them (Florida's sleeve numbers are
+            // inside its shoulder patches, Anaheim's outside); without a team stamp the donor's spots stay.
+            a.FontPlacement.Clear();
+            foreach (string garment in new[] { "jersey", "pant" })
+            {
+                string donorStamp = $"{Prefix}stamp_{garment}_adidas_{toId}";
+                string teamStamp = $"content/character/skater/league/nhl/{a.Team}/adidas/{a.SourceKit}/stamp_{garment}_adidas_{a.Team}_{a.SourceKit}";
+                if (index.EbxByName.ContainsKey(donorStamp) && index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
+            }
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
             if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalRoles(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array"))?.Count, say);
             if (HemFit.Enabled) HemFit.Apply(a, say);

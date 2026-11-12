@@ -175,6 +175,52 @@ public static class UniformHotspots
         }
         if (!preserved.SequenceEqual(OtherHotspots(document)))
             throw new InvalidDataException("A non-branding hotspot changed during XML repair.");
+        var output = Write(source, document, xmlAt, xmlLength);
+        // Compare every physical attribute after reparsing, not just the number or semantic role of the hotspots.
+        if (!UniformPhysicalLayouts.SameLayout(Capture(output, layout.SourceSlot), layout))
+            throw new InvalidDataException("Repaired hotspot ids, names, roles or coordinates did not read back.");
+        return output;
+    }
+
+    /// <summary>
+    /// The stamp with its font hotspots (name, back and sleeve numbers, captain letter, patch) placed like
+    /// <paramref name="team"/>'s: a donor clone otherwise keeps the donor team's sleeve-number spot, which on Florida's
+    /// painted kits (numbers at 40%/60%, shoulder patches at 29.5%/70.5%) put Anaheim's numbers (27%/73%) over the
+    /// patches. Brand hotspots are left exactly as they are. Returns the source unchanged when nothing differs.
+    /// </summary>
+    public static byte[] CopyFontPlacement(ReadOnlySpan<byte> source, ReadOnlySpan<byte> team)
+    {
+        var document = Document(source, out int xmlAt, out int xmlLength);
+        var from = Document(team, out _, out _);
+        string[] brands = BrandNodes(document).Select(n => n.OuterXml).ToArray();
+        var teamFonts = from.GetElementsByTagName("hotspot").Cast<XmlElement>().Where(n => n.GetAttribute("type") == "font")
+            .GroupBy(n => n.GetAttribute("name")).ToDictionary(g => g.Key, g => g.First());
+        bool changed = false;
+        foreach (var node in document.GetElementsByTagName("hotspot").Cast<XmlElement>().Where(n => n.GetAttribute("type") == "font"))
+        {
+            if (!teamFonts.TryGetValue(node.GetAttribute("name"), out var match)) continue;
+            foreach (XmlAttribute attr in match.Attributes)
+            {
+                if (attr.Name is "id" or "type" or "name") continue;
+                if (node.GetAttribute(attr.Name) == attr.Value) continue;
+                if (attr.Value.Any(c => c < 0x20 || c > 0x7E || c is '"' or '<' or '>' or '&'))
+                    throw new InvalidDataException("A font hotspot contains unsafe XML metadata.");
+                node.SetAttribute(attr.Name, attr.Value);
+                changed = true;
+            }
+        }
+        if (!changed) return source.ToArray();
+        if (!brands.SequenceEqual(BrandNodes(document).Select(n => n.OuterXml)))
+            throw new InvalidDataException("A branding hotspot changed while placing the fonts.");
+        var output = Write(source, document, xmlAt, xmlLength);
+        var check = Document(output, out _, out _);
+        if (!OtherHotspots(check).SequenceEqual(OtherHotspots(document)))
+            throw new InvalidDataException("Font hotspots did not read back.");
+        return output;
+    }
+
+    static byte[] Write(ReadOnlySpan<byte> source, XmlDocument document, int xmlAt, int xmlLength)
+    {
         string xml = document.OuterXml;
         if (xml.Any(c => c > 0x7F)) throw new InvalidDataException("Hotspot metadata must remain printable ASCII.");
         byte[] encoded = Encoding.ASCII.GetBytes(xml);
@@ -211,9 +257,6 @@ public static class UniformHotspots
                 if ((i < xmlAt || i >= xmlAt + xmlLength) && output[i] != source[i])
                     throw new InvalidDataException("A byte outside the hotspot XML changed.");
         }
-        // Compare every physical attribute after reparsing, not just the number or semantic role of the hotspots.
-        if (!UniformPhysicalLayouts.SameLayout(Capture(output, layout.SourceSlot), layout))
-            throw new InvalidDataException("Repaired hotspot ids, names, roles or coordinates did not read back.");
         var identity = EbxRiff.Parse(output);
         var original = EbxRiff.Parse(source);
         if (identity.Name != original.Name || identity.FileGuid != original.FileGuid

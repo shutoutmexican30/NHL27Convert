@@ -55,4 +55,6 @@ public sealed class NewUniformAddition
     public List<NewUniformTexture> Textures { get; set; } = [];
     /// <summary>Optional physical-layout repairs. These change placement metadata, never the team's fabric or artwork.</summary>
     public List<UniformHotspotLayout> HotspotLayouts { get; set; } = [];
+    /// <summary>Stamp EBX → the stamp whose font hotspots (number, name, captain positions) it takes (donor clones).</summary>
+    public Dictionary<string, string> FontPlacement { get; set; } = new(StringComparer.Ordinal);
 }
