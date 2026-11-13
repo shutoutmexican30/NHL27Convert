@@ -53,7 +53,13 @@ public static class KitDonor
                 string teamStamp = $"content/character/skater/league/nhl/{a.Team}/adidas/{a.SourceKit}/stamp_{garment}_adidas_{a.Team}_{a.SourceKit}";
                 if (!index.EbxByName.ContainsKey(donorStamp)) continue;
                 // NHL 27's own spots for the kit we paint (Ottawa's sleeve numbers sit lower on the arm); else the team's NHL 24 kit.
-                if (garment == "jersey" && a.SourceFolder27 is { } stampFolder27 && Nhl27Stamps.Xml(stampFolder27) is { } xml27) a.FontPlacement[donorStamp] = xml27;
+                if (garment == "jersey" && a.SourceFolder27 is { } stampFolder27 && Nhl27Stamps.Xml(stampFolder27) is { } xml27)
+                {
+                    a.FontPlacement[donorStamp] = xml27;
+                    // The sponsor patch sits where NHL 27 puts it: Carolina's home kit has its captain's letter on the
+                    // left chest and Nucor on the right, so the donor's left-chest sponsor spot put the A over Nucor.
+                    if (WithNhl27Sponsor(index, donorStamp, xml27) is { } layout) a.HotspotLayouts.Add(layout);
+                }
                 else if (index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
             }
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
@@ -210,6 +216,26 @@ public static class KitDonor
             emptied++;
         }
         say?.Invoke($"{a.Team} {a.SourceKit}: logos painted on from NHL 27's finished textures ({swapped} textures); {emptied} logo arrays left empty");
+    }
+
+    /// <summary>The donor stamp's logo layout with its sponsor spot moved to NHL 27's, or null when either has none.</summary>
+    public static UniformHotspotLayout? WithNhl27Sponsor(BundleIndex index, string donorStamp, string xml27)
+    {
+        if (!index.EbxByName.ContainsKey(donorStamp)) return null;
+        return WithNhl27Sponsor(SponsorSlots.WithRoles(SponsorSlots.Copies(index, donorStamp).OrderByDescending(c => c.Branding.Count).First()), xml27);
+    }
+
+    public static UniformHotspotLayout? WithNhl27Sponsor(UniformHotspotLayout donor, string xml27)
+    {
+        var doc = new System.Xml.XmlDocument { XmlResolver = null };
+        doc.LoadXml(xml27);
+        var spot = doc.GetElementsByTagName("hotspot").Cast<System.Xml.XmlElement>()
+            .FirstOrDefault(n => n.GetAttribute("type") == "brand" && n.GetAttribute("name") == "sponsor");
+        var slot = donor.Branding.FirstOrDefault(s => s.Role == "sponsor");
+        if (spot is null || slot is null) return null;
+        slot.Rotation = spot.GetAttribute("r"); slot.ScaleX = spot.GetAttribute("sx"); slot.ScaleY = spot.GetAttribute("sy");
+        slot.TranslateX = spot.GetAttribute("tx"); slot.TranslateY = spot.GetAttribute("ty");
+        return donor;
     }
 
     static string ArrayKind(string slot) => slot.EndsWith("_normal_array", StringComparison.Ordinal) ? "normal"

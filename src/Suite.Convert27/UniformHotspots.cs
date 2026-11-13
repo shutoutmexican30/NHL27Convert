@@ -294,6 +294,16 @@ public static class UniformHotspots
                 throw new InvalidDataException($"Hotspot id {slot.Id} has an invalid coordinate or rotation.");
     }
 
+    /// <summary>A font hotspot's centre and size (tx, ty, sx, sy), or null.</summary>
+    public static (double X, double Y, double W, double H)? FontSpot(ReadOnlySpan<byte> ebx, string name)
+    {
+        var node = Document(ebx, out _, out _).GetElementsByTagName("hotspot").Cast<XmlElement>()
+            .FirstOrDefault(n => n.GetAttribute("type") == "font" && n.GetAttribute("name") == name);
+        if (node is null) return null;
+        static double D(string s) => double.Parse(s, CultureInfo.InvariantCulture);
+        return (D(node.GetAttribute("tx")), D(node.GetAttribute("ty")), D(node.GetAttribute("sx")), D(node.GetAttribute("sy")));
+    }
+
     /// <summary>True for a pants stamp: by its asset name, or by its garment element when the name is not given.</summary>
     public static bool IsPants(string sourceSlot) => sourceSlot.Contains("stamp_pant_", StringComparison.Ordinal);
 

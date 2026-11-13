@@ -825,3 +825,28 @@ public class FontRecolorTests
         Assert.Equal(new byte[] { 232, 232, 232, 255 }, o.Pixels[insideAt..(insideAt + 4)]);
     }
 }
+
+public class Nhl27SponsorSpotTests
+{
+    [Fact]
+    public void The_sponsor_spot_follows_nhl27_and_other_logos_stay()
+    {
+        // Carolina home: NHL 27's captain letter is on the left chest and Nucor on the right (tx 0.5646).
+        var donor = new UniformHotspotLayout
+        {
+            SourceSlot = "content/x/stamp_jersey_adidas_anaheim_home",
+            Branding =
+            [
+                new UniformHotspotPlacement { Id = 8, Name = "mainlogo", Role = "crest", TranslateX = "0.5004", TranslateY = "0.2870" },
+                new UniformHotspotPlacement { Id = 14, Name = "sponsor", Role = "sponsor", Rotation = "177.0000", ScaleX = "0.0556", ScaleY = "0.0556", TranslateX = "0.4290", TranslateY = "0.3880" },
+            ],
+        };
+        string xml = "<hotspots> <jersey> <hotspot enable=\"1.0\" id=\"14\" type=\"brand\" name=\"sponsor\" r=\"180.0000\" sx=\"0.0616\" sy=\"0.0616\" tx=\"0.5646\" ty=\"0.4013\"/> </jersey> </hotspots>";
+        var layout = KitDonor.WithNhl27Sponsor(donor, xml)!;
+        var sponsor = layout.Branding.Single(s => s.Role == "sponsor");
+        Assert.Equal("0.5646", sponsor.TranslateX);
+        Assert.Equal("0.0616", sponsor.ScaleX);
+        Assert.Equal("0.5004", layout.Branding.Single(s => s.Role == "crest").TranslateX);
+        Assert.Null(KitDonor.WithNhl27Sponsor(donor, "<hotspots> <jersey/> </hotspots>"));
+    }
+}

@@ -55,6 +55,19 @@ public static class FanaticsKitCheck
         {
             int tag = roles.IndexOf(SlotRoles.EpwRole);
             if (tag < 0 || tag >= arr.Count || Opaque(arr[tag]) < 0.05) bad.Add("back-hem tag missing");
+            // The captain's letter must not sit on the sponsor patch (Carolina home: the A covered Nucor).
+            int sponsorSlot = roles.IndexOf("sponsor");
+            string stamp = $"{f}stamp_jersey_adidas_{id}";
+            if (sponsorSlot >= 0 && sponsorSlot < arr.Count && Opaque(arr[sponsorSlot]) > 0.01 && index.EbxByName.TryGetValue(stamp, out var stampEntries)
+                && UniformHotspots.FontSpot(UniformPhysicalLayouts.ReadStamp(index, stamp, stampEntries[0].Bundle), "captain") is { } captain
+                && SponsorSlots.WithRoles(SponsorSlots.Copies(index, stamp)[0]).Branding.FirstOrDefault(s => s.Role == "sponsor") is { } sponsorSpot)
+            {
+                double sx = double.Parse(sponsorSpot.TranslateX, System.Globalization.CultureInfo.InvariantCulture);
+                double sy = double.Parse(sponsorSpot.TranslateY, System.Globalization.CultureInfo.InvariantCulture);
+                double ss = double.Parse(sponsorSpot.ScaleX, System.Globalization.CultureInfo.InvariantCulture);
+                if (Math.Abs(captain.X - sx) < (captain.W + ss) / 2 && Math.Abs(captain.Y - sy) < (captain.H + ss) / 2)
+                    bad.Add("captain's letter sits on the sponsor patch");
+            }
             int crest = roles.IndexOf("crest");
             if (crest >= 0 && crest < arr.Count && Opaque(arr[crest]) > 0.01) bad.Add("crest slot has art (the crest is painted; it would show twice)");
         }
