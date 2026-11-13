@@ -33,6 +33,9 @@ public sealed class FullKitInstall
     readonly Dictionary<string, List<TocArchive.NewBundle>> newBundles = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Dictionary<Guid, TocArchive.Chunk>> newChunks = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, long> appended = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Upper bound of what one donor kit adds to a CAS (measured: 64 kits added 0.85 GB, about 13.3 MB each).</summary>
+    public const long PerKitBytes = 16L * 1024 * 1024;
     readonly Dictionary<Guid, byte[]> artByChunk = [];
     readonly Dictionary<string, HashSet<string>> artHashes = new(StringComparer.Ordinal);
     sealed record ExpandedSource(byte[] ResourceBefore, byte[] ResourceAfter, long OriginalSize, long ExpandedSize);
@@ -189,6 +192,18 @@ public sealed class FullKitInstall
             return 0;
         }
 
+        // Space guard: a CAS file may not pass 4 GB. Every kit clone appends to the CAS files its source bundles live in,
+        // and a failed apply restores the TOCs but not the appended bytes, so refuse before writing anything.
+        var sourceCas = index.ResByName.Where(kv => kv.Key.StartsWith(mods.FirstOrDefault()?.SourcePrefix ?? " ", StringComparison.Ordinal))
+            .SelectMany(kv => kv.Value).Select(r => r.Data.Cas).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        long needed = (long)additionPlan.Additions.Count * PerKitBytes;
+        foreach (string cas in sourceCas)
+        {
+            long size = File.Exists(cas) ? new FileInfo(cas).Length : 0;
+            if (size + needed > uint.MaxValue)
+                throw new InvalidOperationException($"Not enough room: {Path.GetRelativePath(Game, cas)} is {size / 1048576.0:F0} MB and "
+                    + $"{additionPlan.Additions.Count} kits need about {needed / 1048576.0:F0} MB more; a game data file cannot pass 4096 MB. Nothing was written.");
+        }
         string backup = ApplyTarget.Backup(Game, o.BackupRoot);
         backupPath = backup;
         o.Say("backup: " + backup);
