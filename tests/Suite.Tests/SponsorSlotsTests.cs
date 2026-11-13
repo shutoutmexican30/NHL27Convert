@@ -593,6 +593,16 @@ public class UnpaintedLayersTests
     }
 
     [Fact]
+    public void A_pants_logo_painted_at_the_hip_spot_is_not_covered_by_a_brand_layer()
+    {
+        // Edmonton: the Oilers logo is painted at the hip in both the plain and the finished sheet; the CCM layer must not go there.
+        var sheet = Sheet(200, (px, w) => Box(px, w, 25, 182, 35, 192));
+        Suite.Convert27.UnpaintedLayers.Spot[] pants = [new("shield", .37, .5, .04), new("crest", .15, .935, .069)];
+        Assert.True(Suite.Convert27.UnpaintedLayers.LogoAt(sheet, pants[1]));
+        Assert.Empty(Suite.Convert27.UnpaintedLayers.Place(true, pants, ["shield", "crest"], [0, 1], sheet, sheet));
+    }
+
+    [Fact]
     public void Pants_get_the_team_logo_never_the_shield()
     {
         var plain = Sheet(200, (_, _) => { });
