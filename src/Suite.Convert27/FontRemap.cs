@@ -20,6 +20,15 @@ public static class FontRemap
         (0.72, 0.86, 0.0, 1.0), (0.86, 1.0, 0.0, 1.0),
     ];
 
+    public static int BandCount => Bands.Length;
+
+    /// <summary>A band's pixel rectangle: (x0, y0, x1, y1), end-exclusive.</summary>
+    public static (int X0, int Y0, int X1, int Y1) BandRect(Rgba img, int band)
+    {
+        var (t, b, l, r) = Bands[band];
+        return ((int)(img.Width * l), (int)(img.Height * t), Math.Min(img.Width, (int)(img.Width * r)), Math.Min(img.Height, (int)(img.Height * b)));
+    }
+
     public sealed record Box(int X1, int Y1, int X2, int Y2)
     {
         public int Width => X2 - X1 + 1;

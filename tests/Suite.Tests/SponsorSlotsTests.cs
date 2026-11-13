@@ -791,3 +791,37 @@ public class Nhl27StampsTests
         Assert.True(Nhl27Stamps.Parses("<hotspots> <jersey> <hotspot id=\"0\"/> </jersey> </hotspots>"));
     }
 }
+
+public class FontRecolorTests
+{
+    [Fact]
+    public void Sleeve_numbers_can_differ_from_back_numbers_and_name_letters_are_untouched()
+    {
+        // Ottawa away: black back numbers, white sleeve numbers, both outlined red.
+        var bands = FontRecolor.Bands(new Dictionary<string, string>
+            { ["fill"] = "#1A1A1A", ["outline"] = "#9E0D09", ["sleeveFill"] = "#E8E8E8", ["sleeveOutline"] = "#9E0D09" })!;
+        Assert.Null(bands(0));
+        Assert.Equal(new FontRecolor.Rgb(0x1A, 0x1A, 0x1A), bands(2)!.Fill);
+        Assert.Equal(new FontRecolor.Rgb(0xE8, 0xE8, 0xE8), bands(5)!.Fill);
+        Assert.Equal(new FontRecolor.Rgb(0x9E, 0x0D, 0x09), bands(6)!.Outline);
+    }
+
+    [Fact]
+    public void A_white_number_with_a_black_outline_becomes_white_with_red()
+    {
+        // 128x128 sheet; a big digit in band 2 (rows 25-58): 40x32 box, 3-pixel black outline, white inside.
+        int s = 128; var px = new byte[s * s * 4];
+        for (int y = 26; y < 58; y++) for (int x = 10; x < 50; x++)
+        {
+            bool edge = y < 29 || y > 54 || x < 13 || x > 46;
+            int at = (y * s + x) * 4; byte v = edge ? (byte)20 : (byte)232;
+            px[at] = px[at + 1] = px[at + 2] = v; px[at + 3] = 255;
+        }
+        var img = new Rgba(s, s, px);
+        var red = new FontRecolor.Palette(new FontRecolor.Rgb(232, 232, 232), new FontRecolor.Rgb(158, 13, 9));
+        var o = FontRecolor.Recolor(img, band => band == 2 ? red : null);
+        int edgeAt = (26 * s + 10) * 4, insideAt = (40 * s + 30) * 4;
+        Assert.Equal(new byte[] { 158, 13, 9, 255 }, o.Pixels[edgeAt..(edgeAt + 4)]);
+        Assert.Equal(new byte[] { 232, 232, 232, 255 }, o.Pixels[insideAt..(insideAt + 4)]);
+    }
+}

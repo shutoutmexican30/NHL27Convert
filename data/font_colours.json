@@ -1,0 +1,4 @@
+{
+  "ottawa home": { "fill": "#E8E8E8", "outline": "#9E0D09" },
+  "ottawa away": { "fill": "#1A1A1A", "outline": "#9E0D09", "sleeveFill": "#E8E8E8", "sleeveOutline": "#9E0D09" }
+}

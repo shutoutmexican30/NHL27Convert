@@ -84,7 +84,12 @@ public static class KitDonor
             }
             foreach (var name in donorRes.Where(n => !covered.Contains(n) && (n[(n.LastIndexOf('/') + 1)..].StartsWith("helmetlogo_", StringComparison.Ordinal)
                          || n[(n.LastIndexOf('/') + 1)..].StartsWith("font_", StringComparison.Ordinal))).ToList())
-                if (OwnTeamTexture(index, a, name) is { } own) { kept.Add(own); covered.Add(name); say?.Invoke($"{a.Team} {a.SourceKit}: {name[(name.LastIndexOf('/') + 1)..]} uses the team's own NHL 24 art"); }
+                if (OwnTeamTexture(index, a, name) is { } own)
+                {
+                    if (name.EndsWith("_color", StringComparison.Ordinal) && name[(name.LastIndexOf('/') + 1)..].StartsWith("font_", StringComparison.Ordinal))
+                        RecolorFont(a, own, nhl27Fonts, say);
+                    kept.Add(own); covered.Add(name); say?.Invoke($"{a.Team} {a.SourceKit}: {name[(name.LastIndexOf('/') + 1)..]} uses the team's own NHL 24 art");
+                }
             var stock = donorRes.Where(n => !covered.Contains(n) && (n.EndsWith("_color", StringComparison.Ordinal) || n.EndsWith("_color_array", StringComparison.Ordinal))
                     && !n[(n.LastIndexOf('/') + 1)..].StartsWith("branding_", StringComparison.Ordinal))
                 .Select(n => n[(n.LastIndexOf('/') + 1)..]).Order(StringComparer.Ordinal).ToList();
@@ -486,6 +491,21 @@ public static class KitDonor
     }
 
     /// <summary>The same texture from the team's regular NHL 24 kit (home or away), decoded to a PNG the install can use.</summary>
+    /// <summary>
+    /// The owner's number colours (font_colours.json, <see cref="FontRecolor"/>) on the team's NHL 24 font sheet. NHL 27's
+    /// colours are not taken automatically: its sheets differ from NHL 24's in layout and edge shading too much to read
+    /// reliably, so a kit whose numbers changed colour (Ottawa) is listed in the table.
+    /// </summary>
+    static void RecolorFont(NewUniformAddition a, NewUniformTexture own, List<NewUniformTexture> nhl27Fonts, Action<string>? say)
+    {
+        if (FontRecolor.Override($"{a.Team} {a.SourceKit}") is not { } target) return;
+        var recolored = FontRecolor.Recolor(ImageIO.Load(own.Artwork.Source), target);
+        string png = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "font-recolor")), $"{a.Team}_{a.SourceKit}_font_color.png");
+        ImageIO.SavePng(recolored, png);
+        own.Artwork = own.Artwork with { Source = png };
+        say?.Invoke($"{a.Team} {a.SourceKit}: number colours from font_colours.json on the NHL 24 number sheet");
+    }
+
     static NewUniformTexture? OwnTeamTexture(BundleIndex index, NewUniformAddition a, string donorName)
     {
         string own = $"content/character/skater/league/nhl/{a.Team}/adidas/{a.SourceKit}/";
