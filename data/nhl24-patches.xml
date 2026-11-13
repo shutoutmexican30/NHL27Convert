@@ -195,7 +195,7 @@
       <Line Type="byte" Address="0x086C5277" Value="0x0C" />
     </PatchList>
   </Metadata>
-  <!-- Rodata block cap, floor, 0, min, max, 950000. No direct code reference was found; patched so no stock copy is left. -->
+  <!-- LeagueSettingsDefaults (vaddr 0x8351250) copies two 32-byte constants (vaddr 0x90761C0 and 0x90761E0) into every new league's settings: cap +0x1B4, floor +0x1B8, min +0x1C0, max +0x1C4, max rookie (ELC) salary +0x1C8. These are the defaults a NEW franchise starts from; no per-league case overrides them. maxRookieSalary is left at stock 950,000 (set it here to change the entry-level max). -->
   <Metadata Name="Salary cap 2026-27 - read-only defaults table" isEnabled="true" AppVer="01.60" AppElf="eboot.bin" Author="CIMS">
     <PatchList>
       <!-- file 0x090C7F5C cap: 83,500,000 -> 104,000,000 -->
@@ -216,6 +216,7 @@
       <Line Type="byte" Address="0x094761ED" Value="0x62" />
       <Line Type="byte" Address="0x094761EE" Value="0x3D" />
       <Line Type="byte" Address="0x094761EF" Value="0x01" />
+      <!-- file 0x090C7F70 maxRookieSalary: 950,000 -> 950,000 -->
     </PatchList>
   </Metadata>
 </Patch>

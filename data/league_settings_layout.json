@@ -1,0 +1,57 @@
+{
+  "comment": "NHL 24 1.60 franchise / custom-league settings, decoded from game-UPDATE\\eboot.bin (vaddr = file - 0x51D80). 'confirmed' = read off the code; 'guess' = inferred from default values only. See docs\\CAP_CONTRACTS_FINDINGS.md section 5.",
+  "flow": [
+    "1. New franchise: LeagueSettingsDefaults (vaddr 0x8351250, edi = league type 0..4, jump table 0x90C9DA0) fills a settings struct (rdx). The salary block comes from two rodata vector constants, vaddr 0x90761C0 (32 B) and 0x90761E0 (32 B); no league case overrides it.",
+    "2. The UI (Lua jobs nhl-job:franchise:custom-leagues:default-values-settings:get / nhl:franchise:custom-leagues:salary-values:overwrite) shows them as CustomMinSalaryCap, CustomMaxSalaryCap, CustomMinPlayerSalary, CustomMaxPlayerSalary, CustomMaxRookieSalary, CustomSalaryCap, CustomSalaryCapInflation, CustomPlayerSalaryScaling (Lua doubles).",
+    "3. The overwrite handler (vaddr 0x345F9C3..0x345F9E7) writes them into the runtime globals below.",
+    "4. While a league is loaded, vaddr 0x8252F95..0x825313F re-reads them from the league record ([0xBEBE360] + league*0x318) wherever that league's flag byte is set.",
+    "5. Static init (vaddr 0x880434D) sets floor/cap globals before any of this, and 11 inline pairs give min/max when the league pointer 0xBEBE0F0 is null."
+  ],
+  "settingIds": {
+    "comment": "Enum id -> name table built at vaddr 0x25F81C5 (stores into 0xB038630..). Ids of the salary settings, confirmed.",
+    "DYNASTY_NHL_SALARY_CAP_INFLATION": "0x1DE",
+    "DYNASTY_NHL_SALARY_CAP_MIN": "0x1DF",
+    "DYNASTY_NHL_SALARY_CAP_MAX": "0x1E0",
+    "DYNASTY_NHL_SCALE_SALARIES": "0x1E1",
+    "DYNASTY_NHL_PLAYER_SALARY_MIN": "0x1E2",
+    "DYNASTY_NHL_PLAYER_SALARY_MAX": "0x1E3",
+    "DYNASTY_NHL_ROOKIE_SALARY_MAX": "0x1E4 (guess: next in sequence)"
+  },
+  "runtimeGlobals": [
+    { "address": "0xBEBE0C0", "type": "int32 $", "meaning": "salary floor (CustomMinSalaryCap)", "status": "confirmed" },
+    { "address": "0xBEBE0C4", "type": "int32 $", "meaning": "salary cap (CustomMaxSalaryCap)", "status": "confirmed" },
+    { "address": "0xBEBE0C8", "type": "int32 $", "meaning": "min player salary (CustomMinPlayerSalary)", "status": "confirmed" },
+    { "address": "0xBEBE0CC", "type": "int32 $", "meaning": "max player salary (CustomMaxPlayerSalary)", "status": "confirmed" },
+    { "address": "0xBEBE0D0", "type": "int32 $", "meaning": "max rookie / ELC salary (CustomMaxRookieSalary)", "status": "confirmed" },
+    { "address": "0xBEBE360", "type": "pointer", "meaning": "league records base (stride 0x318 per league)", "status": "confirmed" },
+    { "address": "0xBEBE370", "type": "pointer", "meaning": "current league index source", "status": "confirmed" }
+  ],
+  "leagueRecord": {
+    "comment": "Per-league record at [0xBEBE360] + league*0x318 (198 int32). Flag bytes at [0xBEBE360] + league*0xC6 + 0x12B3.. say the value is set; master flag byte +0x173C.",
+    "fields": [
+      { "offset": "0x6C", "type": "int32", "meaning": "season year; getters fall back to 2023 (vaddr 0x81471F1, 0x835268F)", "status": "confirmed" },
+      { "offset": "0x74", "type": "int32 $", "meaning": "min player salary", "flagByte": "0x12B3", "status": "confirmed" },
+      { "offset": "0x78", "type": "int32 $", "meaning": "max player salary", "flagByte": "0x12B4", "status": "confirmed" },
+      { "offset": "0x7C", "type": "int32 $", "meaning": "max rookie salary", "flagByte": "0x12B5", "status": "confirmed" },
+      { "offset": "0x80", "type": "int32 $", "meaning": "salary floor", "flagByte": "0x12B6", "status": "confirmed" },
+      { "offset": "0x84", "type": "int32 $", "meaning": "salary cap", "flagByte": "0x12B7", "status": "confirmed" }
+    ]
+  },
+  "defaultsStruct": {
+    "comment": "Output of LeagueSettingsDefaults before the per-league switch (stock values). Only the salary block and team count are identified.",
+    "fields": [
+      { "offset": "0x1B4", "type": "int32 $", "meaning": "salary cap", "default": 83500000, "file": "0x90C7F5C", "status": "confirmed" },
+      { "offset": "0x1B8", "type": "int32 $", "meaning": "salary floor", "default": 61700000, "file": "0x90C7F60", "status": "confirmed" },
+      { "offset": "0x1BC", "type": "int32", "meaning": "cap inflation or salary scaling (0 = default)", "default": 0, "file": "0x90C7F64", "status": "guess" },
+      { "offset": "0x1C0", "type": "int32 $", "meaning": "min player salary", "default": 775000, "file": "0x90C7F68", "status": "confirmed" },
+      { "offset": "0x1C4", "type": "int32 $", "meaning": "max player salary", "default": 16700000, "file": "0x90C7F6C", "status": "confirmed" },
+      { "offset": "0x1C8", "type": "int32 $", "meaning": "max rookie (ELC) salary", "default": 950000, "file": "0x90C7F70", "status": "confirmed" },
+      { "offset": "0xC4", "type": "int32", "meaning": "number of teams", "default": 32, "status": "guess" },
+      { "offset": "0xBC / 0xC0", "type": "int32", "meaning": "unknown (24 / 26)", "default": "24 / 26", "status": "unknown" }
+    ]
+  },
+  "save": {
+    "comment": "BeAGM DATA = JSON header + LZ4 frame whose content is a list of [1 byte + LZ4 frame] sections (9 in BeAGM0). Section 3 is the T3DB of 34 league* tables. No section holds the cap/floor/min/max as int32, double, $1K or $5K units, so the cap does not appear to be saved per franchise. The header has \"SeasonYear\": yyyymmdd. Section 0 starts with e7 07 09 00 (2023, month 9 = October).",
+    "status": "decoded far enough to say the values are absent; sections 0/1/8 not mapped"
+  }
+}

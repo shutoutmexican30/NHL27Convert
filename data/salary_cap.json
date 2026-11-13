@@ -8,53 +8,171 @@
     "floor": 76900000,
     "cap": 104000000,
     "minSalary": 850000,
-    "maxSalary": 20800000
+    "maxSalary": 20800000,
+    "maxRookieSalary": 950000
   },
   "groups": [
     {
       "name": "defaults",
       "comment": "Static init: movabs rax, (cap << 32 | floor) at vaddr 0x880434D, stored to the runtime globals 0xBEBE0C0 (floor) / 0xBEBE0C4 (cap).",
       "sites": [
-        { "field": "floor", "fileOffset": "0x88560CF", "stock": 61700000 },
-        { "field": "cap", "fileOffset": "0x88560D3", "stock": 83500000 }
+        {
+          "field": "floor",
+          "fileOffset": "0x88560CF",
+          "stock": 61700000
+        },
+        {
+          "field": "cap",
+          "fileOffset": "0x88560D3",
+          "stock": 83500000
+        }
       ]
     },
     {
       "name": "min-max fallbacks",
       "comment": "Eleven inline pairs mov reg, 16700000 / mov reg, 775000, used when the league-settings pointer 0xBEBE0F0 is null.",
       "sites": [
-        { "field": "maxSalary", "fileOffset": "0x82A8BA8", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82A8BB7", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82D3502", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82D3507", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82D3580", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82D3585", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82D377A", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82D377F", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82E9B5E", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82E9B63", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82E9F5E", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82E9F63", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82EAC17", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82EABF9", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x82EB169", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x82EB15E", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x8312581", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x831257C", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x83135F7", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x8313604", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x8316FF0", "stock": 16700000 },
-        { "field": "minSalary", "fileOffset": "0x8316FF5", "stock": 775000 }
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82A8BA8",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82A8BB7",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82D3502",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82D3507",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82D3580",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82D3585",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82D377A",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82D377F",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82E9B5E",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82E9B63",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82E9F5E",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82E9F63",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82EAC17",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82EABF9",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x82EB169",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x82EB15E",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x8312581",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x831257C",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x83135F7",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x8313604",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x8316FF0",
+          "stock": 16700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x8316FF5",
+          "stock": 775000
+        }
       ]
     },
     {
       "name": "read-only defaults table",
-      "comment": "Rodata block cap, floor, 0, min, max, 950000. No direct code reference was found; patched so no stock copy is left.",
+      "comment": "LeagueSettingsDefaults (vaddr 0x8351250) copies two 32-byte constants (vaddr 0x90761C0 and 0x90761E0) into every new league's settings: cap +0x1B4, floor +0x1B8, min +0x1C0, max +0x1C4, max rookie (ELC) salary +0x1C8. These are the defaults a NEW franchise starts from; no per-league case overrides them. maxRookieSalary is left at stock 950,000 (set it here to change the entry-level max).",
       "sites": [
-        { "field": "cap", "fileOffset": "0x90C7F5C", "stock": 83500000 },
-        { "field": "floor", "fileOffset": "0x90C7F60", "stock": 61700000 },
-        { "field": "minSalary", "fileOffset": "0x90C7F68", "stock": 775000 },
-        { "field": "maxSalary", "fileOffset": "0x90C7F6C", "stock": 16700000 }
+        {
+          "field": "cap",
+          "fileOffset": "0x90C7F5C",
+          "stock": 83500000
+        },
+        {
+          "field": "floor",
+          "fileOffset": "0x90C7F60",
+          "stock": 61700000
+        },
+        {
+          "field": "minSalary",
+          "fileOffset": "0x90C7F68",
+          "stock": 775000
+        },
+        {
+          "field": "maxSalary",
+          "fileOffset": "0x90C7F6C",
+          "stock": 16700000
+        },
+        {
+          "field": "maxRookieSalary",
+          "fileOffset": "0x90C7F70",
+          "stock": 950000
+        }
       ]
     }
   ]

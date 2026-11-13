@@ -142,3 +142,31 @@ Samples (stock):
 4. **Start season:** first test-patch candidates 1+2 (2023→2026) together on a copy, then 3–5 if dates or ages look wrong.
    Shift every DB year−1900 field and contract lengths by the same delta.
 5. Fix `data\nhl24-patches.xml` addresses to 0x400000 + vaddr (= 0x400000 + file − 0x51D80).
+
+## 5. League settings decoded (2026-11-13)
+
+Full layout: `data\league_settings_layout.json`.
+
+- **Where a new franchise's cap comes from:** `LeagueSettingsDefaults` (vaddr 0x8351250) copies two rodata vector
+  constants (vaddr 0x90761C0 / 0x90761E0 = file 0x90C7F40 / 0x90C7F60) into the new league's settings: cap +0x1B4,
+  floor +0x1B8, min +0x1C0, max +0x1C4, rookie max +0x1C8 (950K). None of the 5 per-league cases (jump table
+  0x90C9DA0) overrides them. The values don't come from the DBs, tuning/ebx or the profile.
+- **Path:** the UI gets them through the Lua job `custom-leagues:default-values-settings:get` (keys `CustomMinSalaryCap`,
+  `CustomMaxSalaryCap`, `CustomMin/MaxPlayerSalary`, `CustomMaxRookieSalary`, `CustomSalaryCap`, `CustomSalaryCapInflation`,
+  `CustomPlayerSalaryScaling`). `salary-values:overwrite` writes them to the globals 0xBEBE0C0..0D0 (floor, cap, min,
+  max, rookie max). The league record ([0xBEBE360] + league*0x318: +0x74 min, +0x78 max, +0x7C rookie, +0x80 floor,
+  +0x84 cap, +0x6C season year; flags at +league*0xC6+0x12B3..0x12B7) re-applies them on load.
+- **Setting ids:** DYNASTY_NHL_SALARY_CAP_INFLATION 0x1DE, _CAP_MIN 0x1DF, _CAP_MAX 0x1E0, _SCALE_SALARIES 0x1E1,
+  _PLAYER_SALARY_MIN 0x1E2, _PLAYER_SALARY_MAX 0x1E3, _ROOKIE_SALARY_MAX (probably 0x1E4).
+- **Will the installed patch work in a new franchise?** Yes, as far as the code shows. Entry 3 ("read-only defaults
+  table") patches exactly those two constants, and entries 1 and 2 cover the static init and the null-league fallbacks.
+  Nothing else needs to change. The rookie max (950K) is now an editable site in `data\salary_cap.json` (`maxRookieSalary`);
+  it's left at stock, so the installed file needs no update.
+- **Existing saves:** BeAGM DATA = JSON header + LZ4 frame of [1 byte + LZ4 frame] sections (double LZ4). None of the 9
+  sections of BeAGM0, or of BeAGM1/2/15 and Season0 (raw scan), holds the cap/floor as int32, double, $1K or $5K units,
+  so the franchise doesn't appear to save its own cap. Existing franchises *may* pick up the patched values on load,
+  though the league record could be rebuilt from something not found yet. Test in a new franchise first.
+- **Other franchise tunables** (the DYNASTY_* list: schedule length, standings points, playoff format, trade/waiver
+  popups, CPU trades, GM firing, owner mode, morale, scouting fog of war…) are setting ids in the same name table at
+  0x25F81C5 onwards, but their struct offsets weren't mapped. Next: walk the 5 jump-table cases and the overwrite jobs
+  for the other `Custom*` keys.

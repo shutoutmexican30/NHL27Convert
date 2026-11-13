@@ -36,10 +36,11 @@ public sealed class EbootPatchesTests
         Assert.Equal(104_000_000, p.Values["cap"]);
         Assert.Equal(850_000, p.Values["minSalary"]);
         Assert.Equal(20_800_000, p.Values["maxSalary"]);
-        Assert.Equal(28, p.Sites.Count);
+        Assert.Equal(29, p.Sites.Count);
+        Assert.Equal(950_000, p.Values["maxRookieSalary"]);
         Assert.Equal(11, p.Sites.Count(s => s.Group == "min-max fallbacks" && s.Field == "maxSalary"));
         Assert.Equal(11, p.Sites.Count(s => s.Group == "min-max fallbacks" && s.Field == "minSalary"));
-        Assert.All(p.Sites, s => Assert.Equal(s.Field switch { "floor" => 61_700_000, "cap" => 83_500_000, "minSalary" => 775_000, _ => 16_700_000 }, s.Stock));
+        Assert.All(p.Sites, s => Assert.Equal(s.Field switch { "floor" => 61_700_000, "cap" => 83_500_000, "minSalary" => 775_000, "maxRookieSalary" => 950_000, _ => 16_700_000 }, s.Stock));
     }
 
     private const string SmallJson = """

@@ -166,7 +166,12 @@ public sealed class SalaryCapPatch
             EbootPatches.Upsert(doc, new[] { meta });
             var placed = root.Elements("Metadata").First(m => (string?)m.Attribute("Name") == (string?)meta.Attribute("Name") && (string?)m.Attribute("AppVer") == AppVer);
             string text = " " + comment + " ";
-            if (comment.Length > 0 && !(placed.PreviousNode is XComment pc && pc.Value == text)) placed.AddBeforeSelf(new XComment(text));
+            // The comment directly above one of these entries is the group comment it was written with: refresh it.
+            if (comment.Length > 0)
+            {
+                if (placed.PreviousNode is XComment pc) pc.Value = text;
+                else placed.AddBeforeSelf(new XComment(text));
+            }
         }
         return doc;
     }
