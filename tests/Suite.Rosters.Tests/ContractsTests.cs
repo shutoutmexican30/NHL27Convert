@@ -55,6 +55,40 @@ public class ContractsTests
         Assert.Equal(16383, ContractMapping.Units(200_000_000));
     }
 
+    [Fact]
+    public void Team_cap_lists_parse_and_bound()
+    {
+        var v = TeamCap.ParseList("2600000, 1500000,,5", int.MaxValue, "Dead cap");
+        Assert.Equal(TeamCap.Seasons, v.Length);
+        Assert.Equal("2600000,1500000,0,5", TeamCap.FormatList(v));
+        Assert.Throws<FormatException>(() => TeamCap.ParseList("8", 7, "Retained contracts"));
+        Assert.Throws<FormatException>(() => TeamCap.ParseList("-1", int.MaxValue, "Dead cap"));
+    }
+
+    /// <summary>NHL 27 team dead cap / retained salary on temp copies of the five stock databases, read back.</summary>
+    [Fact]
+    public void Nhl27_team_cap_applies_to_all_five_databases_and_reads_back()
+    {
+        var csv = Nhl27Contracts.FindTable(TeamCap.Table);
+        if (!File.Exists(Meta) || csv is null) return;
+        var dbs = RosterSyncRun.Databases.ToDictionary(d => d, d => File.ReadAllBytes(DbPath(d)));
+        var teams = TeamCap.LoadNhl27(csv).Where(t => t.Team is >= 0 and < 32).ToList();
+        var plans = ContractRun.Plan(dbs, [], new ContractMapping(), Meta, teams);
+        Assert.NotEmpty(plans);
+        foreach (var p in plans)
+        {
+            var db = T3Db.Load((byte[])p.Bytes.Clone(), Meta);
+            var now = TeamCap.Read(db, p.Db).ToDictionary(t => t.Team);
+            foreach (var t in teams)
+            {
+                Assert.Equal(t.DeadCap, now[t.Team].DeadCap);
+                Assert.Equal(t.Retained, now[t.Team].Retained);
+                Assert.Equal(t.RetainedCount, now[t.Team].RetainedCount);
+            }
+            Assert.All(p.Changes, c => Assert.True(c.Field.StartsWith("cbaexpense") || c.Field.StartsWith("retainedtrade") || c.Field.StartsWith("numretained")));
+        }
+    }
+
     /// <summary>NHL 27 prefill applied to temp copies of the five stock databases, read back (skipped without the data).</summary>
     [Fact]
     public void Nhl27_prefill_applies_to_all_five_databases_and_reads_back()

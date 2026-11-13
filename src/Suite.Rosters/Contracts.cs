@@ -194,9 +194,12 @@ public static class ContractDb
     }
 
     /// <summary>Applies the contracts in place and returns the saved bytes (same length, CRCs valid) plus the changes.</summary>
-    public static (byte[] Bytes, List<ContractChange> Changes) Apply(string dbName, byte[] bytes, string metaXml, IEnumerable<Contract> contracts, ContractMapping map)
+    public static (byte[] Bytes, List<ContractChange> Changes) Apply(string dbName, byte[] bytes, string metaXml, IEnumerable<Contract> contracts, ContractMapping map,
+        IReadOnlyList<TeamCap>? teams = null)
     {
         var db = T3Db.Load((byte[])bytes.Clone(), metaXml);
+        bool doTeams = teams is { Count: > 0 } && db.Tables.ContainsKey(TeamCap.Table);
+        var teamChanges = doTeams ? TeamCap.Apply(dbName, db, teams!) : [];
         var t = db.Tables[BioTable];
         var want = contracts.Where(c => c.GameId > 0).GroupBy(c => c.GameId).ToDictionary(g => g.Key, g => g.Last());
         var changes = new List<ContractChange>();
@@ -222,7 +225,8 @@ public static class ContractDb
                 foreach (var (field, value) in map.Fields(c))
                     if (ct.Fields.ContainsKey(field) && check.GetInt(ct, r, field) != value)
                         throw new InvalidOperationException($"{dbName}: {c.Name} {field} reads back {check.GetInt(ct, r, field)}, wrote {value}.");
-        return (saved, changes);
+        if (doTeams) TeamCap.Verify(dbName, check, teams!);
+        return (saved, [.. changes, .. teamChanges]);
     }
 }
 
@@ -230,6 +234,16 @@ public static class ContractDb
 public static class Nhl27Contracts
 {
     public static string DefaultCsv => Path.Combine(SuitePaths.Local, "nhl27db", "exhibitionplayerbiotable.csv");
+
+    /// <summary>Folders an NHL 27 table dump may be in: the suite's nhl27db cache, then the full CSV dumps the other tools use.</summary>
+    public static readonly string[] DumpDirs =
+    [
+        Path.Combine(SuitePaths.Local, "nhl27db"),
+        @"C:\dev\NHL27Convert\reference\nhl27-full-csv",
+        @"C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\RosterConversion\nhl27-csv",
+    ];
+
+    public static string? FindTable(string table) => DumpDirs.Select(d => Path.Combine(d, table + ".csv")).FirstOrDefault(File.Exists);
 
     public static List<Dictionary<string, string>> ReadCsv(string path)
     {
@@ -408,13 +422,14 @@ public static class ContractRun
     public sealed record DbPlan(string Db, byte[] Bytes, List<ContractChange> Changes);
 
     /// <summary>The planned databases (only those that change) from the given database bytes, keyed by database name.</summary>
-    public static List<DbPlan> Plan(IReadOnlyDictionary<string, byte[]> dbs, IReadOnlyList<Contract> contracts, ContractMapping map, string? metaXml = null)
+    public static List<DbPlan> Plan(IReadOnlyDictionary<string, byte[]> dbs, IReadOnlyList<Contract> contracts, ContractMapping map, string? metaXml = null,
+        IReadOnlyList<TeamCap>? teams = null)
     {
         var plans = new List<DbPlan>();
         foreach (var name in RosterSyncRun.Databases)
         {
             if (!dbs.TryGetValue(name, out var bytes)) continue;
-            var (saved, changes) = ContractDb.Apply(name, bytes, metaXml ?? MetaPath, contracts, map);
+            var (saved, changes) = ContractDb.Apply(name, bytes, metaXml ?? MetaPath, contracts, map, teams);
             if (changes.Count > 0) plans.Add(new DbPlan(name, saved, changes));
         }
         return plans;

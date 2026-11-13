@@ -29,7 +29,13 @@ else
     if (Arg("--save") is { } save) { ContractStore.Save(contracts, save); Console.WriteLine("Saved " + save); }
 }
 
-var plans = ContractRun.Plan(dbs, contracts, map);
+List<TeamCap>? teams = null;
+if (args.Contains("--teams") && Nhl27Contracts.FindTable(TeamCap.Table) is { } teamCsv)
+{
+    teams = TeamCap.LoadNhl27(teamCsv).Where(t => t.Team is >= 0 and < 32).ToList();
+    Console.WriteLine($"Teams: {teams.Count} clubs from NHL 27 ({teams.Count(t => t.DeadCap.Any(v => v > 0) || t.Retained.Any(v => v > 0))} with dead cap or retained salary)");
+}
+var plans = ContractRun.Plan(dbs, contracts, map, null, teams);
 foreach (var p in plans) Console.WriteLine($"{p.Db}: {p.Changes.Count} cells, {p.Changes.Select(c => c.GameId).Distinct().Count()} players");
 
 // Read back named samples from every changed database.
@@ -44,6 +50,13 @@ foreach (var p in plans)
         Console.WriteLine($"  {p.Db,-18} {r.Name,-22} cap ${r.CapHit:N0} x{r.Years} 2way {(r.TwoWay ? 1 : 0)} ext ${r.ExtCapHit:N0} x{r.ExtYears} ufa {r.YearUfa}  clauses(suite) {Clause.FormatList(c.Clauses)}");
     }
 }
+if (teams is not null)
+    foreach (var p in plans)
+    {
+        var db = T3Db.Load((byte[])p.Bytes.Clone(), ContractRun.MetaPath);
+        foreach (var tc in TeamCap.Read(db, p.Db).Where(t => t.Team is 11 or 25 or 27))
+            Console.WriteLine($"  {p.Db,-18} team {tc.Team,2} dead {TeamCap.FormatList(tc.DeadCap),-22} retained {TeamCap.FormatList(tc.Retained),-34} count {TeamCap.FormatList(tc.RetainedCount)}");
+    }
 if (Arg("--out") is { } outDir)
 {
     Directory.CreateDirectory(outDir);
