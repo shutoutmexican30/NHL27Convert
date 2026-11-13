@@ -3,6 +3,103 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Arizona -> Utah Mammoth (DB + loc), 2026-11-12: PROVEN, NOT APPLIED (waiting for the uniform import to finish)
+
+Owner approved going ahead; the owner then said they were still importing uniforms, so **nothing was written to the live
+game or D:\CIMS-test**. Everything below was built and proven on a private scratch snapshot of just the touched live
+files (`globals.toc` x2, Data `cas_01`/`cas_02`, Patch `cas_01`, `package.mft`, hash-identical to live at 23:10 local).
+Live game = `C:\Users\devin\Downloads\NHL24PC_V3.2\NHL24PC` (split `game\` + `game-UPDATE\Patch`); its TOC/CAS files were
+last written 2026-11-11 05:30.
+
+**Tool:** `tools\UtahMammoth` (`where | plan | apply`; apply refuses without `--apply --target <same game>` and while the
+game runs). Every copy (base index *and* update index) is edited **from its own current bytes**, so the uniform import's
+jersey/equipment rows and the `VINTAGE_*` loc keys are kept. Re-running is a no-op (unchanged copies are not written).
+Suite changes: `T3Db.SetString` (fixed-width, refuses overflow), `LanguageStrings.Set` (append new text to the pool,
+repoint one row; row count/order/hash unchanged), `LegacyFiles.ReplaceEach` / `Where`, and a fix in
+`LegacyFiles.UpdateChunkSizeRecord`: single-file chunks have **no** per-chunk `[raw size][guid]` record (checked in both
+1.60 indexes - only shared chunks like eng_us's carry one; a single-file chunk's own file record is the size), so a
+resize of an own chunk no longer throws. The first proof run hit exactly that on cze_cz and auto-restored cleanly.
+
+**What changes** (per db copy; nhl_game and initial_experience: base + update copies are identical before and after):
+- `exhibitionteams` index 22: teamname/nickname `Arizona Coyotes` -> `Utah Mammoth`, cityname `Arizona` -> `Utah`,
+  abbrname `ARZ` -> `UTA`; fe/pres/overlay primary 9895982/10628405/9961516 -> 7122148, secondary
+  15655365/16115909/15721158 -> 2105376. artid 22, artabbr PHX and every asset id kept. (`state` not in the change set: left.)
+- `exhibitionarena` index 22: `Arizona Arena` -> `Delta Center`, `Tempe, AZ` -> `Salt Lake City, UT`, 18000 -> 16200,
+  2003 -> 1991, crowdlightcolor 10628405 -> 7122148.
+- `stockteamcolorstable` (nhl_game only) index 76-81 colorid 0-5: 862633 154734 E2D6B5 A9431E 5F259F 101010 ->
+  1B1B1B 4F86BC FFFFFF 6CACE4 010101 101010.
+- `stockteamequipmenttable` team 22 (nhl_game 52 rows, initial_experience 56 rows): zone1-15 from NHL 27 Utah
+  (`RosterConversion\nhl27-csv`), equipment+era, light variants 1/3/4 -> NHL 27 variant 13, others -1; NHL 27 has 13
+  only for equipment 4 and 7, so other light rows fall back to -1 (then any era). NHL 27 duplicates (brand -1, era -1,
+  variant -1) -> lowest index (matches NHL 24's own row in 96 of 143 cross-game pairs). equipment -1 rows (7) left.
+  Totals: nhl_game 367 fields, initial_experience 388. Size, schema, headers, row counts, order identical; CRCs valid;
+  every value checked against nhl_game-meta.xml ranges and string widths.
+- Loc: the 22 keys of `data\utah_loc_edits.tsv` in all 8 dbs, both copies (eng_us exact; other languages swap
+  Arizona->Utah, Coyotes/Yotes->Mammoth (prefix match, so Finnish `Coyotesin` -> `Mammothin`), ARI/ARZ->UTA,
+  Adidas->Fanatics in the pullover string). `lng_lg` holds mixed-language text, not IDs, so it is edited too. Left:
+  *_ARZL keys, team 279/arena 268/team 613/history row (never read); Czech `s Arizonou` (inflected, line 4461);
+  rus_ru `TXT_GAME_TITLE_4` (a different string there); keys a copy does not have (base rus_ru is a 13 KB stub).
+  eng_us is in a 282-file chunk; it sits at the chunk end (raw 9175040), so the resize only re-encodes its 5 blocks.
+
+**Proof on the scratch copy:** apply -> every one of 20 copies read back identical; restore -> 0 differences vs backup
+and every old file back; re-apply -> identical; then a field-level re-read reports all 3,160 checks "already".
+**Bytes appended per apply: 60,557,358** = Patch `nhl_installpackage_00\cas_01` +30,561,752, Data `cas_01` +26,848,857,
+Data `cas_02` +3,146,749. **Nothing goes to `cas_05`** (the kit CAS with the 4 GB problem); Data cas_01 ends at ~1.23 GB.
+
+**To apply when the import is finished** (game closed, no install running):
+`dotnet run --project tools\UtahMammoth -- apply <livecopy or live root> <outDir> --apply --target <same root>` (test copy
+with `--restore-check` first). The tool backs up TOCs + CAS lengths (suite backup folder) plus every touched file's old
+bytes (`<backup>\legacy-old\`), restores itself on any failure.
+
+### Utah crowd clothes: prototype (2026-11-13, owner asked; nothing written to a game)
+
+`tools\CrowdMammoth\mammoth.py` paints Mammoth crowd jerseys into NHL 24's **own** Arizona sheets (layout kept = safe
+class): blend-aware recolour (Coyotes red -> Rock Black, sand -> Mountain Blue, Kachina green -> deep blue; a pixel is
+split into grey + team colour so fades stay clean), shoes/jeans/black-square tiles excluded, chest crest found as the
+inner blobs unlike the body colour in zone (165,292)-(350,462) of each 512 tile, erased, Mammoth logo (NHL 27
+`logo_utah` colour + alpha) stamped 128 px wide on the crest centre; shoulder patches erased the same way. All 18 men's
+jersey sheets (8 regular + 8 playoff 512s and the two 2048x1024 atlases, whose 512 tiles share the chest layout) done.
+Arizona sheets exported with `tools\TextureSlot export` from the idle `D:\CIMS-test\NHL24-merged` (57 crowd textures,
+all BC1 except heads BC3/BC5). Preview: `docs\screenshots\utah-crowd-preview.png`.
+Chairs (4 layers), scarf and the 8 signs: NHL 27 Utah art has the **same layout** as NHL 24 Arizona's, so it goes in
+as is (signs are generic "I love hockey" style; this removes the "Coyotes" signs).
+Left: the Kachina yoke's right medallion and one away tile's "AZ" shoulder patches stay (recoloured); women's jerseys,
+hoodies, tees, hat, team prop and the face-paint heads need their own zones; then write through `TextureSlots.Apply`
+(test copy first), after the uniform import.
+
+### Crowd clothing, Arizona UI art (read-only research, 2026-11-12)
+
+- **No crowd clothing in any DB.** The only crowd field is `exhibitionarena.crowdlightcolor` (+ `crowdlight`); team 22's
+  crowd look is texture-only, picked by folder name `arizona`.
+- **NHL 24 crowd = per-team textures** (`content/character/crowd/...`, 68 Arizona textures):
+  outfit male `outfit/male/textures/licensed/nhl/arizona/` 23 (`crowd_outfit_male_{jersey_arizona_{regular,playoff}[_0..7],
+  hoody_*_{regular,playoff}, tshirt_*_{regular,playoff,promo}}_color`), female 7 (jersey/hoody/tshirt), heads 12
+  (`head/{male,female}/textures/licensed/arizona/crowd_head_*_{1,2}_arizona_{color,normal,coeff}`: face paint),
+  chair array + 4 layers + scarf (`chair/licensed/arizona`), hat (`prop/male/hat/.../arizona`), team prop
+  (`prop/shared/.../crowd_prop_team_arizona_color`), 8 signs (`prop/sign/arizona/...nohotspot_*`).
+- **NHL 27 has no per-team crowd clothing**: `content/crowd/agent/apparel/...` is generic (8 `crowd_jersey_adidas_N`,
+  10 hoodies, 10 t-shirts, each `_color` + `_recolor1` mask) tinted at runtime, plus generic face-paint recolor masks.
+  Utah-specific crowd art in NHL 27 is only `prop/chair/textures/utah` (4 layers + scarf + array) and 8
+  `prop/sign/textures/utah` signs, the same slot names as NHL 24's Arizona chair/sign set.
+- **What Utah crowd clothes would take:** (1) chairs/scarf/signs: transfer NHL 27 Utah -> NHL 24 Arizona slots (flat
+  card/array art, same names; check sizes/format first). (2) Jerseys/hoodies/tees/hat/heads: no NHL 27 source, so
+  paint them: recolour Arizona's own sheets in place (keeps NHL 24's UV layout, the safe class) to Mammoth black/blue and
+  stamp the Mammoth crest where the coyote sits (crest positions found per sheet, like LogoInventory does). 23+7+12+1+1
+  textures through `ChunkReplace`. Needs the `.res` header per slot (§4 of CLAUDE_HANDOFF) unless the bundle path works.
+- **Arizona art outside the DBs** (textures, all keyed `arizona`/`t22`/`a22`): `content/common/logo/arizona{,2,3}`
+  (team logos incl. recolor masks), `ui/textures/common/teamlogos/*/t22` (every UI logo size, stylized L/R, HUT cards),
+  `ui/textures/common/teamjerseys{,xs,xl}` t22 jersey tiles, `ui/textures/common/arenas/a22` (arena picture),
+  `content/worlds/powerring/textures/arizona` (8), `worlds/scoreboard/textures/arizona` (4) and
+  `worlds/textures/scoreboard/*_arizona`, `worlds/entrance/arizona`, banners (`banner_arizona_roof`,
+  `banner_coyotes_branding`), `boards_ads_glass_1_arizona`, `cloth_tarp_arizona{,_02}`, `metal_painted_arizona`,
+  `wall_branding_arizona_black`, `logos_conference_arizona`, `bap_logos_lockerroom_arizona`, mascot head/body/flag,
+  trainer jacket/polo, `puck_promo_arizona`. NHL 27 has Utah counterparts for powerring, scoreboard, entrance, mascot,
+  trainer, logos, puck, plus `fabric_canvas_utah` and `decal_volume_utah_set`.
+- **Scorebug:** the stock scorebug's team colours come from the DB through `init(teamColor, teamSecondaryColor, logoPath,
+  cityName, teamName...)`, so the DB edit above recolours it; its logo is `ui/textures/common/teamlogos/medium/t22`. The
+  custom ESPN/Prime movies (`data\scorebug\*.gfx`, CFX-compressed) carry their own per-team colour table and an arena table
+  (SCOREBUGS.md), which need their own Utah entry.
+
 ## New uniforms 2026-11-09
 
 Detroit 24/25 are confirmed working in game on the test copy. Full write-up: `docs\NEW_UNIFORM_HANDOFF_2026-11-09.md`. New kits are installed by `FullKitInstall` (`tools\KitInstall`, and the app's uniform buttons through `NewUniformApply`). The older donor path is retired from installs.
@@ -800,6 +897,18 @@ Fanatics donor-kit rules (all in the tool, all with tests, 2026-11-12):
   (`nhl_installpackage_05/cas_05.cas`, where Anaheim home lives) and never reclaims the old copy. A file may not pass
   4 GB; the install then stops and restores (the test copy hit this after ~6 full rebuilds). A full 64-kit install adds
   about 0.85 GB there (measured 1.27 → 2.12 GB). Fix to build: spill to a fresh CAS (record location words) or compact unreferenced data.
+  Design (2026-11-13, not built yet):
+  1. Guard first (cheap, safe): before any write, sum the planned bytes per CAS (the dry-run already computes
+     `appended`) and refuse with "CAS would pass 4 GB, nothing written" instead of failing mid-apply. Today a failed
+     apply restores the TOCs but the appended bytes stay in the CAS, so each failed attempt still costs space.
+  2. Spill (preferred fix): when a target CAS would pass ~3.8 GB, write the kit's bundle entries and chunks to a new
+     `cas_NN.cas` in the same install package. Chunks already carry their own location word (`TocArchive.Chunk`);
+     bundle records need the per-entry CAS switch that `BrandingAssetClone.WriteEntry` writes (flag byte + location
+     word before the entry's offset/size pair). Port that record writer into `FullKitInstall.CloneKit`, register the new
+     CAS file in the package's layout so the game opens it, and read back from it like any other CAS.
+  3. Reclaim (later, riskier): a Repair that removes a kit (`BrokenKitRemoval`) could truncate a CAS when the removed
+     data is the file's tail and nothing else points past it; general compaction means rewriting every TOC offset
+     into that CAS and is not planned.
 
 ## Convert 27 page (built)
 
