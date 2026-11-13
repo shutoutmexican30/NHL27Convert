@@ -588,8 +588,13 @@ public sealed class FullKitInstall
                 string mapped = Map(e.Name);
                 var stored = BundleIndex.ReadBytes(records[1 + i]);
                 byte[] sourceRaw = Dec(stored);
+                a.SponsorPlacement.TryGetValue(e.Name, out var sponsorXml);
+                if (sponsorXml is not null && !sponsorXml.Contains("name=\"sponsor\"", StringComparison.Ordinal)) sponsorXml = null;
                 if (a.HotspotLayouts.SingleOrDefault(l => l.SourceSlot == e.Name) is { } hotspots)
                 {
+                    // A kit whose logo layout is rewritten anyway (shoulder choice) takes NHL 27's sponsor spot in that
+                    // layout, so the read-back expects it (Nashville's install stopped on the mismatch).
+                    if (sponsorXml is not null) { KitDonor.WithNhl27Sponsor(hotspots, sponsorXml); sponsorXml = null; }
                     sourceRaw = UniformHotspots.Replace(sourceRaw, hotspots);
                     if (!UniformPhysicalLayouts.SameLayout(UniformHotspots.Capture(sourceRaw, mapped), hotspots))
                         throw new InvalidDataException($"{mapped}: requested hotspot ids, names or coordinates did not read back.");
@@ -600,7 +605,7 @@ public sealed class FullKitInstall
                     else if (index.EbxByName.TryGetValue(teamStamp, out var teamEntries))
                         sourceRaw = UniformHotspots.CopyFontPlacement(sourceRaw, Dec(BundleIndex.ReadBytes(teamEntries[0].Data)));
                 }
-                if (a.SponsorPlacement.TryGetValue(e.Name, out var sponsorXml))
+                if (sponsorXml is not null)
                 {
                     if (UniformHotspots.CopyBrandSpotInPlace(sourceRaw, sponsorXml, "sponsor") is { } moved) sourceRaw = moved;
                     else o.Say($"{a.Team} {a.SourceKit}: NHL 27's sponsor spot does not fit the kit file in place; the donor's spot stays");
