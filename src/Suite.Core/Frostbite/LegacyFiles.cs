@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Text;
 
 namespace Suite.Core.Frostbite;
@@ -144,7 +144,7 @@ public sealed class LegacyFiles
     /// <summary>
     /// Re-encodes a chunk whose raw bytes changed and grew or shrank at the end: block i of <paramref name="sizes"/> is
     /// copied as stored when it is an old block with the same raw size and bytes, else encoded. Map entries exist for the
-    /// old blocks that survive (old stored range → new), and <paramref name="newRanges"/> gives every new block's range.
+    /// old blocks that survive (old stored range â†’ new), and <paramref name="newRanges"/> gives every new block's range.
     /// </summary>
     static Rebuilt RebuildResized(ChunkBlocks blocks, byte[] oldRaw, byte[] newRaw, List<int> sizes, out List<(int Start, int End)> newRanges)
     {
@@ -170,7 +170,7 @@ public sealed class LegacyFiles
     }
 
     /// <summary>
-    /// Replaces legacy files (name → new bytes). Same-size files are swapped in place; other sizes are placed as the
+    /// Replaces legacy files (name â†’ new bytes). Same-size files are swapped in place; other sizes are placed as the
     /// class summary says. Appends to CAS files and rewrites TOCs in place; take <see cref="ApplyTarget.Backup"/> first.
     /// The base game and the update each carry an index with their own copy of a file (the scorebug's scoreclock.gfx
     /// is in Patch globals.toc AND Data globals.toc, each its own chunk) - every copy is written, or one stays stock.
@@ -196,6 +196,60 @@ public sealed class LegacyFiles
         }
         if (missing.Count > 0) throw new InvalidDataException($"No legacy file {missing.First()}.");
         return log;
+    }
+
+    /// <summary>
+    /// Like <see cref="Replace"/>, but every copy (base and update index) is edited from its own current bytes:
+    /// <paramref name="edits"/> gets that copy and returns the new bytes. A copy the edit leaves unchanged is not
+    /// written (so re-running is a no-op and nothing is appended). Returns one log line per change.
+    /// </summary>
+    public List<string> ReplaceEach(IReadOnlyDictionary<string, Func<byte[], byte[]>> edits)
+    {
+        var log = new List<string>();
+        if (edits.Count == 0) return log;
+        var indexes = edits.Keys.SelectMany(name => FindAllIndexes(name))
+            .DistinctBy(i => (i.Toc.Path.ToLowerInvariant(), i.Id)).ToList();
+        var missing = edits.Keys.ToHashSet(StringComparer.Ordinal);
+        foreach (var (toc, id, _, _) in indexes)
+        {
+            // Re-read the index through the TOC: an earlier pass may have repointed it.
+            var refr = toc.Find(id)!;
+            _indexToc = toc; _indexId = id; _indexRef = refr;
+            _index = ChunkBlocks.Parse(ReadStored(refr)).Decode();
+            var records = Records();
+            var here = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            foreach (var (name, edit) in edits)
+            {
+                var rec = records.FirstOrDefault(r => r.Name == name);
+                if (rec is null) continue;
+                missing.Remove(name);
+                var data = ChunkBlocks.Parse(ReadStored(toc.Find(rec.Chunk) ?? Locate(rec.Chunk)!)).Decode();
+                var old = data.AsSpan((int)rec.RawOffset, (int)rec.RawSize).ToArray();
+                var updated = edit(old);
+                if (updated.AsSpan().SequenceEqual(old)) { log.Add($"{name} via {Path.GetRelativePath(_game, toc.Path)}: already as wanted, not written"); continue; }
+                here[name] = updated;
+            }
+            if (here.Count == 0) continue;
+            log.AddRange(ReplaceViaIndex(here, records));
+        }
+        if (missing.Count > 0) throw new InvalidDataException($"No legacy file {missing.First()}.");
+        return log;
+    }
+
+    /// <summary>Where every copy of a legacy file and its index lives (CAS path, offset, stored size), read only.</summary>
+    public List<string> Where(string name, bool everyToc = false)
+    {
+        var lines = new List<string>();
+        foreach (var (toc, id, raw, refr) in FindAllIndexes(name, everyToc))
+        {
+            _indexToc = toc; _indexId = id; _index = raw; _indexRef = refr;
+            var rec = Records().First(r => r.Name == name);
+            var data = toc.Find(rec.Chunk) ?? Locate(rec.Chunk)!;
+            int sharing = Records().Count(r => r.Chunk == rec.Chunk);
+            lines.Add($"{name}\t{Path.GetRelativePath(_game, toc.Path)}\tindex {id} @ {CasPath(refr)}+{refr.Offset} ({refr.Size})\t" +
+                      $"data {rec.Chunk} @ {CasPath(data)}+{data.Offset} ({data.Size} stored, {sharing} files in chunk)\traw {rec.RawOffset}+{rec.RawSize} stored range {rec.StoredStart}..{rec.StoredEnd}");
+        }
+        return lines;
     }
 
     /// <summary>Every index chunk listing <paramref name="anyName"/>, with the TOC that carries it.</summary>
@@ -226,7 +280,7 @@ public sealed class LegacyFiles
         return found;
     }
 
-    /// <summary>Replaces the files through one index chunk — one copy of the game (base or update).</summary>
+    /// <summary>Replaces the files through one index chunk â€” one copy of the game (base or update).</summary>
     List<string> ReplaceViaIndex(IReadOnlyDictionary<string, byte[]> files, List<Record> records)
     {
         var log = new List<string>();
@@ -300,12 +354,14 @@ public sealed class LegacyFiles
 
     /// <summary>
     /// The index chunk also carries one [u64 raw size][chunk guid] record per data chunk (past the file table). A resize
-    /// must update it: the game sizes its decode buffer by that record, and a resized file is placed at the chunk's end —
+    /// must update it: the game sizes its decode buffer by that record, and a resized file is placed at the chunk's end â€”
     /// with the record stale the file reads as out of range and the game silently drops it (an invisible scorebug).
     /// The file records are already rewritten by then, so only the stale per-chunk record still holds the old size.
     /// </summary>
-    static void UpdateChunkSizeRecord(byte[] index, Guid chunk, long oldSize, long newSize)
+    static void UpdateChunkSizeRecord(byte[] index, Guid chunk, long oldSize, long newSize, bool required = true)
     {
+        // Only chunks shared by several files carry the per-chunk record (checked on both 1.60 indexes: the single-file
+        // loc and roster chunks appear once, in their own file record, which the caller has already set to the new size).
         var guid = chunk.ToByteArray();
         int found = 0;
         for (int p = 8; p + 16 <= index.Length; p++)
@@ -315,7 +371,7 @@ public sealed class LegacyFiles
             BinaryPrimitives.WriteInt64LittleEndian(index.AsSpan(p - 8), newSize);
             found++;
         }
-        if (found == 0) throw new InvalidDataException($"Chunk {chunk}: the index has no [raw size][guid] record to follow a resize.");
+        if (found == 0 && required) throw new InvalidDataException($"Chunk {chunk}: the index has no [raw size][guid] record to follow a resize.");
     }
 
     /// <summary>One chunk where at least one file changes size (see the class summary). Edits <paramref name="newIndex"/>.</summary>
@@ -338,7 +394,7 @@ public sealed class LegacyFiles
             var stored = ChunkBlocks.EncodeBlocks(bytes, Math.Clamp(block, 4096, 262144));
             if (!ChunkBlocks.Parse(stored).Decode().AsSpan().SequenceEqual(bytes)) throw new InvalidOperationException("A rebuilt chunk does not decode to the new bytes.");
             Set(newIndex, inChunk[0], 0, 0, 0, bytes.Length);
-            UpdateChunkSizeRecord(newIndex, chunk, oldRaw.Length, bytes.Length);
+            UpdateChunkSizeRecord(newIndex, chunk, oldRaw.Length, bytes.Length, required: false);
             appends.Add((chunk, where, stored));
             log.Add($"{files[0].Key}: own chunk {chunk}, {inChunk[0].RawSize} -> {bytes.Length} bytes");
             return;
@@ -399,3 +455,5 @@ public sealed class LegacyFiles
                 $"stored {where.Size} -> {rebuilt.Stored.Length}, {rebuilt.Changed} of {sizes.Count} blocks encoded; placed at block boundary {baseAt}");
     }
 }
+
+

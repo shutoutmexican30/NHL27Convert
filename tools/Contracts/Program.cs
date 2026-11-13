@@ -9,6 +9,37 @@ string? Arg(string n) { int i = Array.IndexOf(args, n); return i >= 0 && i + 1 <
 var settings = SuiteSettings.Load();
 var map = new ContractMapping(GameSeason: int.Parse(Arg("--season") ?? "2023"));
 
+if (args.Contains("--copies") && Arg("--target") is { } copiesTarget)
+{
+    // Read only: every copy of each roster database in every TOC (globals and level TOCs), with McDavid and Edmonton.
+    var lf = new Suite.Core.Frostbite.LegacyFiles(copiesTarget, settings);
+    foreach (var name in RosterSyncRun.Databases)
+    {
+        var legacy = RosterSyncRun.LegacyName(name);
+        var where = lf.Where(legacy, everyToc: true);
+        var copies = lf.ReadAll(legacy, everyToc: true);
+        for (int i = 0; i < copies.Count; i++)
+        {
+            var parts = where[i].Split('\t');
+            string state;
+            try
+            {
+                var db = T3Db.Load((byte[])copies[i].Clone(), ContractRun.MetaPath);
+                var bio = db.Tables[ContractDb.BioTable];
+                string mc = "McDavid not found";
+                for (int r = 0; r < bio.InUse; r++)
+                    if (db.GetString(bio, r, "lastname") == "McDavid" && db.GetString(bio, r, "firstname") == "Connor")
+                    { mc = $"McDavid dollars {db.GetInt(bio, r, "contractdollars")} length {db.GetInt(bio, r, "contractlength")}"; break; }
+                var edm = TeamCap.Read(db, name).FirstOrDefault(t => t.Team == 11);
+                state = mc + (edm is null ? "" : $"; EDM dead {TeamCap.FormatList(edm.DeadCap)}");
+            }
+            catch (Exception e) { state = "not readable as a roster db: " + e.Message; }
+            Console.WriteLine($"{name}\tcopy {i + 1}/{copies.Count}\t{parts[1]}\t{copies[i].Length} bytes\t{state}");
+        }
+    }
+    return 0;
+}
+
 Dictionary<string, byte[]> dbs;
 if (Arg("--dbs") is { } dir)
     dbs = RosterSyncRun.Databases.Where(d => File.Exists(Path.Combine(dir, d + ".db"))).ToDictionary(d => d, d => File.ReadAllBytes(Path.Combine(dir, d + ".db")));
