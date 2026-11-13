@@ -12,10 +12,21 @@ public static class Nhl27Stamps
 {
     static Dictionary<string, string>? _byFolder;
 
+    /// <summary>
+    /// The kit's NHL 27 hotspot XML, or null when there is none or it does not parse: NHL 27 ships four malformed stamps
+    /// (Washington ten and Carolina eleven have a mismatched end tag, Buffalo six and Nashville three a duplicate
+    /// attribute); those kits keep their NHL 24 spots instead of failing the install.
+    /// </summary>
     public static string? Xml(string folder27)
     {
         _byFolder ??= Load();
-        return _byFolder.TryGetValue(folder27.TrimEnd('/'), out var xml) ? xml : null;
+        return _byFolder.TryGetValue(folder27.TrimEnd('/'), out var xml) && Parses(xml) ? xml : null;
+    }
+
+    public static bool Parses(string xml)
+    {
+        try { new System.Xml.XmlDocument { XmlResolver = null }.LoadXml(xml); return true; }
+        catch (System.Xml.XmlException) { return false; }
     }
 
     static Dictionary<string, string> Load()

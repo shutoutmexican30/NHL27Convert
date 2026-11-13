@@ -780,3 +780,14 @@ public class Nhl27ShineSwitchTests
         finally { KitDonor.SetNhl27Shine(null); }
     }
 }
+
+public class Nhl27StampsTests
+{
+    [Fact]
+    public void A_malformed_nhl27_stamp_is_not_used()
+    {
+        // Washington ten's NHL 27 stamp closes <hotspots> where </jersey> belongs.
+        Assert.False(Nhl27Stamps.Parses("<hotspots> <jersey> <hotspot id=\"0\"/> </hotspots>"));
+        Assert.True(Nhl27Stamps.Parses("<hotspots> <jersey> <hotspot id=\"0\"/> </jersey> </hotspots>"));
+    }
+}
