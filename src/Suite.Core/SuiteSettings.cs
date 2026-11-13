@@ -131,6 +131,16 @@ public sealed class SuiteSettings
     /// Empty = Apply is refused. See <see cref="ApplyTarget"/>.
     /// </summary>
     public string ApplyTargetDir { get; set; } = "";
+    /// <summary>
+    /// "Allow in-place writes to this game folder": game folders the user explicitly allowed the in-place database
+    /// writers (Contracts) to write even though they are the original game. Empty by default. It lifts only the
+    /// original-game guard for those folders; the running-game check, backup, read-back and restore still apply.
+    /// </summary>
+    public List<string> InPlaceWriteAllowedDirs { get; set; } = [];
+
+    public bool InPlaceWriteAllowed(string dir) =>
+        !string.IsNullOrWhiteSpace(dir) && (InPlaceWriteAllowedDirs ?? []).Any(d => !string.IsNullOrWhiteSpace(d) &&
+            string.Equals(Path.GetFullPath(d).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase));
     /// <summary>The name new uniforms show in the jersey picker.</summary>
     public string NewUniformJerseyName { get; set; } = "Fanatics 26-27";
     /// <summary>Last folder of replacement textures used in Uniform Studio.</summary>

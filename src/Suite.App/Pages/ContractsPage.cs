@@ -99,12 +99,28 @@ public sealed class ContractsPage : DockPanel
         bar.Children.Add(Btn("Export CSV", ExportCsv));
         bar.Children.Add(Btn("Save", Save));
         bar.Children.Add(Btn("Preview changes", () => _ = PreviewAsync()));
-        bar.Children.Add(Btn("Apply to CIMS copy", () => _ = ApplyAsync()));
+        bar.Children.Add(Btn("Apply to game", () => _ = ApplyAsync()));
         bar.Children.Add(new TextBlock { Text = "Filter:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 0, 0) });
         bar.Children.Add(_filter);
         bar.Children.Add(new TextBlock { Text = "Season:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 0, 0) });
         bar.Children.Add(_season);
         top.Children.Add(bar);
+        var allow = new CheckBox
+        {
+            Content = "Allow in-place writes to this game folder (" + _settings.ApplyTargetDir + ")", Foreground = Brushes.White, Margin = new Thickness(0, 4, 0, 0),
+            IsChecked = _settings.InPlaceWriteAllowed(_settings.ApplyTargetDir),
+            ToolTip = "Off by default. Lets Apply write the contracts into this folder even when it is the original game. " +
+                      "The running-game check, the backup, the read-back and the restore on failure still apply.",
+        };
+        allow.Click += (_, _) =>
+        {
+            var dir = Path.GetFullPath(_settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
+            _settings.InPlaceWriteAllowedDirs ??= [];
+            _settings.InPlaceWriteAllowedDirs.RemoveAll(d => string.Equals(Path.GetFullPath(d).TrimEnd(Path.DirectorySeparatorChar), dir, StringComparison.OrdinalIgnoreCase));
+            if (allow.IsChecked == true) _settings.InPlaceWriteAllowedDirs.Add(dir);
+            _settings.Save();
+        };
+        top.Children.Add(allow);
         top.Children.Add(_status);
         SetDock(top, Dock.Top);
         Children.Add(top);

@@ -444,9 +444,10 @@ public static class ContractRun
     public static string? Refusal(string target, SuiteSettings settings)
     {
         var full = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar);
+        if (!settings.InPlaceWriteAllowed(full))
         foreach (var original in new[] { settings.Nhl24GameDir, settings.Nhl24BaseDir, settings.Nhl24UpdateDir, settings.Nhl24ReadView })
             if (!string.IsNullOrWhiteSpace(original) && string.Equals(Path.GetFullPath(original).TrimEnd(Path.DirectorySeparatorChar), full, StringComparison.OrdinalIgnoreCase))
-                return "That is the original game; contracts are written to the CIMS game copy only.";
+                return "That is the original game. Tick \"Allow in-place writes to this game folder\" on the Contracts page to write it anyway.";
         if (ApplyTarget.RunningGame() is { } running) return running + " is running; close it first.";
         return null;
     }
@@ -459,6 +460,10 @@ public static class ContractRun
         if (plans.Count == 0) { report.Add("Nothing to change."); return report; }
         var backup = ApplyTarget.Backup(target);
         report.Add("Backup: " + backup);
+        // Also the five databases as the game held them (every copy reads the same through LegacyFiles), timestamped.
+        var dbBackup = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "contracts", "backup-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")));
+        foreach (var (name, bytes) in ReadGame(target, settings)) File.WriteAllBytes(Path.Combine(dbBackup, name + ".db"), bytes);
+        report.Add("Databases before: " + dbBackup);
         var files = plans.ToDictionary(p => RosterSyncRun.LegacyName(p.Db), p => p.Bytes);
         try
         {
