@@ -585,6 +585,16 @@ public class UnpaintedLayersTests
     }
 
     [Fact]
+    public void A_crest_starting_just_below_the_sponsor_band_is_not_a_painted_sponsor()
+    {
+        // Anaheim: the Ducks crest's top edge sits at 64.8% of the sheet; its sponsor is a separate layer.
+        var plain = Sheet(200, (_, _) => { });
+        var finished = Sheet(200, (px, w) => Box(px, w, 62, 130, 112, 160));
+        var place = Suite.Convert27.UnpaintedLayers.Place(false, Jersey, ["crest", "sponsor"], [0, 1], finished, plain);
+        Assert.Equal(new Dictionary<int, int> { [6] = 1 }, place);
+    }
+
+    [Fact]
     public void A_painted_chest_sponsor_is_not_added_twice()
     {
         var plain = Sheet(200, (_, _) => { });

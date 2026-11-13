@@ -14,7 +14,8 @@ public static class UnpaintedLayers
     public sealed record Spot(string Role, double X, double Y, double Size);
 
     // The chest-sponsor band on the jersey sheet, both sides (see SponsorSide).
-    const double SponsorTop = 0.55, SponsorBottom = 0.655;
+    // Ends above the crest: Anaheim's Ducks crest starts at 64.8% and was read as a painted sponsor.
+    const double SponsorTop = 0.55, SponsorBottom = 0.635;
 
     /// <summary>Pixels where the finished sheet has paint the plain sheet lacks.</summary>
     static bool Painted(Rgba finished, Rgba plain, int x, int y)
