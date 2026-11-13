@@ -48,6 +48,43 @@ public static class FontRecolor
         return new Palette(fill, outline);
     }
 
+    /// <summary>
+    /// A band's fill and outline told apart by where they sit: the outline is the commonest colour on the glyph edge (an
+    /// opaque pixel next to a transparent one), the fill the commonest colour deep inside. Used for the captain letters,
+    /// whose outline is so wide that counting colours took it for the fill (Edmonton's C came out white with an orange
+    /// outline instead of orange with white).
+    /// </summary>
+    public static Palette? PaletteByShape(Rgba img, int band)
+    {
+        var (x0, y0, x1, y1) = FontRemap.BandRect(img, band);
+        int w = img.Width, h = img.Height, reach = Math.Max(3, w / 200);
+        bool Clear(int x, int y) => x < 0 || y < 0 || x >= w || y >= h || img.Pixels[(y * w + x) * 4 + 3] < 128;
+        var edge = new Dictionary<int, (int N, long R, long G, long B)>();
+        var inner = new Dictionary<int, (int N, long R, long G, long B)>();
+        static void Add(Dictionary<int, (int N, long R, long G, long B)> d, byte[] p, int at)
+        {
+            int key = (p[at] >> 4) << 8 | (p[at + 1] >> 4) << 4 | p[at + 2] >> 4;
+            var c = d.GetValueOrDefault(key);
+            d[key] = (c.N + 1, c.R + p[at], c.G + p[at + 1], c.B + p[at + 2]);
+        }
+        for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++)
+        {
+            int at = (y * w + x) * 4;
+            if (img.Pixels[at + 3] < 200) continue;
+            if (Clear(x - 1, y) || Clear(x + 1, y) || Clear(x, y - 1) || Clear(x, y + 1)) { Add(edge, img.Pixels, at); continue; }
+            bool deep = true;
+            for (int d = 1; d <= reach && deep; d++)
+                if (Clear(x - d, y) || Clear(x + d, y) || Clear(x, y - d) || Clear(x, y + d)) deep = false;
+            if (deep) Add(inner, img.Pixels, at);
+        }
+        static Rgb? Top(Dictionary<int, (int N, long R, long G, long B)> d) =>
+            d.Count == 0 ? null : d.Values.MaxBy(v => v.N) is var c ? new Rgb((int)(c.R / c.N), (int)(c.G / c.N), (int)(c.B / c.N)) : null;
+        var outline = Top(edge);
+        var fill = Top(inner) ?? outline;
+        return fill is null || outline is null ? null : new Palette(fill.Value, outline.Value);
+    }
+
     /// <summary>True when the two sheets' colours differ in any band (by more than shading).</summary>
     public static bool Differs(Rgba nhl24, Rgba nhl27)
     {
@@ -63,7 +100,7 @@ public static class FontRecolor
         var px = (byte[])nhl24.Pixels.Clone();
         for (int band = 0; band < FontRemap.BandCount; band++)
         {
-            if (PaletteOf(nhl24, band) is not { } from || target(band) is not { } to) continue;
+            if ((band == 4 ? PaletteByShape(nhl24, band) : PaletteOf(nhl24, band)) is not { } from || target(band) is not { } to) continue;
             var (x0, y0, x1, y1) = FontRemap.BandRect(nhl24, band);
             for (int y = y0; y < y1; y++)
             for (int x = x0; x < x1; x++)

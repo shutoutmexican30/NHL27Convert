@@ -498,12 +498,17 @@ public static class KitDonor
     /// </summary>
     static void RecolorFont(NewUniformAddition a, NewUniformTexture own, List<NewUniformTexture> nhl27Fonts, Action<string>? say)
     {
-        if (FontRecolor.Override($"{a.Team} {a.SourceKit}") is not { } target) return;
-        var recolored = FontRecolor.Recolor(ImageIO.Load(own.Artwork.Source), target);
+        var sheet24 = ImageIO.Load(own.Artwork.Source);
+        var forced = FontRecolor.Override($"{a.Team} {a.SourceKit}");
+        // Only the owner's table: reading NHL 27's colours automatically mixed up fill and outline on double-outlined
+        // numbers (Florida away came out gold on navy instead of navy on gold), so changed kits are listed by hand.
+        var target = forced;
+        if (target is null) return;
+        var recolored = FontRecolor.Recolor(sheet24, target);
         string png = Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "font-recolor")), $"{a.Team}_{a.SourceKit}_font_color.png");
         ImageIO.SavePng(recolored, png);
         own.Artwork = own.Artwork with { Source = png };
-        say?.Invoke($"{a.Team} {a.SourceKit}: number colours from font_colours.json on the NHL 24 number sheet");
+        say?.Invoke($"{a.Team} {a.SourceKit}: number colours {(forced is null ? "from NHL 27" : "from font_colours.json")} on the NHL 24 number sheet");
     }
 
     static NewUniformTexture? OwnTeamTexture(BundleIndex index, NewUniformAddition a, string donorName)
