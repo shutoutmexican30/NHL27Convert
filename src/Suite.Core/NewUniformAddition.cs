@@ -57,4 +57,6 @@ public sealed class NewUniformAddition
     public List<UniformHotspotLayout> HotspotLayouts { get; set; } = [];
     /// <summary>Stamp EBX → the stamp whose font hotspots (number, name, captain positions) it takes (donor clones).</summary>
     public Dictionary<string, string> FontPlacement { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>Stamp EBX → NHL 27 hotspot XML whose sponsor spot it takes, written in place (donor clones).</summary>
+    public Dictionary<string, string> SponsorPlacement { get; set; } = new(StringComparer.Ordinal);
 }

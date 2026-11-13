@@ -294,6 +294,39 @@ public static class UniformHotspots
                 throw new InvalidDataException($"Hotspot id {slot.Id} has an invalid coordinate or rotation.");
     }
 
+    /// <summary>
+    /// The stamp with one brand hotspot's r/sx/sy/tx/ty set to the same hotspot's values in <paramref name="hotspotsXml"/>,
+    /// written over the old values byte for byte (each new value formatted to the old value's length) so no EBX offset
+    /// moves. Re-serialising the XML grew the donor's stamp, which the installer cannot write (the 40-kit reinstall
+    /// failed on it). Null when a value cannot be written in the same length or either side lacks the hotspot.
+    /// </summary>
+    public static byte[]? CopyBrandSpotInPlace(ReadOnlySpan<byte> source, string hotspotsXml, string name)
+    {
+        var from = new XmlDocument { XmlResolver = null };
+        try { from.LoadXml(hotspotsXml); } catch (XmlException) { return null; }
+        var spot = from.GetElementsByTagName("hotspot").Cast<XmlElement>().FirstOrDefault(n => n.GetAttribute("type") == "brand" && n.GetAttribute("name") == name);
+        if (spot is null) return null;
+        var output = source.ToArray();
+        string text = Encoding.ASCII.GetString(output);
+        int nameAt = text.IndexOf($"name=\"{name}\"", StringComparison.Ordinal);
+        if (nameAt < 0) return null;
+        int start = text.LastIndexOf("<hotspot", nameAt, StringComparison.Ordinal), end = text.IndexOf('>', nameAt);
+        if (start < 0 || end < 0 || !text[start..end].Contains("type=\"brand\"", StringComparison.Ordinal)) return null;
+        foreach (string attr in new[] { "r", "sx", "sy", "tx", "ty" })
+        {
+            int at = text.IndexOf($" {attr}=\"", start, end - start, StringComparison.Ordinal);
+            if (at < 0) return null;
+            int valueAt = at + attr.Length + 3, valueEnd = text.IndexOf('"', valueAt);
+            string old = text[valueAt..valueEnd];
+            if (!double.TryParse(spot.GetAttribute(attr), NumberStyles.Float, CultureInfo.InvariantCulture, out double v)) return null;
+            int decimals = old.Contains('.') ? old.Length - old.IndexOf('.') - 1 : 0;
+            string value = v.ToString("F" + decimals, CultureInfo.InvariantCulture);
+            if (value.Length != old.Length) return null;
+            Encoding.ASCII.GetBytes(value).CopyTo(output, valueAt);
+        }
+        return output;
+    }
+
     /// <summary>A font hotspot's centre and size (tx, ty, sx, sy), or null.</summary>
     public static (double X, double Y, double W, double H)? FontSpot(ReadOnlySpan<byte> ebx, string name)
     {

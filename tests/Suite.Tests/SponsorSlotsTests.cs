@@ -850,3 +850,27 @@ public class Nhl27SponsorSpotTests
         Assert.Null(KitDonor.WithNhl27Sponsor(donor, "<hotspots> <jersey/> </hotspots>"));
     }
 }
+
+public class SponsorSpotInPlaceTests
+{
+    [Fact]
+    public void The_sponsor_spot_is_written_over_the_old_values_without_changing_the_length()
+    {
+        // Carolina home: NHL 27 puts Nucor on the right chest (tx 0.5646, r 180).
+        string stamp = "HDR <?xml version=\"1.0\"?><hotspots><jersey><hotspot enable=\"1.0\" id=\"14\" type=\"brand\" name=\"sponsor\" r=\"177.0000\" sx=\"0.0556\" sy=\"0.0556\" tx=\"0.4290\" ty=\"0.3880\"/></jersey></hotspots> TAIL";
+        string nhl27 = "<hotspots> <jersey> <hotspot enable=\"1.0\" id=\"14\" type=\"brand\" index=\"-1\" name=\"sponsor\" r=\"180.0000\" sx=\"0.0616\" sy=\"0.0616\" tx=\"0.5646\" ty=\"0.4013\"/> </jersey> </hotspots>";
+        var output = UniformHotspots.CopyBrandSpotInPlace(System.Text.Encoding.ASCII.GetBytes(stamp), nhl27, "sponsor")!;
+        string text = System.Text.Encoding.ASCII.GetString(output);
+        Assert.Equal(stamp.Length, output.Length);
+        Assert.Contains("r=\"180.0000\" sx=\"0.0616\" sy=\"0.0616\" tx=\"0.5646\" ty=\"0.4013\"", text);
+        Assert.EndsWith("TAIL", text);
+    }
+
+    [Fact]
+    public void A_value_that_cannot_keep_its_length_leaves_the_stamp_alone()
+    {
+        string stamp = "<hotspot enable=\"1.0\" id=\"14\" type=\"brand\" name=\"sponsor\" r=\"0\" sx=\".1\" sy=\".1\" tx=\".4\" ty=\".4\"/>";
+        string nhl27 = "<hotspots><jersey><hotspot type=\"brand\" name=\"sponsor\" r=\"180\" sx=\".1\" sy=\".1\" tx=\".5\" ty=\".4\"/></jersey></hotspots>";
+        Assert.Null(UniformHotspots.CopyBrandSpotInPlace(System.Text.Encoding.ASCII.GetBytes(stamp), nhl27, "sponsor"));
+    }
+}

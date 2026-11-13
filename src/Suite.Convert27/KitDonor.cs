@@ -47,6 +47,7 @@ public static class KitDonor
             // Numbers, name and captain letter sit where the team's own NHL 24 kit puts them (Florida's sleeve numbers are
             // inside its shoulder patches, Anaheim's outside); without a team stamp the donor's spots stay.
             a.FontPlacement.Clear();
+            a.SponsorPlacement.Clear();
             foreach (string garment in new[] { "jersey", "pant" })
             {
                 string donorStamp = $"{Prefix}stamp_{garment}_adidas_{toId}";
@@ -58,7 +59,7 @@ public static class KitDonor
                     a.FontPlacement[donorStamp] = xml27;
                     // The sponsor patch sits where NHL 27 puts it: Carolina's home kit has its captain's letter on the
                     // left chest and Nucor on the right, so the donor's left-chest sponsor spot put the A over Nucor.
-                    if (WithNhl27Sponsor(index, donorStamp, xml27) is { } layout) a.HotspotLayouts.Add(layout);
+                    a.SponsorPlacement[donorStamp] = xml27;
                 }
                 else if (index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
             }

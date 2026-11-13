@@ -600,6 +600,11 @@ public sealed class FullKitInstall
                     else if (index.EbxByName.TryGetValue(teamStamp, out var teamEntries))
                         sourceRaw = UniformHotspots.CopyFontPlacement(sourceRaw, Dec(BundleIndex.ReadBytes(teamEntries[0].Data)));
                 }
+                if (a.SponsorPlacement.TryGetValue(e.Name, out var sponsorXml))
+                {
+                    if (UniformHotspots.CopyBrandSpotInPlace(sourceRaw, sponsorXml, "sponsor") is { } moved) sourceRaw = moved;
+                    else o.Say($"{a.Team} {a.SourceKit}: NHL 27's sponsor spot does not fit the kit file in place; the donor's spot stays");
+                }
                 var parsed = EbxRiff.Parse(sourceRaw);
                 var raw = parsed.Rewrite(mapped, guids[parsed.FileGuid], guids);
                 foreach (var (oldRid, newRid) in rids)
