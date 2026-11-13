@@ -188,10 +188,20 @@ public static class UniformHotspots
     /// painted kits (numbers at 40%/60%, shoulder patches at 29.5%/70.5%) put Anaheim's numbers (27%/73%) over the
     /// patches. Brand hotspots are left exactly as they are. Returns the source unchanged when nothing differs.
     /// </summary>
-    public static byte[] CopyFontPlacement(ReadOnlySpan<byte> source, ReadOnlySpan<byte> team)
+    public static byte[] CopyFontPlacement(ReadOnlySpan<byte> source, ReadOnlySpan<byte> team) =>
+        CopyFontPlacement(source, Document(team, out _, out _));
+
+    /// <summary>The same, from a kit's hotspot XML text (NHL 27's own stamps, <see cref="Nhl27Stamps"/>).</summary>
+    public static byte[] CopyFontPlacement(ReadOnlySpan<byte> source, string hotspotsXml)
+    {
+        var from = new XmlDocument { XmlResolver = null };
+        using (var reader = new StringReader(hotspotsXml)) from.Load(reader);
+        return CopyFontPlacement(source, from);
+    }
+
+    static byte[] CopyFontPlacement(ReadOnlySpan<byte> source, XmlDocument from)
     {
         var document = Document(source, out int xmlAt, out int xmlLength);
-        var from = Document(team, out _, out _);
         string[] brands = BrandNodes(document).Select(n => n.OuterXml).ToArray();
         var teamFonts = from.GetElementsByTagName("hotspot").Cast<XmlElement>().Where(n => n.GetAttribute("type") == "font")
             .GroupBy(n => n.GetAttribute("name")).ToDictionary(g => g.Key, g => g.First());
@@ -201,7 +211,7 @@ public static class UniformHotspots
             if (!teamFonts.TryGetValue(node.GetAttribute("name"), out var match)) continue;
             foreach (XmlAttribute attr in match.Attributes)
             {
-                if (attr.Name is "id" or "type" or "name") continue;
+                if (attr.Name is "id" or "type" or "name" or "index") continue; // NHL 27 adds index="-1"; NHL 24 has no such attribute
                 if (node.GetAttribute(attr.Name) == attr.Value) continue;
                 if (attr.Value.Any(c => c < 0x20 || c > 0x7E || c is '"' or '<' or '>' or '&'))
                     throw new InvalidDataException("A font hotspot contains unsafe XML metadata.");

@@ -262,6 +262,19 @@ public sealed class UniformPhysicalPlacementTests
     }
 
     [Fact]
+    public void Donor_stamp_takes_nhl27_number_spots_from_hotspot_xml()
+    {
+        // Ottawa's NHL 27 Fanatics kits put the sleeve numbers lower on the arm (tx 0.235).
+        var donor = StampFixture();
+        string nhl27 = "<hotspots> <jersey> <hotspot enable=\"1.0\" id=\"1\" type=\"font\" index=\"-1\" name=\"number\" r=\"0\" sx=\".2\" sy=\".2\" tx=\"0.235\" ty=\".4\"/> </jersey> </hotspots>";
+        string xml = Encoding.ASCII.GetString(UniformHotspots.CopyFontPlacement(donor, nhl27));
+        Assert.Contains("tx=\"0.235\"", xml);
+        Assert.DoesNotContain("index=", xml);
+        Assert.True(UniformPhysicalLayouts.SameLayout(UniformHotspots.Capture(Encoding.ASCII.GetBytes(xml), "content/test/stamp_jersey_test"),
+            UniformHotspots.Capture(donor, "content/test/stamp_jersey_test")));
+    }
+
+    [Fact]
     public void Same_number_spots_leave_the_stamp_untouched()
     {
         var donor = StampFixture();

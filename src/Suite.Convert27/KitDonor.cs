@@ -51,7 +51,10 @@ public static class KitDonor
             {
                 string donorStamp = $"{Prefix}stamp_{garment}_adidas_{toId}";
                 string teamStamp = $"content/character/skater/league/nhl/{a.Team}/adidas/{a.SourceKit}/stamp_{garment}_adidas_{a.Team}_{a.SourceKit}";
-                if (index.EbxByName.ContainsKey(donorStamp) && index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
+                if (!index.EbxByName.ContainsKey(donorStamp)) continue;
+                // NHL 27's own spots for the kit we paint (Ottawa's sleeve numbers sit lower on the arm); else the team's NHL 24 kit.
+                if (garment == "jersey" && a.SourceFolder27 is { } stampFolder27 && Nhl27Stamps.Xml(stampFolder27) is { } xml27) a.FontPlacement[donorStamp] = xml27;
+                else if (index.EbxByName.ContainsKey(teamStamp)) a.FontPlacement[donorStamp] = teamStamp;
             }
             if (dropped.Count > 0) say?.Invoke($"{a.Team} {a.SourceKit}: the donor has no slot for {string.Join(", ", dropped)}; left out");
             if (PaintedLogos) UsePaintedTextures(a, donorRes, array => SponsorSlots.PhysicalSpots(index, array.Replace("_normal_array", "_color_array").Replace("_coeff_array", "_color_array")), say);

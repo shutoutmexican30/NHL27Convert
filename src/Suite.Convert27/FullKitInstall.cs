@@ -594,8 +594,12 @@ public sealed class FullKitInstall
                     if (!UniformPhysicalLayouts.SameLayout(UniformHotspots.Capture(sourceRaw, mapped), hotspots))
                         throw new InvalidDataException($"{mapped}: requested hotspot ids, names or coordinates did not read back.");
                 }
-                if (a.FontPlacement.TryGetValue(e.Name, out var teamStamp) && index.EbxByName.TryGetValue(teamStamp, out var teamEntries))
-                    sourceRaw = UniformHotspots.CopyFontPlacement(sourceRaw, Dec(BundleIndex.ReadBytes(teamEntries[0].Data)));
+                if (a.FontPlacement.TryGetValue(e.Name, out var teamStamp))
+                {
+                    if (teamStamp.StartsWith("<hotspots", StringComparison.Ordinal)) sourceRaw = UniformHotspots.CopyFontPlacement(sourceRaw, teamStamp);
+                    else if (index.EbxByName.TryGetValue(teamStamp, out var teamEntries))
+                        sourceRaw = UniformHotspots.CopyFontPlacement(sourceRaw, Dec(BundleIndex.ReadBytes(teamEntries[0].Data)));
+                }
                 var parsed = EbxRiff.Parse(sourceRaw);
                 var raw = parsed.Rewrite(mapped, guids[parsed.FileGuid], guids);
                 foreach (var (oldRid, newRid) in rids)
