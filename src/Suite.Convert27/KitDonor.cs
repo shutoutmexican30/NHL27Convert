@@ -342,6 +342,15 @@ public static class KitDonor
             // Rule 10: coefficient maps stay stock. The donor's base coefficient (fabric only, no donor logos) fills both.
             string coeffSlot = $"{Prefix}{garment}_adidas_{toId}_{variant}coeff";
             if (!donorRes.Contains(coeffSlot)) continue;
+            // Per-kit switch (nhl27_shine.json in the user data folder, default off): the finished coefficient is NHL 27's own. It is packed
+            // like NHL 24's (finished 127/27/0/255 vs NHL 27 129/26/23/255) and carries the metallic areas (Vegas gold).
+            if (variant == "" && UsesNhl27Shine(a) && a.Textures.FirstOrDefault(x => x.SourceSlot == coeffSlot) is { } own27
+                && File.Exists(own27.Artwork.Source))
+            {
+                own27.Artwork = own27.Artwork with { Alpha = null };
+                say?.Invoke($"{a.Team} {a.SourceKit}: {garment} shine (finished coefficient) is NHL 27's own");
+                continue;
+            }
             a.Textures.RemoveAll(x => x.SourceSlot == coeffSlot);
             // The finished coefficient is packed differently from the base one (NHL 24 Anaheim: base 126/127/255/0,
             // finished 127/27/0/255), so it keeps the donor's own stock finished map, with the donor's baked-in logo
@@ -403,6 +412,24 @@ public static class KitDonor
         }
         return new Rgba(coeff.Width, coeff.Height, px);
     }
+
+    static HashSet<string>? _nhl27Shine;
+
+    /// <summary>Kits ("vegas home") whose finished coefficient comes from NHL 27, from nhl27_shine.json in the user data folder.</summary>
+    public static bool UsesNhl27Shine(NewUniformAddition a)
+    {
+        if (_nhl27Shine is null)
+        {
+            string path = Path.Combine(SuitePaths.Roaming, "data", "nhl27_shine.json");
+            _nhl27Shine = File.Exists(path)
+                ? System.Text.Json.JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(path)) ?? []
+                : [];
+        }
+        return _nhl27Shine.Contains("all") || _nhl27Shine.Contains($"{a.Team} {a.SourceKit}");
+    }
+
+    /// <summary>Test hook: replaces the per-kit NHL 27 shine list.</summary>
+    public static void SetNhl27Shine(IEnumerable<string>? kits) => _nhl27Shine = kits is null ? null : [.. kits];
 
     /// <summary>NHL 24's Adidas shoulder-yoke fabric zone (the dimpled mesh); Fanatics jerseys have none.</summary>
     public const byte AdidasYoke = 73;

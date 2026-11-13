@@ -761,3 +761,22 @@ public class FinishedCoeffTests
         Assert.Equal(new byte[] { 127, 27, 0, 255 }, o.Pixels[12..16]);
     }
 }
+
+public class Nhl27ShineSwitchTests
+{
+    [Fact]
+    public void Nhl27_shine_is_off_unless_the_kit_is_listed()
+    {
+        try
+        {
+            KitDonor.SetNhl27Shine([]);
+            Assert.False(KitDonor.UsesNhl27Shine(new NewUniformAddition { Team = "vegas", SourceKit = "home" }));
+            KitDonor.SetNhl27Shine(["vegas home"]);
+            Assert.True(KitDonor.UsesNhl27Shine(new NewUniformAddition { Team = "vegas", SourceKit = "home" }));
+            Assert.False(KitDonor.UsesNhl27Shine(new NewUniformAddition { Team = "vegas", SourceKit = "away" }));
+            KitDonor.SetNhl27Shine(["all"]);
+            Assert.True(KitDonor.UsesNhl27Shine(new NewUniformAddition { Team = "newjersey", SourceKit = "away" }));
+        }
+        finally { KitDonor.SetNhl27Shine(null); }
+    }
+}
