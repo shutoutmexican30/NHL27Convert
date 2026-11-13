@@ -70,6 +70,16 @@ public static class NewUniformExport
         return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report, rebuildComplete: currentFolderOnly));
     }
 
+    /// <summary>
+    /// Rebuilds every team's mapped Fanatics home and away kit in its slot, complete or not (after tool fixes, the
+    /// 11-11 kits on the main game were "complete" and Repair with All teams left them as they were).
+    /// </summary>
+    public static async Task<(bool Ok, string Message)> RebuildAllAsync(Convert27ViewModel vm)
+    {
+        var (unplanned, Report) = await BuildUnplannedAsync(vm, "NHL 27 Fanatics uniforms (rebuilt)", currentFolderOnly: false);
+        return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report, rebuildComplete: true));
+    }
+
     public static async Task<Draft> PlanAsync(Convert27ViewModel vm, string name, bool currentFolderOnly)
     {
         var (unplanned, Report) = await BuildUnplannedAsync(vm, name, currentFolderOnly);

@@ -159,6 +159,30 @@ public partial class Convert27View : UserControl
         finally { _vm.Busy = false; IsEnabled = true; }
     }
 
+    async void RebuildAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Rebuild every team's Fanatics home and away kit? Each kit's old copy (complete or not) is removed "
+                + "and the kit is added fresh in the same slot with the current rules. One backup first; every kit is read back and "
+                + "checked; if anything fails the game is put back exactly as it was.\n\n"
+                + $"Game: {_vm.Settings.ApplyTargetDir}\nClose the game first. This takes about 45 minutes.",
+                "Rebuild all Fanatics kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        IsEnabled = false;
+        _vm.Busy = true;
+        try
+        {
+            SuiteLog.Write("rebuild-all: clicked");
+            var (ok, message) = await NewUniformExport.RebuildAllAsync(_vm);
+            SuiteLog.Write($"rebuild-all: finished ok={ok}: {message}");
+            _vm.Status = (ok ? "Rebuilt: " : "Rebuild not done: ") + message;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("rebuild-all: FAILED " + ex);
+            _vm.Status = "Rebuild failed: " + ex.Message;
+        }
+        finally { _vm.Busy = false; IsEnabled = true; }
+    }
+
     async void UndoLast_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("Restore the game to the backup taken just before the last write?", "Undo last add",
