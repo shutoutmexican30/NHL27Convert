@@ -170,3 +170,46 @@ Full layout: `data\league_settings_layout.json`.
   popups, CPU trades, GM firing, owner mode, morale, scouting fog of war…) are setting ids in the same name table at
   0x25F81C5 onwards, but their struct offsets weren't mapped. Next: walk the 5 jump-table cases and the overwrite jobs
   for the other `Custom*` keys.
+
+## 6. Contracts page and NHL 27 prefill (2026-11-13)
+
+- **Sources:** CapWages' terms forbid copying ("Don't copy or use it without asking first"; API keys forbid bulk
+  download), and PuckPedia returns 403 to automated reads. Neither is used. Contracts come from NHL 27's own data or
+  are entered by hand / CSV.
+- **NHL 27** (`%LOCALAPPDATA%\CenterIceModdingSuite\nhl27db\exhibitionplayerbiotable.csv`, its 2026-27 season) uses
+  NHL 24's units ($5,000 steps, year − 1900) and adds `contractclause0..9` + `contractclausemntcnumteams0..9`, one per
+  contract season (0 = 2026-27, extension seasons included). Codes, read off the data:
+  - 0 = none
+  - 1 = modified NTC (list size 3–29; 262× size 10)
+  - 2 = NMC with a modified trade list (always with a list; Malkin 29, Landeskog 12)
+  - 3 = full NTC
+  - 4 = full NMC (32 or 0 list)
+
+  1,675 signed players; 381 carry a clause. Samples:
+  - McDavid: 2500 × 2, NMC both seasons
+  - Matthews: 2650 × 2, NMC
+  - Draisaitl: 2800 × 7, NMC × 7
+  - Celebrini: ELC 195 two-way, extension 3760 × 5, NMC in season 5
+  - Hutson: 1770 × 8, M-NTC/10 in seasons 5–7
+- **Matching:** `game_id` is shared by both games (as GoalieFix already relies on), with a fallback on first + last +
+  birth date. 1,689 NHL 27 signed players:
+  - Stock NHL 24 databases: 1,219 matched, 470 unmatched.
+  - Roster-synced copies (dbwork, 11-02): 1,383 matched, 306 unmatched. The unmatched are players NHL 24's database
+    doesn't have (mostly 2023+ draftees, e.g. Michkov, Demidov).
+- **Code:**
+  - `Suite.Rosters\Contracts.cs` (Contract / Clause / ContractMapping / ContractDb / Nhl27Contracts / ContractStore /
+    ContractRun).
+  - `Suite.App\Pages\ContractsPage.cs`: nav "Contracts". Load from game, Prefill from NHL 27, CSV import/export, Save
+    to `%APPDATA%\CenterIceModdingSuite\data\contracts.json`, Preview, Apply to CIMS copy.
+  - `tools\Contracts` (CLI; dry run, `--out` for a folder, `--target … --apply` for a game copy).
+- **Mapping:** contractdollars/extensiondollars = $ ÷ 5,000 (14 bit), contractlength/extensionlength, contractstatus
+  0/−1, contractis2way/extensionis2way, retainedsalarytrades, contractismultiyear (when known), and yearufa = year +
+  (game season − 2026) − 1900 (game season set on the page, default 2023). Only `exhibitionplayerbiotable` cells change.
+  Clauses are suite-only.
+- **Apply:** in place into all five databases through LegacyFiles (every Data/Patch copy), after an ApplyTarget backup.
+  It reads back and restores on a mismatch, and refuses the original game or a running NHL 24.
+- **Tested only on temp copies** of the five stock databases and of the roster-synced copies: every database is the
+  same size, every CRC is valid, and McDavid / Matthews / Draisaitl / Hutson / Celebrini (ELC, two-way, extension) read
+  back as written. A second plan over the result has nothing left to change.
+- **Not done yet:** team dead cap and retained salary (`stockteamsalaryextras`); NHL 27 has the same table, so this is
+  the next prefill.

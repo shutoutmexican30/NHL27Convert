@@ -84,6 +84,7 @@ public partial class MainWindow : Window
                 "textures" => new TexturesPage(_settings),
                 "teams" => new RostersPage(_settings),
                 "editor" => new EditorPage(_settings),
+                "contracts" => new ContractsPage(_settings),
                 "settings" => new SettingsPage(_settings),
                 _ => PlannedPage.For(tag),
             };
@@ -100,6 +101,7 @@ public partial class MainWindow : Window
             "textures" => "Textures & logos — browse and replace any texture",
             "teams" => "Teams & roster — sync every roster database with the NHL",
             "editor" => "Teams & lines — edit rosters, lines and strategies",
+            "contracts" => "Contracts — cap hits, terms, extensions and clauses",
             "settings" => "Settings & about",
             _ => PlannedPage.TitleOf(tag),
         };

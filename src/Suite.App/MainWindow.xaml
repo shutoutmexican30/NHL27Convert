@@ -28,6 +28,7 @@
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="textures" Content="Textures &amp; logos" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="teams" Content="Teams &amp; roster" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="editor" Content="Teams &amp; lines" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="contracts" Content="Contracts" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="scorebug" Content="Scorebug" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="gameplay" Content="Gameplay tweakables" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="sounds" Content="Sounds" Checked="Nav_Checked" />
