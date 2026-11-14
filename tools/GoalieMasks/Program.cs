@@ -133,6 +133,35 @@ var dbs = raw.ToDictionary(kv => kv.Key, kv => T3Db.Load((byte[])kv.Value.Clone(
     return (g, home, own ? db : "nhl_game (borrowed)");
 }
 
+// Brand lettering zones per gear model (data\goalie_lettering_zones.json, read from the NHL 24 recolor textures).
+static double Lum(long c)
+{
+    static double Ch(long v) { double s = v / 255.0; return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4); }
+    return 0.2126 * Ch((c >> 16) & 255) + 0.7152 * Ch((c >> 8) & 255) + 0.0722 * Ch(c & 255);
+}
+static double Contrast(long a, long b) { double x = Lum(a), y = Lum(b); return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05); }
+string? zonesFile = null;
+for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && zonesFile is null; dir = dir.Parent)
+    if (File.Exists(Path.Combine(dir.FullName, "data", "goalie_lettering_zones.json"))) zonesFile = Path.Combine(dir.FullName, "data", "goalie_lettering_zones.json");
+if (Opt("--zones") is { } zo) zonesFile = zo;
+if (zonesFile is null) { Say("REFUSED: data\\goalie_lettering_zones.json not found (pass --zones)"); return 1; }
+var Lettering = new Dictionary<(string Item, long Model), List<(int Zone, List<int> Backs)>>();
+var modelNames = new Dictionary<long, string>();
+{
+    using var zj = System.Text.Json.JsonDocument.Parse(File.ReadAllText(zonesFile));
+    var ids = zj.RootElement.GetProperty("model_ids");
+    foreach (var item in zj.RootElement.GetProperty("zones").EnumerateObject())
+        foreach (var model in item.Value.EnumerateObject())
+            foreach (var id in ids.GetProperty(model.Name).EnumerateArray())
+            {
+                modelNames[id.GetInt64()] = model.Name;
+                var list = model.Value.EnumerateArray().Select(z => (z.GetProperty("zone").GetInt32(),
+                    z.GetProperty("backgrounds").EnumerateArray().Select(b => b.GetInt32()).ToList())).Where(z => z.Item2.Count > 0).ToList();
+                if (list.Count > 0) Lettering[(item.Name, id.GetInt64())] = list;
+            }
+}
+string ModelName(long id) => modelNames.GetValueOrDefault(id, "#" + id);
+
 var output = new Dictionary<string, byte[]>();
 var names24 = new Dictionary<long, string>();
 {
@@ -180,8 +209,74 @@ foreach (var (db, d) in dbs)
         }
         noStock.AddRange(goalies.Keys.Where(g => !done.Contains(g)));
     }
+
+    // ---- gear colours: club row = personal row, then readable brand lettering on both ----
+    // Each row's final colours are worked out first and written once, so a second run finds nothing to change.
+    int synced = 0, lettered = 0;
+    var personalRow = new Dictionary<long, int>(); var clubRow = new Dictionary<long, int>();
+    if (hasEx) for (int r = 0; r < ex!.InUse; r++) { long gid = d.GetInt(ex, r, "game_id"); if (goalies.ContainsKey(gid)) personalRow.TryAdd(gid, r); }
+    if (hasSt) for (int r = 0; r < st!.InUse; r++)
+    {
+        long gid = d.GetInt(st, r, "game_id");
+        if (goalies.ContainsKey(gid) && d.GetInt(st, r, "league") == 0 && d.GetInt(st, r, "team") is >= 0 and <= 31) clubRow.TryAdd(gid, r);
+    }
+    // Lettering: in <colours> (zone column -> colour), for the row's own models, every brand-lettering zone below 3:1
+    // against its background zone(s) gets the row's team colour reaching 3:1 (the strongest), else the strongest of
+    // the team colours, white and black. Returns report lines.
+    List<string> Letter(T3Db.Table t, int r, Dictionary<string, long> colours, string who)
+    {
+        var lines = new List<string>();
+        var palette = colours.Where(kv => kv.Key.Contains("zone")).Select(kv => kv.Value).Distinct().ToList();
+        var choices = palette.Select(c => (C: c, Team: true)).Concat([(C: 0xFFFFFFL, Team: false), (C: 0x000000L, Team: false)]).ToList();
+        foreach (var item in new[] { "pads", "blocker", "trapper" })
+        {
+            if (!Lettering.TryGetValue((item, d.GetInt(t, r, item)), out var zones)) continue;
+            foreach (var (zone, backs) in zones)
+            {
+                string Col(int z) => $"{item}zone{z}color";
+                var bgs = backs.Select(b => colours[Col(b)]).ToList();
+                long cur = colours[Col(zone)];
+                double now = bgs.Min(b => Contrast(cur, b));
+                if (now >= 3) continue;
+                var best = choices.Where(c => c.Team && bgs.Min(b => Contrast(c.C, b)) >= 3).OrderByDescending(c => bgs.Min(b => Contrast(c.C, b))).FirstOrDefault();
+                if (best == default) best = choices.OrderByDescending(c => Math.Round(bgs.Min(b => Contrast(c.C, b)), 1)).ThenByDescending(c => c.Team).First();
+                double after = bgs.Min(b => Contrast(best.C, b));
+                if (after <= now) continue;
+                colours[Col(zone)] = best.C;
+                lines.Add($"{who} {item} {ModelName(d.GetInt(t, r, item))} zone {zone} on {string.Join("/", backs)}: {cur:X6} -> {best.C:X6}{(best.Team ? "" : " (white/black)")}, contrast {now:F1} -> {after:F1}");
+            }
+        }
+        return lines;
+    }
+    Dictionary<string, long> Colours(T3Db.Table t, int r) =>
+        t.Fields.Keys.Where(f => f.EndsWith("color", StringComparison.Ordinal)).ToDictionary(f => f, f => d.GetInt(t, r, f));
+    int Put(T3Db.Table t, int r, Dictionary<string, long> colours) { int n = 0; foreach (var (f, v) in colours) if (Set(t, r, f, v)) n++; return n; }
+    var personalFinal = new Dictionary<long, Dictionary<string, long>>();
+    foreach (var (gid, r) in personalRow)
+    {
+        var who = $"  personal {names24.GetValueOrDefault(gid, gid.ToString())} ({gid})";
+        var c = Colours(ex!, r); var lines = Letter(ex!, r, c, who);
+        personalFinal[gid] = c;
+        if (Put(ex!, r, c) > 0) { lettered += lines.Count; detail.AddRange(lines); }
+    }
+    foreach (var (gid, r) in clubRow)
+    {
+        var who = $"  club     {names24.GetValueOrDefault(gid, gid.ToString())} ({gid})";
+        var c = Colours(st!, r);
+        // The personal row carries the team design (11/03 gear colours); a moved club row kept the old team's colours.
+        bool sync = personalFinal.TryGetValue(gid, out var p);
+        if (sync) foreach (var f in c.Keys.ToList()) if (p!.TryGetValue(f, out var v)) c[f] = v;
+        var lines = Letter(st!, r, c, who);
+        int changed = Put(st!, r, c);
+        if (changed > 0)
+        {
+            if (sync) { synced++; detail.Add($"{who}: gear colours = his personal row, then lettering ({changed} cells)"); }
+            lettered += lines.Count; detail.AddRange(lines);
+        }
+    }
+
     var line = $"{db}: roster from {source}, {goalies.Count} NHL goalies; personal rows changed {exRows}, league-0 club rows changed {stRows} " +
-               $"(stale team fixed {teamFixed}), {cells} cells; no personal row {noPersonal.Count}, no league-0 club row {noStock.Count}" +
+               $"(stale team fixed {teamFixed}), club colours synced {synced}, lettering zones fixed {lettered}, {cells} cells; no personal row {noPersonal.Count}, no league-0 club row {noStock.Count}" +
                (extraClub.Count > 0 ? $", extra league-0 rows left alone {extraClub.Count} ({string.Join(", ", extraClub)})" : "");
     Say(line); report.Add(line); report.AddRange(detail);
     if (cells == 0) continue;

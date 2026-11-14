@@ -1,0 +1,521 @@
+{
+ "note": "Brand lettering zone per goalie gear model (NHL 24 recolor textures, zone n = recolor ceil(n/3) channel (n-1)%3; left piece for blocker/trapper). backgrounds = zones covering >=15% of a 3px ring around the letters. Checked by eye 2026-11-13.",
+ "zones": {
+  "pads": {
+   "bauer_supreme_mach": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      0.95
+     ],
+     "coverage": 0.0029,
+     "stroke": 3.4
+    }
+   ],
+   "bauer_vapor_hyperlite2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0032,
+     "stroke": 4.1
+    }
+   ],
+   "true_catalyst_px3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0037,
+     "stroke": 4.1
+    }
+   ],
+   "true_hzrdus_px4": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0038,
+     "stroke": 4.1
+    }
+   ],
+   "true_l12_2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      12,
+      13
+     ],
+     "shares": [
+      0.64,
+      0.36
+     ],
+     "coverage": 0.0034,
+     "stroke": 4.2
+    }
+   ],
+   "true_l20_2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      12,
+      13
+     ],
+     "shares": [
+      0.56,
+      0.44
+     ],
+     "coverage": 0.004,
+     "stroke": 4.2
+    }
+   ],
+   "vaughn_velocity_v10": [
+    {
+     "zone": 15,
+     "backgrounds": [
+      10,
+      12
+     ],
+     "shares": [
+      0.74,
+      0.21
+     ],
+     "coverage": 0.0034,
+     "stroke": 6.0
+    }
+   ],
+   "vaughn_ventus_slr3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8
+     ],
+     "shares": [
+      1.0
+     ],
+     "coverage": 0.004,
+     "stroke": 7.6
+    },
+    {
+     "zone": 13,
+     "backgrounds": [
+      11
+     ],
+     "shares": [
+      1.0
+     ],
+     "coverage": 0.0049,
+     "stroke": 8.3
+    }
+   ],
+   "brians_iconik_original": [
+    {
+     "zone": 5,
+     "backgrounds": [],
+     "shares": [],
+     "coverage": 0.0013,
+     "stroke": 3.5
+    }
+   ]
+  },
+  "blocker": {
+   "bauer_supreme_mach": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      1.0
+     ],
+     "coverage": 0.0029,
+     "stroke": 4.4
+    }
+   ],
+   "bauer_vapor_hyperlite2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      0.75
+     ],
+     "coverage": 0.0031,
+     "stroke": 5.0
+    }
+   ],
+   "brians_vintage_original": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      3
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0035,
+     "stroke": 7.3
+    }
+   ],
+   "true_catalyst_px3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      12,
+      8
+     ],
+     "shares": [
+      0.61,
+      0.38
+     ],
+     "coverage": 0.0027,
+     "stroke": 3.4
+    }
+   ],
+   "true_hzrdus_px4": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8,
+      12
+     ],
+     "shares": [
+      0.52,
+      0.47
+     ],
+     "coverage": 0.0043,
+     "stroke": 4.4
+    }
+   ],
+   "true_l20_2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      14,
+      12
+     ],
+     "shares": [
+      0.57,
+      0.42
+     ],
+     "coverage": 0.0034,
+     "stroke": 4.1
+    }
+   ],
+   "vaughn_ventus_slr3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0102,
+     "stroke": 8.1
+    }
+   ],
+   "vaughn_velocity_v10": [
+    {
+     "zone": 15,
+     "backgrounds": [
+      14,
+      13
+     ],
+     "shares": [
+      0.53,
+      0.23
+     ],
+     "coverage": 0.002,
+     "stroke": 3.2
+    }
+   ],
+   "ccm_extremeflex_5": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      15,
+      10,
+      9
+     ],
+     "shares": [
+      0.52,
+      0.29,
+      0.17
+     ],
+     "coverage": 0.0103,
+     "stroke": 8.4
+    }
+   ],
+   "ccm_extremeflex_6": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      6,
+      12,
+      11
+     ],
+     "shares": [
+      0.44,
+      0.3,
+      0.25
+     ],
+     "coverage": 0.0043,
+     "stroke": 4.9
+    }
+   ],
+   "brians_iconik_original": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      7
+     ],
+     "shares": [
+      0.2
+     ],
+     "coverage": 0.001,
+     "stroke": 3.4
+    }
+   ]
+  },
+  "trapper": {
+   "bauer_supreme_mach": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0028,
+     "stroke": 3.7
+    }
+   ],
+   "bauer_vapor_hyperlite2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1
+     ],
+     "shares": [
+      1.0
+     ],
+     "coverage": 0.0013,
+     "stroke": 2.9
+    }
+   ],
+   "brians_vintage_original": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      3
+     ],
+     "shares": [
+      0.99
+     ],
+     "coverage": 0.0039,
+     "stroke": 7.7
+    }
+   ],
+   "true_catalyst_px3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      12,
+      8
+     ],
+     "shares": [
+      0.65,
+      0.35
+     ],
+     "coverage": 0.0023,
+     "stroke": 2.8
+    }
+   ],
+   "true_hzrdus_px4": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8,
+      12
+     ],
+     "shares": [
+      0.73,
+      0.26
+     ],
+     "coverage": 0.0031,
+     "stroke": 3.3
+    }
+   ],
+   "true_l20_2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      14,
+      12
+     ],
+     "shares": [
+      0.65,
+      0.35
+     ],
+     "coverage": 0.003,
+     "stroke": 3.6
+    }
+   ],
+   "true_l12_2": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      14,
+      12
+     ],
+     "shares": [
+      0.55,
+      0.44
+     ],
+     "coverage": 0.0039,
+     "stroke": 4.1
+    }
+   ],
+   "vaughn_ventus_slr3": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      8
+     ],
+     "shares": [
+      1.0
+     ],
+     "coverage": 0.0014,
+     "stroke": 4.6
+    }
+   ],
+   "vaughn_velocity_v10": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      7
+     ],
+     "shares": [
+      0.42
+     ],
+     "coverage": 0.0019,
+     "stroke": 3.8
+    },
+    {
+     "zone": 15,
+     "backgrounds": [
+      13,
+      11
+     ],
+     "shares": [
+      0.35,
+      0.33
+     ],
+     "coverage": 0.0008,
+     "stroke": 2.1
+    }
+   ],
+   "ccm_extremeflex_5": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      1,
+      12
+     ],
+     "shares": [
+      0.61,
+      0.21
+     ],
+     "coverage": 0.0048,
+     "stroke": 4.8
+    }
+   ],
+   "ccm_extremeflex_6": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      15,
+      6,
+      12
+     ],
+     "shares": [
+      0.43,
+      0.3,
+      0.19
+     ],
+     "coverage": 0.0032,
+     "stroke": 3.4
+    }
+   ],
+   "brians_iconik_original": [
+    {
+     "zone": 5,
+     "backgrounds": [
+      14
+     ],
+     "shares": [
+      0.17
+     ],
+     "coverage": 0.0015,
+     "stroke": 3.8
+    }
+   ]
+  }
+ },
+ "model_ids": {
+  "bauer_supreme_mach": [
+   122
+  ],
+  "bauer_vapor_hyperlite2": [
+   127
+  ],
+  "true_catalyst_px3": [
+   126
+  ],
+  "true_hzrdus_px4": [
+   131
+  ],
+  "true_l12_2": [
+   118
+  ],
+  "true_l20_2": [
+   121
+  ],
+  "vaughn_velocity_v10": [
+   130
+  ],
+  "vaughn_ventus_slr3": [
+   125
+  ],
+  "brians_iconik_original": [
+   128
+  ],
+  "brians_vintage_original": [
+   67
+  ],
+  "ccm_extremeflex_5": [
+   120
+  ],
+  "ccm_extremeflex_6": [
+   129
+  ]
+ }
+}
