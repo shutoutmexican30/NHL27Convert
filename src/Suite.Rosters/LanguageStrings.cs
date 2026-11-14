@@ -134,10 +134,44 @@ public sealed class LanguageStrings
         _rows.Insert(index < 0 ? _rows.Count : index, (textAt, hash, keyAt));
     }
 
+    /// <summary>
+    /// Changes the text of a key that is already in the table: the new text is appended to the pool and the row is
+    /// repointed (the old text stays as unreferenced pool bytes, so no other row's offset moves). Row count, order, key
+    /// and hash are unchanged. Returns false when the key is not in the table.
+    /// </summary>
+    public bool Set(string key, string text)
+    {
+        if (text.Length is 0 or > 0xFFFF) throw new ArgumentException("Language text is too long.", nameof(text));
+        uint hash = Hash(key);
+        var matches = Enumerable.Range(0, _rows.Count).Where(i => _rows[i].Hash == hash).ToList();
+        if (matches.Count == 0) return false;
+        if (matches.Count > 1) throw new InvalidDataException($"{key}: {matches.Count} rows share its hash.");
+        // The game expects every row's text to sit right before its key in the pool (true for all stock rows, and what
+        // Add writes); pointing a row at new text placed after its old key crashed NHL 24 at boot. So the text AND a
+        // fresh copy of the same key are appended together, exactly like Add.
+        var row = _rows[matches[0]];
+        int keyLen = _bytes[PoolAt + (int)row.Key];
+        string storedKey = Decompress((int)row.Key + 1, keyLen);
+        if (Hash(storedKey) != row.Hash) throw new InvalidDataException($"{key}: stored key does not hash back.");
+        byte[] packed = Compress(text);
+        uint textAt = (uint)(_poolLength + _added.Length);
+        _added.Write([(byte)(text.Length >> 8), (byte)text.Length]);
+        _added.Write(packed);
+        uint keyAt = (uint)(_poolLength + _added.Length);
+        _added.WriteByte((byte)storedKey.Length);
+        _added.Write(Compress(storedKey));
+        _rows[matches[0]] = (textAt, row.Hash, keyAt);
+        return true;
+    }
+
     /// <summary>The database with every added string, its counts, sizes and checksums updated.</summary>
     public byte[] Build()
     {
         byte[] pool = _bytes.AsSpan(PoolAt, _poolLength).ToArray();
+        // Keep the file a multiple of 8 bytes like every stock loc db: boot tests on NHL 24 1.60 (2026-11-14) crashed
+        // whenever eng_us came out at size % 4 == 3, whatever the text was. Padding is unreferenced zero bytes in the pool.
+        int unpadded = RecordsAt + _rows.Count * RecordBytes + pool.Length + (int)_added.Length + 4;
+        if (unpadded % 8 != 0) _added.Write(new byte[8 - unpadded % 8]);
         int newCount = _rows.Count, newPool = pool.Length + (int)_added.Length, poolAt = RecordsAt + newCount * RecordBytes;
         int fileLength = poolAt + newPool + 4;
         var output = new byte[fileLength];

@@ -41,6 +41,22 @@ resize of an own chunk no longer throws. The first proof run hit exactly that on
   rus_ru `TXT_GAME_TITLE_4` (a different string there); keys a copy does not have (base rus_ru is a 13 KB stub).
   eng_us is in a 282-file chunk; it sits at the chunk end (raw 9175040), so the resize only re-encodes its 5 blocks.
 
+**2026-11-13 BOOT FAILURE - the loc part crashes the game.** Applied to `D:\CIMS-test\livecopy` (backup
+`20261113-203332`), the game crashed at launch (shadps4.log access violation; the crash stack holds `GJCv`/`jKhj` = the
+LanguageStrings table/hashid). Restoring that backup made it boot again. So `LanguageStrings.Set` (repointing an
+existing row to text appended at the pool end) and/or resizing the single-file loc chunks is not accepted by the game;
+`Add` (kit names) does boot. **Cause found (2026-11-14):** eng_us alone crashed the same way, so it is not the chunk write. In every stock row the
+text sits *before* its key in the pool (65,498/65,498); `Set` appended new text after the old key (text offset > key
+offset) and the game crashes on that. Fixed: `Set` now appends text + a fresh copy of the key, like `Add` (0 rows with
+text >= key after the fix). Not boot-tested yet. Livecopy restored to `20261114-060025` (DB Utah, no loc).
+Options: `--db-only`, `--only eng_us,...`.
+**Real cause (boot-tested on livecopy, 2026-11-14):** that ordering fix alone still crashed. Bisect on NHL 24 itself:
+rewriting NHLTeamName_PHX with its own text booted; "Arizona Coyotez" / "Utah Mammoth FC" / "Arizona Coyote" /
+"Arizona Coyotes!" booted; "Utah Mammoth" and "Arizona Coyo" crashed. The crashing builds were exactly those whose
+eng_us size % 4 == 3 (stock and kit builds are multiples of 8). `Build` now pads the pool with zero bytes to a multiple
+of 8. Not yet boot-tested with the full 22-key set (owner asked to stop the boot loops). Saved roster RosterCustom0
+removed from livecopy at the owner's request; copy in `backups\20261114-062049-RosterCustom0`.
+
 **Proof on the scratch copy:** apply -> every one of 20 copies read back identical; restore -> 0 differences vs backup
 and every old file back; re-apply -> identical; then a field-level re-read reports all 3,160 checks "already".
 **Bytes appended per apply: 60,557,358** = Patch `nhl_installpackage_00\cas_01` +30,561,752, Data `cas_01` +26,848,857,
@@ -1137,3 +1153,8 @@ the viewer loads them with three.js FBXLoader, both sides, real textures. Then r
 
 Keep this file and the Desktop copy in sync: `powershell -File tools\sync-handoff.ps1` (copies docs\HANDOFF.md to
 `<Desktop>\CIMS_HANDOFF.md`). If script execution is blocked, `Copy-Item docs\HANDOFF.md <Desktop>\CIMS_HANDOFF.md -Force`.
+
+### Utah status 2026-11-14 (end of session)
+On D:\CIMS-test\livecopy (all boot-confirmed by the owner up to the crowd fix): Utah DB edits (nhl_game + initial_experience), Utah loc text in all 8 languages (padded writer), 16 UI t22 logo slots (3D Mammoth in team select), 16 arena textures (power ring, scoreboard, score screen, locker logo, puck, glass ad), centre ice slot 22, crowd: atlases + heads + hat/prop recoloured, NHL 27 chairs/scarf/signs; RosterCustom0 save removed (copy in backups\20261114-062049-RosterCustom0).
+Left: 16 small male crowd jersey sheets (512): the chunk has two copies, logical 0 (full 177152) and logical 131072 (mip tail); ChunkReplace.ReplaceMany re-encodes every copy with the same raw bytes, so the tail copy needs raw[131072..] - fix there. Hat/prop 'COYOTES' text, Kachina on the sand hoodie, 7 non-power-of-two UI logos (80x80 etc., TextureRes.ValidateSizes), Arizona-only arena pieces (tarps, metal, wall branding, entrance logo, Coyotes banner, ice projection), team-select jersey tiles, a22 picture, ESPN/Prime scorebug colours, goal horn (no sound writer; not approved).
+

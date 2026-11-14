@@ -1,4 +1,4 @@
-// TextureSlot export <game> <texture name> <out-dir>                 every layer's mip 0 as PNG (read only)
+﻿// TextureSlot export <game> <texture name> <out-dir>                 every layer's mip 0 as PNG (read only)
 // TextureSlot apply  <game> <texture name> <png> [--layer N] [--alpha] [--restore] --apply   (dry run without --apply)
 //     writes with TextureSlots.Apply (backup, all references, read-back); --restore puts the backup back afterwards
 //     and checks the game is byte-identical to it again (test copies only: the original game is refused).
@@ -14,6 +14,12 @@ foreach (var original in new[] { settings.Nhl24GameDir, settings.Nhl24BaseDir, s
 var index = BundleIndex.Build(game);
 var slot = TextureSlots.Read(game, index, args[2]);
 Console.WriteLine($"{args[2]}: {slot.Res.Width}x{slot.Res.Height}, {slot.Res.MipCount} mips, {Ps4Codec.Slices(slot.Res.Header)} layer(s), {Ps4Codec.Of(slot.Res.Header, slot.Res.BlockBytes)}");
+if (args[0] == "info")
+{
+    Console.WriteLine("mips: " + string.Join(",", slot.Res.MipSizes) + " payload " + slot.Res.PayloadSize + " fmtbyte " + slot.Res.Header[12] + " firstmip? " + slot.Res.Header[28] + "," + slot.Res.Header[29] + "," + slot.Res.Header[31]);
+    foreach (var c in ChunkReplace.ReadAll(game, index, slot.Chunk)) Console.WriteLine($"copy logical {c.LogicalOffset} raw {c.Raw.Length}");
+    return 0;
+}
 if (args[0] == "export")
 {
     Directory.CreateDirectory(args[3]);
@@ -42,3 +48,4 @@ if (args.Contains("--restore"))
     if (left.Count > 0) return 1;
 }
 return 0;
+

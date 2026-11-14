@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Arizona Coyotes (team 22) -> Utah Mammoth: DB fields + loc strings, with the suite's own legacy writer. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
+    <ProjectReference Include="..\..\src\Suite.Rosters\Suite.Rosters.csproj" />
+  </ItemGroup>
+</Project>

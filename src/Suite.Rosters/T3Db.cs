@@ -129,6 +129,25 @@ public sealed class T3Db
     }
 
     /// <summary>
+    /// Writes a fixed-width string field (type 0) in place: UTF-8 bytes, NUL-padded to the field's width, which must hold
+    /// the text plus one NUL. The file size and layout never change; refuses rather than truncates.
+    /// </summary>
+    public void SetString(Table t, int record, string field, string value)
+    {
+        if (!t.Fields.TryGetValue(field, out var f)) throw new KeyNotFoundException($"{t.Name} has no field {field}.");
+        if (f.Type != 0) throw new InvalidOperationException($"{t.Name}.{field} is not a string field (type {f.Type}).");
+        if (f.BitOffset % 8 != 0 || f.Depth % 8 != 0) throw new InvalidDataException($"{t.Name}.{field}: string not byte aligned.");
+        if (record < 0 || record >= t.InUse) throw new ArgumentOutOfRangeException(nameof(record), $"{t.Name}: record {record} is not in use ({t.InUse}).");
+        var text = System.Text.Encoding.UTF8.GetBytes(value);
+        int width = f.Depth / 8;
+        if (text.Length + 1 > width) throw new ArgumentOutOfRangeException(nameof(value), $"{t.Name}.{field}: '{value}' needs {text.Length + 1} bytes, the field holds {width}.");
+        var span = Bytes.AsSpan(t.RecordsAt + record * t.RecordBytes + f.BitOffset / 8, width);
+        span.Clear();
+        text.CopyTo(span);
+        _dirty.Add(t);
+    }
+
+    /// <summary>
     /// Adds one record at <paramref name="at"/>, a copy of record <paramref name="copyOf"/> (an index before the insert),
     /// inside the table's own spare slots: the records from <paramref name="at"/> move down one slot, the header's in-use
     /// count (high 16 bits of u32 +16) goes up and its CRC is recomputed.  The file size and every other table stay put;
