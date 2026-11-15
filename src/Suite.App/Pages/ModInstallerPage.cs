@@ -17,6 +17,7 @@ public sealed class ModInstallerPage : ScrollViewer
     readonly TextBox _stock, _modded, _out, _name, _version, _notes;
     readonly TextBox _log = new() { IsReadOnly = true, Height = 260, FontFamily = new FontFamily("Consolas"), TextWrapping = TextWrapping.NoWrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 10, 0, 0) };
     readonly Button _build;
+    readonly CheckBox _zip = new() { Content = "Also make a .zip to share", IsChecked = true, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
 
     public ModInstallerPage(SuiteSettings settings)
     {
@@ -56,6 +57,7 @@ public sealed class ModInstallerPage : ScrollViewer
         var buttons = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
         _build = Button("Build mod installer", Build);
         buttons.Children.Add(_build);
+        buttons.Children.Add(_zip);
         buttons.Children.Add(Button("Open output folder", () => { Directory.CreateDirectory(_out.Text); Process.Start("explorer.exe", _out.Text); }));
         root.Children.Add(buttons);
         root.Children.Add(_log);
@@ -93,18 +95,23 @@ public sealed class ModInstallerPage : ScrollViewer
         try
         {
             var notes = _notes.Text.Trim();
+            bool zip = _zip.IsChecked == true;
             var m = await Task.Run(() =>
             {
                 Directory.CreateDirectory(folder);
                 foreach (var old in Directory.GetFiles(folder, "*.cimspkg")) File.Delete(old);
                 var man = PackageBuilder.Build(new BuildOptions { StockRoot = stock, ModdedRoot = modded, OutputPath = pkg, Name = name, Version = version, Notes = notes }, new SyncLog(Say));
                 File.Copy(exe!, Path.Combine(folder, InstallerExe), overwrite: true);
-                File.WriteAllText(Path.Combine(folder, "README.txt"),
-                    $"{name} {version}\r\n\r\nNeeds: {man.Requires}.\r\n\r\n" +
-                    "1. Close the game.\r\n2. Keep CIMS-Mod-Installer.exe and the .cimspkg file in the same folder and run CIMS-Mod-Installer.exe.\r\n" +
-                    "3. Pick your NHL24PC folder (the one with game and game-UPDATE in it), press Check game, then Install.\r\n\r\n" +
-                    "The installer refuses to run if your game files are not the stock version it was built for. It backs up every byte it replaces to " +
-                    "user\\cims_mod_backup inside your NHL24PC folder; Uninstall puts the stock files back and removes that backup.\r\n");
+                var guide = Path.Combine(AppContext.BaseDirectory, "data", "mod-installer", "INSTALL GUIDE.txt");
+                var text = File.Exists(guide) ? File.ReadAllText(guide) : "{NAME} {VERSION}\r\n\r\nRun CIMS-Mod-Installer.exe, pick your NHL24PC folder, Check game, Install.\r\n";
+                File.WriteAllText(Path.Combine(folder, "INSTALL GUIDE.txt"), text.Replace("{NAME}", name).Replace("{VERSION}", version).ReplaceLineEndings("\r\n"));
+                if (zip)
+                {
+                    var zipPath = folder + ".zip";
+                    Say("Zipping (stored, the data is already compressed): " + zipPath);
+                    if (File.Exists(zipPath)) File.Delete(zipPath);
+                    System.IO.Compression.ZipFile.CreateFromDirectory(folder, zipPath, System.IO.Compression.CompressionLevel.NoCompression, includeBaseDirectory: true);
+                }
                 return man;
             });
             Say($"Done: {m.Files.Count} files. Hand out the whole folder: {folder}");

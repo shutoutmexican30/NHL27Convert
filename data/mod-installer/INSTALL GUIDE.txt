@@ -1,0 +1,65 @@
+{NAME} {VERSION} - INSTALL GUIDE
+==========================================
+
+This mod is for NHL 24 played on PC with NHL24PC. It does not include the game. It changes your own game files
+and can be removed again at any time.
+
+
+WHAT YOU NEED
+-------------
+1. NHL24PC V3.2, set up with its Install.bat.
+2. The NHL 24 US base game PKG, version 1.00 (CUSA37933). Extract it with Install.bat, option 1.
+3. The NHL 24 US update PKG, version 1.60. Install it with Install.bat, option 3.
+4. About 12 GB of free space on the drive where NHL24PC is installed. The mod adds about 8 GB and keeps a
+   3 GB backup.
+
+The installer checks every file it changes. If your game is a different version, it stops and changes nothing. That
+includes the EU version (CUSA37934), a game without the 1.60 update, and a game that already has other mods
+in its data files.
+
+
+INSTALL
+-------
+1. Close the game and the NHL24PC launcher.
+2. Unzip this archive to any folder, for example your Desktop. Keep CIMS-Mod-Installer.exe and the .cimspkg file
+   together in the same folder.
+3. Run CIMS-Mod-Installer.exe.
+   - If Windows SmartScreen warns you, click "More info" and then "Run anyway". The installer is not signed.
+4. Click "Browse..." and pick your NHL24PC folder. It is the folder that holds "game", "game-UPDATE" and
+   "Play NHL 24.bat".
+5. Click "Check game". It should say: "Your game matches the stock version. Ready to install."
+6. Click "Install" and confirm. This takes a few minutes. Wait until the log says "Done."
+7. Start the game as usual with "Play NHL 24.bat" or the desktop shortcut.
+
+After the install, you can delete the unzipped folder. If you want to be able to uninstall later without
+downloading it again, keep the installer.
+
+
+UNINSTALL
+---------
+1. Close the game.
+2. Run CIMS-Mod-Installer.exe, pick the same NHL24PC folder, and click "Uninstall".
+3. Your files go back to stock exactly, and the backup folder (NHL24PC\user\cims_mod_backup) is deleted.
+
+
+UPDATING TO A NEWER VERSION OF THIS MOD
+---------------------------------------
+Uninstall the old version with its own installer first, then install the new one.
+
+
+TROUBLESHOOTING
+---------------
+"Your game files don't match the stock version"
+    Your game is a different version, a different region, or already modded. Reinstall the game with NHL24PC's
+    Install.bat: option 1 with the US 1.00 PKG, then option 3 with the 1.60 update. Then try again.
+
+"Close the game first"
+    The game or the launcher is still running from that folder. Close it, and check the system tray.
+
+"Not enough disk space"
+    Free up space on that drive. The message says how much is needed.
+
+The install stopped partway (power loss, crash)
+    Run the installer again and click "Uninstall". It puts the stock files back from the backup. Then install again.
+
+Do not delete NHL24PC\user\cims_mod_backup while the mod is installed. Uninstall needs it.
