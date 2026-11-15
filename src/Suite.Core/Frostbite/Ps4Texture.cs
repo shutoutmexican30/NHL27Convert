@@ -45,8 +45,9 @@ public sealed class TextureRes
     void ValidateSizes()
     {
         int w = Width, h = Height;
+        // Padded sizes first (non-power-of-two UI logos such as 80x80 BC3 = 24x24 padded blocks), then bytes per pixel.
         long perPixel = (long)MipSizes[0] * 16 / ((long)w * h);
-        BlockBytes = perPixel switch
+        BlockBytes = MipSizes[0] == MipBytes(w, h, 16) ? 16 : MipSizes[0] == MipBytes(w, h, 8) ? 8 : perPixel switch
         {
             16 => 16,
             8 => 8,
