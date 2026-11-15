@@ -489,3 +489,4 @@ $RECYCLE.BIN/
 # Obfuscation output and generated config
 dist/
 tools/obfuscate/suite.generated.xml
+single.generated.xml

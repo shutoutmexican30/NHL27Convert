@@ -25,6 +25,17 @@ an obfuscated copy of the whole app to `dist\suite-obfuscated` and a name map to
 - **Stronger option not done:** moving the valuable logic to a server the tool calls (always-online) protects far more
   than client-side obfuscation, which a determined expert can still defeat.
 
+### Single self-contained Suite exe (2026-11-15)
+
+`tools\obfuscate\build-single-exe.ps1` produces one self-contained, obfuscated `CenterIceModdingSuite.exe` (~259 MB,
+no .NET install, no loose DLLs) under `dist\suite-single-exe`. Pipeline: publish self-contained single file (creates the
+bundle host) → obfuscate the managed assemblies in the win-x64 build output → re-bundle with `--no-build` so the single
+file contains the obfuscated DLLs. Verified: the extracted exe runs standalone with no errors.
+- **Not a lone exe:** the Suite reads sidecar folders at runtime — `data\` (~1.8 MB json), `viewer\` (three.js reader),
+  `tools\nhl27_bridge.py` — so the shareable deliverable is `dist\CenterIceModdingSuite-standalone.zip` (~148 MB): the
+  exe plus those folders in a "Center Ice Modding Suite" folder. Recipient extracts and runs the exe.
+- To make it a true lone exe, those sidecars would need embedding + first-run extraction (not done).
+
 ## Disk cleanup (2026-11-15)
 
 At the owner's request, every test game copy was deleted (D:\CIMS-test livecopy, play, install-validation, NHL24-merged(-kit), installer-test; Debugging apply-target and v32-recovery), as were all suite restore points (`%LOCALAPPDATA%\CenterIceModdingSuiteackups`, D:\CIMS-test backups/fullkit-backups/array-backups) and NHL24PC.rar. **Backup paths named in older sections below no longer exist.** Every livecopy cas file was a byte prefix of the main game's, so main holds all of livecopy's work. Kept: main game, `D:\CIMS-test\stock-v32`, the release zip, the 1.00 and 1.60 PKGs, and the play copy's saves in `D:\CIMS-test\saves-from-play-copy`. Test on a fresh robocopy of stock-v32 and delete it afterwards.
