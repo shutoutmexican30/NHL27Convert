@@ -94,7 +94,7 @@ public sealed class SuiteSettings
     /// <summary>Migrates pre-profile settings once and keeps the active profile authoritative on later loads.</summary>
     public bool EnsureGameBuilds()
     {
-        var before = JsonSerializer.Serialize(new { ActiveGameBuildId, Nhl24GameDir, ApplyTargetDir, Count = GameBuilds?.Count ?? -1 });
+        var before = $"{ActiveGameBuildId}\u0001{Nhl24GameDir}\u0001{ApplyTargetDir}\u0001{GameBuilds?.Count ?? -1}";
         GameBuilds ??= [];
         if (ActiveGameBuild is null)
         {
@@ -104,7 +104,7 @@ public sealed class SuiteSettings
             else if (GameBuilds.FirstOrDefault(b => !string.IsNullOrWhiteSpace(b.Id)) is { } first) SelectGameBuild(first.Id);
         }
         else SelectGameBuild(ActiveGameBuild.Id);
-        var after = JsonSerializer.Serialize(new { ActiveGameBuildId, Nhl24GameDir, ApplyTargetDir, Count = GameBuilds.Count });
+        var after = $"{ActiveGameBuildId}\u0001{Nhl24GameDir}\u0001{ApplyTargetDir}\u0001{GameBuilds.Count}";
         return before != after;
     }
 

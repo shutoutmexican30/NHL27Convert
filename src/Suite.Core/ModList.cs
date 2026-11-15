@@ -79,5 +79,6 @@ public sealed class ModFile
     }
 
     /// <summary>The Worker's plan.json shape ({"Replacements":[...], "Legacy":[...]}).</summary>
-    public string ToWorkerPlan() => JsonSerializer.Serialize(new { Replacements, Legacy }, Json);
+    public string ToWorkerPlan() => JsonSerializer.Serialize(
+        new Dictionary<string, object?> { ["Replacements"] = Replacements, ["Legacy"] = Legacy }, Json);
 }

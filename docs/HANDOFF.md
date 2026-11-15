@@ -3,6 +3,28 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Obfuscating the Suite (2026-11-15): WORKING
+
+Protects the distributed Suite against casual and AI-assisted reverse engineering with Obfuscar (free, in the NuGet
+cache at `~/.nuget/packages/obfuscar/2.2.40`). Run `tools\obfuscate\obfuscate-suite.ps1` after a Release build; it writes
+an obfuscated copy of the whole app to `dist\suite-obfuscated` and a name map to `dist\suite-obfuscation-mapping.txt`
+(both gitignored). Launch `dist\suite-obfuscated\CenterIceModdingSuite.exe` to confirm it still runs.
+
+- **All assemblies:** every string literal is encrypted (hides paths, messages, file-format knowledge, offsets).
+- **Renamed (private/internal members → gibberish):** Suite.Gameplay, Suite.Scorebug, Suite.Sounds, Suite.Textures,
+  Suite.ModPackage. Public API is kept so cross-assembly calls still bind.
+- **String-encrypted only, not renamed:** CenterIceModdingSuite and Suite.Convert27 (WPF resolves XAML handlers/types by
+  name through BAML), and Suite.Core and Suite.Rosters (System.Text.Json binds their positional-record models through
+  constructor parameter names, which Obfuscar nulls — renaming them made the asset-index cache fail and forced a rebuild).
+- **Obfuscar limits:** it does string hiding + renaming but not control-flow obfuscation, and it strips constructor
+  parameter names (breaks STJ records / anonymous types). `RenameProperties/Fields/Parameters=false` and the
+  `KeepParameterNames` var did not prevent the param-name stripping, so the record-heavy assemblies are left unrenamed.
+- **Source fix:** three `JsonSerializer.Serialize(new { ... })` anonymous types in `SuiteSettings.EnsureGameBuilds` and
+  `ModList.ToWorkerPlan` threw under obfuscation; they are now plain strings / a `Dictionary<string,object?>` with the
+  same JSON. Any new `Serialize(new { ... })` will reintroduce the crash — use a dictionary or a get/set class instead.
+- **Stronger option not done:** moving the valuable logic to a server the tool calls (always-online) protects far more
+  than client-side obfuscation, which a determined expert can still defeat.
+
 ## Disk cleanup (2026-11-15)
 
 At the owner's request, every test game copy was deleted (D:\CIMS-test livecopy, play, install-validation, NHL24-merged(-kit), installer-test; Debugging apply-target and v32-recovery), as were all suite restore points (`%LOCALAPPDATA%\CenterIceModdingSuiteackups`, D:\CIMS-test backups/fullkit-backups/array-backups) and NHL24PC.rar. **Backup paths named in older sections below no longer exist.** Every livecopy cas file was a byte prefix of the main game's, so main holds all of livecopy's work. Kept: main game, `D:\CIMS-test\stock-v32`, the release zip, the 1.00 and 1.60 PKGs, and the play copy's saves in `D:\CIMS-test\saves-from-play-copy`. Test on a fresh robocopy of stock-v32 and delete it afterwards.
