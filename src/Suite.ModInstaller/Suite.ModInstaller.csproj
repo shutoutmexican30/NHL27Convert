@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Standalone installer handed to players with a .cimspkg next to it. Published self-contained single-file
+       (tools\publish-installer.ps1) so players need no .NET install. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>CIMS-Mod-Installer</AssemblyName>
+    <ApplicationIcon>..\Suite.App\Assets\cims.ico</ApplicationIcon>
+    <Product>Center Ice Mod Installer</Product>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Suite.ModPackage\Suite.ModPackage.csproj" />
+  </ItemGroup>
+</Project>

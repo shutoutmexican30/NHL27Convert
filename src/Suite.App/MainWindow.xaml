@@ -34,6 +34,7 @@
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="sounds" Content="Sounds" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="ui" Content="UI scripts" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="apply" Content="Apply &amp; restore" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="installer" Content="Build mod installer" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="settings" Content="Settings &amp; about" Checked="Nav_Checked" />
         </StackPanel>
       </DockPanel>

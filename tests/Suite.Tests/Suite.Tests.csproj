@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\src\Suite.Core\Suite.Core.csproj" />
     <ProjectReference Include="..\..\src\Suite.Convert27\Suite.Convert27.csproj" />
     <ProjectReference Include="..\..\src\Suite.Scorebug\Suite.Scorebug.csproj" />
+    <ProjectReference Include="..\..\src\Suite.ModPackage\Suite.ModPackage.csproj" />
   </ItemGroup>
 
 </Project>

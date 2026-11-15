@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Suite.Scorebug\Suite.Scorebug.csproj" />
     <ProjectReference Include="..\Suite.Gameplay\Suite.Gameplay.csproj" />
     <ProjectReference Include="..\Suite.Sounds\Suite.Sounds.csproj" />
+    <ProjectReference Include="..\Suite.ModPackage\Suite.ModPackage.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +36,11 @@
     <SplashScreen Include="Assets\splash.png" />
     <None Include="Assets\cims-logo.svg" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\**" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Standalone installer for "Build mod installer"; produced by tools\publish-installer.ps1. -->
+    <None Include="..\Suite.ModInstaller\bin\publish\CIMS-Mod-Installer.exe" Link="installer\CIMS-Mod-Installer.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\Suite.ModInstaller\bin\publish\CIMS-Mod-Installer.exe')" />
   </ItemGroup>
 
 </Project>

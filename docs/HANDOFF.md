@@ -3,6 +3,55 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Mod installer for sharing the mod without the game (2026-11-15): BUILT AND SELF-TESTED
+
+**What:** `src/Suite.ModPackage` diffs a modded NHL24PC against a fresh stock install and writes a `.cimspkg` with only
+the changed files and byte ranges. `src/Suite.ModInstaller` is the player-facing `CIMS-Mod-Installer.exe`: a WinForms app,
+self-contained single file (~72 MB, no .NET needed), that also has a CLI (`--game <NHL24PC> --check|--install|--uninstall [--package f]`).
+The suite has a **Build mod installer** nav page (`Pages/ModInstallerPage.cs`). It writes `<out>\<name> <version>\`, which
+holds the exe, the .cimspkg and a README. Headless builds use `tools/ModPackageBuild`.
+
+**Format:** `"CIMSPKG1"`, then one Deflate blob per file, then the manifest JSON, its int64 length, and `"CIMSPKG1"`.
+- **Entry actions:** patch, add or delete. Each entry stores the stock and mod size and SHA-256.
+- **Patch entries:** they hold the changed ranges, found by comparing 4 KB blocks and merging gaps up to 64 KB, plus the
+  appended tail. If more than half the file changed, the whole file is shipped.
+- **Why ranges are enough:** the suite's writers only append or overwrite and never shift data.
+- **Scope:** `game\` and `game-UPDATE\`. `eboot.bin` and `*.orig` are excluded because NHL24PC setup patches
+  `game-UPDATE\eboot.bin` per machine.
+
+**Installer:**
+1. Refuses to run if the emulator or launcher is running from that folder.
+2. Hash-checks every touched file against stock and lists mismatches.
+3. Checks free disk space.
+4. Saves the old bytes of every overwritten range, plus the tail it cuts off, to `user\cims_mod_backup\`
+   (`state.json` + `data.bin`). Each file's state is recorded before the file is touched.
+5. Applies the package, then reads back the mod hashes. On any failure it rolls back.
+6. Uninstall restores the old bytes, checks the stock hashes, and deletes the backup.
+
+**Stock baseline:** `D:\CIMS-test\stock-v32\NHL24PC` contains `NHL24PC_V3.2.zip`, the hako 1.00 PKG (CUSA37933) and
+the 1.60 PKG, each extracted with that build's own `nhl24_new.exe --extract-pkg`. Keep this folder untouched, because
+it is the reference for future builds. Players need the same setup: US CUSA37933, 1.00 + 1.60, V3.2. An EU (CUSA37934)
+game will fail the hash check.
+
+**First package:** `D:\CIMS-test\modpkg\CenterIce.cimspkg` plus the installer exe.
+- **Size:** 10.64 GB. It covers 48 files with 11.03 GB of changed bytes; the cas data is already compressed. Built in
+  4 minutes.
+- **Contents:** no adds or deletes. The biggest entries are Data `nhl_installpackage_05` cas_05 (3.44 GB), cas_13
+  (2.69 GB) and cas_10 (2.43 GB). cas_05 is 3.69 GB after the mod, under the 4 GB cap.
+
+**Self-test** on `D:\CIMS-test\installer-test\NHL24PC` (a robocopy of stock), using the published exe:
+- **Install:** took 56 s and made a 3.03 GB backup.
+- **Install vs main game:** 151 of 152 files in game\ + game-UPDATE\ were byte-identical. The only difference was
+  `game-UPDATE\eboot.bin`, which is excluded on purpose.
+- **Uninstall vs stock:** all 152 files were identical, `--check` reported `Stock: 48`, and the backup folder was removed.
+- **Negative tests:** a one-byte change to `globals.toc` made the install refuse with a clear message. A second install
+  is refused. The GUI starts.
+- **Unit test:** `tests/Suite.Tests/ModPackageTests.cs` covers shrink, grow, in-place, add, delete and the eboot exclusion
+  in a round trip.
+
+**Rebuild the exe:** run `tools\publish-installer.ps1`, then build Suite.App. The csproj copies the exe into the suite's
+`installer\` folder.
+
 ## Commentary name calls: tool built and tested, NOT APPLIED (2026-11-15)
 
 Full notes: [COMMENTARY_FEASIBILITY.md](COMMENTARY_FEASIBILITY.md) sections 6–8.

@@ -86,6 +86,7 @@ public partial class MainWindow : Window
                 "editor" => new EditorPage(_settings),
                 "contracts" => new ContractsPage(_settings),
                 "settings" => new SettingsPage(_settings),
+                "installer" => new ModInstallerPage(_settings),
                 _ => PlannedPage.For(tag),
             };
             _pages[tag] = page;
@@ -103,6 +104,7 @@ public partial class MainWindow : Window
             "editor" => "Teams & lines — edit rosters, lines and strategies",
             "contracts" => "Contracts — cap hits, terms, extensions and clauses",
             "settings" => "Settings & about",
+            "installer" => "Build mod installer — share the mod without the game",
             _ => PlannedPage.TitleOf(tag),
         };
     }

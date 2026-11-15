@@ -122,6 +122,10 @@ public sealed class SuiteSettings
     public string Nhl24GameDir { get; set; } = "";
     /// <summary>Read-only merged view of game\ + game-UPDATE\ that the stopgap Worker reads through (FMT writes its backups here, never into the game).</summary>
     public string Nhl24ReadView { get; set; } = "";
+    /// <summary>A fresh, unmodded NHL24PC install (V3.2 + 1.00 PKG + 1.60 update) that "Build mod installer" diffs against. Read only.</summary>
+    public string StockGameDir { get; set; } = "";
+    /// <summary>Where "Build mod installer" writes the installer folder.</summary>
+    public string ModInstallerOutDir { get; set; } = "";
     /// <summary>Stopgap backend: a built NHL24Kit Worker runtime folder (with FrostbiteProfiles).</summary>
     public string WorkerRuntimeDir { get; set; } = "";
     /// <summary>Older NHL24Kit texture dumps that can be reused instead of re-dumping.</summary>

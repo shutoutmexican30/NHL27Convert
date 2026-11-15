@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Mod distribution package (.cimspkg): only the files and byte ranges a mod changed against a stock install,
+       plus the installer logic (stock hash check, range backup, apply, uninstall). No dependencies, so the
+       standalone installer can link it. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>
