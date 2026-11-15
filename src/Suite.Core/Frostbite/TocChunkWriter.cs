@@ -10,6 +10,12 @@ public static class TocChunkWriter
     public sealed record Ref(TocFile Toc, ChunkRef Where);
     public sealed record WriteResult(Guid Id, string Cas, long Offset, int StoredLength, int Repointed, List<string> Log);
 
+    /// <summary>A CAS file to write into instead of the chunk's own (Data/Patch layer, install package, cas number).</summary>
+    public sealed record CasTarget(bool Patch, int Catalog, int Cas)
+    {
+        public override string ToString() => $"{(Patch ? "Patch" : "Data")} nhl_installpackage_{Catalog:D2}/cas_{Cas:D2}";
+    }
+
     /// <summary>Every TOC under the resolved Data and Patch layers that carries chunk tables.</summary>
     public static List<TocFile> LoadTocs(string game) => BundleIndex.Tocs(game).Select(TocFile.Load).ToList();
 
@@ -38,9 +44,12 @@ public static class TocChunkWriter
     /// <summary>
     /// Appends <paramref name="raw"/> as new blocks and repoints the live copy. When
     /// <paramref name="expectedCurrentRaw"/> is given, the copy that decodes to it is the one treated as live - so a stale
-    /// duplicate is never picked by accident.
+    /// duplicate is never picked by accident. <paramref name="into"/> writes into another existing CAS (one with room
+    /// under the 4 GB limit); the repointed entries then name that CAS. <paramref name="storeUncompressed"/> writes
+    /// stored-only blocks, which streamed audio needs (Kraken-compressed audio chunks play as silence).
     /// </summary>
-    public static WriteResult Replace(string game, Guid id, byte[] raw, byte[]? expectedCurrentRaw = null)
+    public static WriteResult Replace(string game, Guid id, byte[] raw, byte[]? expectedCurrentRaw = null, CasTarget? into = null,
+        bool storeUncompressed = false)
     {
         if (!File.Exists(Path.Combine(game, "package.mft")))
             throw new InvalidDataException($"{game} does not look like a game root (no package.mft).");
@@ -68,11 +77,14 @@ public static class TocChunkWriter
         if (target is null)
             throw new InvalidDataException("No copy of the chunk decodes to the expected current payload; refusing to guess.\n  " + string.Join("\n  ", tried));
 
-        var stored = ChunkBlocks.EncodeBlocks(raw);
+        var stored = storeUncompressed ? ChunkBlocks.StoreBlocks(raw) : ChunkBlocks.EncodeBlocks(raw);
         if (!ChunkBlocks.Parse(stored).Decode().AsSpan().SequenceEqual(raw))
             throw new InvalidOperationException("The rebuilt stored blocks do not decode back to the new payload.");
 
-        var cas = CasPath(game, target.Where);
+        var cas = into is null ? CasPath(game, target.Where) : BundleIndex.CasPath(game, into.Patch, into.Catalog, into.Cas);
+        if (!File.Exists(cas)) throw new FileNotFoundException($"Target CAS {cas} does not exist.");
+        if (into is not null && new FileInfo(cas).Length + stored.Length > uint.MaxValue)
+            throw new InvalidOperationException($"{cas} has no room for {stored.Length:N0} bytes.");
         long offset;
         using (var fs = new FileStream(cas, FileMode.Append, FileAccess.Write, FileShare.Read))
         {
@@ -88,7 +100,8 @@ public static class TocChunkWriter
         foreach (var toc in tocs)
             if (toc.Find(id) is { } r && r.SameLocation(target.Where))
             {
-                toc.Repoint(r.EntryPos, (uint)offset, (uint)stored.Length);
+                if (into is null) toc.Repoint(r.EntryPos, (uint)offset, (uint)stored.Length);
+                else toc.RepointTo(r.EntryPos, into.Patch, into.Catalog, into.Cas, (uint)offset, (uint)stored.Length);
                 dirty.Add(toc);
                 repointed++;
             }

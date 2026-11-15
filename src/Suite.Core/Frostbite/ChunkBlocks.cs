@@ -71,6 +71,29 @@ public sealed class ChunkBlocks
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// <paramref name="raw"/> as stored-only blocks (type 0x00, 256 KB each): how the game stores streamed audio, which
+    /// it reads by byte range. Decodes back to <paramref name="raw"/> exactly.
+    /// </summary>
+    public static byte[] StoreBlocks(byte[] raw, int blockRawSize = 262144)
+    {
+        if (blockRawSize is < 1 or > 0xFFFFF) throw new ArgumentOutOfRangeException(nameof(blockRawSize));
+        using var ms = new MemoryStream(raw.Length + raw.Length / blockRawSize * 8 + 8);
+        Span<byte> h = stackalloc byte[8];
+        for (int at = 0; at < raw.Length || (at == 0 && raw.Length == 0); at += blockRawSize)
+        {
+            int n = Math.Min(blockRawSize, raw.Length - at);
+            BinaryPrimitives.WriteUInt32BigEndian(h, (uint)n);
+            h[4] = 0x00;
+            h[5] = (byte)(0x70 | (n >> 16));
+            BinaryPrimitives.WriteUInt16BigEndian(h[6..], (ushort)(n & 0xFFFF));
+            ms.Write(h);
+            ms.Write(raw, at, n);
+            if (raw.Length == 0) break;
+        }
+        return ms.ToArray();
+    }
+
     /// <summary>A new Oodle block for <paramref name="raw"/> (stored as is when that would not be smaller).</summary>
     public static byte[] EncodeBlock(ReadOnlySpan<byte> raw)
     {

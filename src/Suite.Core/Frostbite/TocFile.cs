@@ -61,6 +61,16 @@ public sealed class TocFile
         BinaryPrimitives.WriteUInt32BigEndian(Bytes.AsSpan(entryPos + 8), size);
     }
 
+    /// <summary>Repoints an entry into a different CAS: rewrites the location's patch/catalog/cas bytes (byte 0 kept).</summary>
+    public void RepointTo(int entryPos, bool patch, int catalog, int cas, uint offset, uint size)
+    {
+        if (catalog is < 0 or > 255 || cas is < 0 or > 255) throw new ArgumentOutOfRangeException(nameof(cas));
+        Bytes[entryPos + 1] = (byte)(patch ? 1 : 0);
+        Bytes[entryPos + 2] = (byte)catalog;
+        Bytes[entryPos + 3] = (byte)cas;
+        Repoint(entryPos, offset, size);
+    }
+
     public void Save()
     {
         var tmp = Path + ".cims-tmp";

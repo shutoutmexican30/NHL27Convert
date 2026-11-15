@@ -142,7 +142,14 @@ public static class FontRecolor
     {
         if (!c.TryGetValue("fill", out var f) || !c.TryGetValue("outline", out var o)) return null;
         var main = new Palette(Rgb.Parse(f), Rgb.Parse(o));
-        var sleeve = new Palette(Rgb.Parse(c.GetValueOrDefault("sleeveFill", f)), Rgb.Parse(c.GetValueOrDefault("sleeveOutline", o)));
-        return band => !NumberBands.Contains(band) ? null : SleeveBands.Contains(band) ? sleeve : main;
+        // "sleeveFill": "keep" leaves the sleeve numbers as the NHL 24 sheet has them (Vegas home: white with gold, as in
+        // NHL 27, while the back numbers changed to charcoal with white).
+        var sleeve = c.GetValueOrDefault("sleeveFill") == "keep" ? null
+            : new Palette(Rgb.Parse(c.GetValueOrDefault("sleeveFill", f)), Rgb.Parse(c.GetValueOrDefault("sleeveOutline", o)));
+        // Optional name-letter colours ("letterFill"/"letterOutline", bands 0-1): Vegas home's NHL 27 name letters are
+        // charcoal where NHL 24's are white.
+        var letters = c.TryGetValue("letterFill", out var lf)
+            ? new Palette(Rgb.Parse(lf), Rgb.Parse(c.GetValueOrDefault("letterOutline", lf))) : null;
+        return band => band is 0 or 1 ? letters : !NumberBands.Contains(band) ? null : SleeveBands.Contains(band) ? sleeve : main;
     }
 }

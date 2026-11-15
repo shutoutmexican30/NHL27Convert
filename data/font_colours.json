@@ -11,5 +11,5 @@
   "stlouis home": { "fill": "#FFB000", "outline": "#FFB000" },
   "stlouis away": { "fill": "#1862C0", "outline": "#1862C0" },
   "sanjose away": { "fill": "#1A1A1A", "outline": "#0D545D" },
-  "vegas home": { "fill": "#3E3D3E", "outline": "#3E3D3E", "sleeveFill": "#E8E8E8", "sleeveOutline": "#E9E9E9" }
+  "vegas home": { "fill": "#3E3D3E", "outline": "#E8E8E8", "sleeveFill": "keep", "letterFill": "#3E3D3E" }
 }

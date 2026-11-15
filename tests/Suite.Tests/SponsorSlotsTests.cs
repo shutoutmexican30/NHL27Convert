@@ -807,6 +807,18 @@ public class FontRecolorTests
     }
 
     [Fact]
+    public void Sleeves_can_be_kept_and_name_letters_recoloured()
+    {
+        // Vegas home: charcoal back numbers with white, sleeve numbers unchanged (white with gold), charcoal name letters.
+        var bands = FontRecolor.Bands(new Dictionary<string, string>
+            { ["fill"] = "#3E3D3E", ["outline"] = "#E8E8E8", ["sleeveFill"] = "keep", ["letterFill"] = "#3E3D3E" })!;
+        Assert.Null(bands(5));
+        Assert.Null(bands(6));
+        Assert.Equal(new FontRecolor.Rgb(0x3E, 0x3D, 0x3E), bands(0)!.Fill);
+        Assert.Equal(new FontRecolor.Rgb(0xE8, 0xE8, 0xE8), bands(2)!.Outline);
+    }
+
+    [Fact]
     public void A_white_number_with_a_black_outline_becomes_white_with_red()
     {
         // 128x128 sheet; a big digit in band 2 (rows 25-58): 40x32 box, 3-pixel black outline, white inside.

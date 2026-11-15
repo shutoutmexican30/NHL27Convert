@@ -3,8 +3,10 @@
 Read-only investigation, 2026-11-14. Nothing was written to any game folder. The scratch tools and dumps are in
 `C:\dev\scratch\commentary` (`SndProbe`, `DbDump`, `scripts\spsscan.py`, `scripts\spssize.py`).
 
-**Verdict:** feasible. Both games use the **same audio format**, so clips copy across byte for byte. The hard part
-is the speech index (which clip a player's `audioid` plays), not the audio itself.
+**Verdict:** feasible. Both games use the **same audio format**, so clips copy across byte for byte. The speech
+index was decoded on 2026-11-15 (section 6): every link from a surname keyword to a clip is mapped and verified. The
+one link left, player `audioid` → surname keyword, happens in game code. The donor-surname plan in section 6 avoids
+needing it.
 
 ## 1. NHL 24 target (`D:\CIMS-test\livecopy`, PS4 build CUSA37933 behind the PC launcher)
 
@@ -102,12 +104,97 @@ All 264 cas files were scanned for SPS streams (stored blocks, no compression).
 
 ## 5. Blockers and risks
 
-- The `audioid` → clip mapping in the speech bank is not yet understood. FMT's NHL 24 type info reads as empty.
+- Solved 2026-11-15 except one step (section 6): keyword → take → audio is mapped, but player `audioid` → keyword
+  is computed in game code. The donor-surname plan works around it.
 - NHL 27 surname waves are split by intensity level and NHL 24's by phrase position, so which clip goes into which
   NHL 24 slot has to be chosen by hand or by heuristic.
 - Writing a new cas file is untested on this engine. Appending to a ~1 GB stock cas is the safer path.
 
-## 6. Reuse: the Utah Mammoth goal horn
+## 6. Speech index, decoded (2026-11-15)
+
+Code: `src/Suite.Sounds` (`SpsStream`, `HarmonyBank`, `SpeechDatabase`, `SpeechCatalog`) and the read-only CLI
+`tools/SpeechProbe`.
+
+```
+SpeechProbe <game> [--summary] [--verify] [--export <dir>] Stamkos kw:1091 var:87275
+```
+
+`--verify` on the live copy: all **35,641 takes in the 17 surname waves** sit at an SPS stream of the listed length.
+
+### The chain
+
+| step | where | how |
+|---|---|---|
+| player → surname keyword | **game code** (`PG_*_surname_id` param getters on `player_ID`) | not in the DB, the speech assets or the eboot as a table (searched: pair tables, dense arrays, every bio column) |
+| keyword → takes | `database/maincommentarykeywords` (SentenceKeywords): 38,047 `{List<int> Keywords, u32 VariationId}` | Stamkos = 1091, both Toews = 1082. Ids come in recording batches (1081–1095 stars, 1462+ legends A–Z) |
+| take → audio | each wave's RES, an `SBle` Harmony bank (TESD tables, see `HarmonyBank.cs`) | per-clip VariationId, stream offset (+3) and playback length into the wave's single chunk |
+| take → text | `database/…sentencetranscriptioncollection`: 70,975 `{text, VariationId}` | "Stamkos", "to Stamkos", "by Stamkos" |
+| bank list | `wc/eng_inxp`, `wc/eng_lcu_01` (SentencePlayerWaveCollection) | only `List<PointerRef> NewWaves` (3,739 imports for eng_inxp), no ids |
+
+- **Class GUIDs** in NHL 24 match FMT's `NHL23SDK.dll`, so its layouts apply: SentenceDatabase, Sentence, Phrase,
+  SentenceKeywords/KeywordData, SentenceSampleMetadata, NewWaveAsset, SoundDataChunk.
+- **EBX pointers** are self-relative i32 values in 8-byte fields; a list's count sits just before its data; the root
+  instance is at 0x30.
+- **Sample metadata** (`…sentenceplayersamplemetadata`) only holds `speaker` / `MNar`-style tags per VariationId. It
+  isn't part of name selection.
+
+**Example: Stamkos (keyword 1091), 6 keyed takes**
+
+| wave | VariationId | text |
+|---|---|---|
+| `pa_player_surname_pxsend` | 87275 | "Stamkos" |
+| `pm_player_surname_pxsend` | 12059, 14402 | "Stamkos." |
+| `pm_pxby_player_surname` | 20889 | "by Stamkos" |
+| `pm_pxto_player_surname` | 20422 | "to Stamkos" |
+| `pm_pxto_player_l2_surname` | 74375 | "to Stamkos" |
+
+`ps_player_surname_pxsend` has one more take (56307) with no keyword.
+
+**Wave coverage:**
+- **Keyed (all eng_inxp except ps):** pa_pxsend/pxspos 943 + 2,835, pm_pxsend/pxspos 1,044 + 5,587, pm_pxby 4,475,
+  pm_pxby_goalie_l2 516, pm_pxto 6,305, pm_pxto_l2 6,095.
+- **Unkeyed:** the `ps_*` waves (955 + 4,800 takes) are selected by some other route; not needed for the plan below.
+- **eng_lcu_01:** pa_pxspos 1,978 takes plus a handful in the others (EA's post-launch names, e.g. "Bairos" = keyword
+  8393).
+
+### Adding a name call
+
+1. **Donor surname (works without the code mapping).** Pick a surname that is voiced in NHL 24 but belongs to no
+   NHL 27 player. The pa wave alone has 85 safe ones (e.g. Francouz 2298, Balmas 2330, Billins 2211).
+   - Replace every take carrying that keyword with the new player's clips, in each keyed wave.
+   - Set the new player's `audioid` to the donor player's audioid.
+   - The donor player loses his own call; he isn't on any NHL 27 roster.
+2. **New keyword (cleaner, blocked).** Add `KeywordData` rows and new takes, for example in the empty `eng_lcu_02`
+   slot (mirroring eng_lcu_01: wave collection + waves + RES + chunks). This only helps once the audioid → keyword
+   code step is understood; it may be a range/offset rule or a table this search missed. Needs a disassembly look at
+   the `PG_*surname_id` getters.
+
+### Writer design (not built)
+
+**`HarmonyBankWriter`** works on one wave RES and its chunk, and takes a set of (VariationId → new SPS stream)
+replacements:
+1. Rebuild the chunk by concatenating streams, 4-byte aligned, the same way EA does.
+2. Rewrite the `3FE2AFD5` columns: offset +3, and duration (playback length; match the clip's samples/48000 minus
+   preskip and confirm against an existing take). Repack a column whenever a value no longer fits its width: bump
+   the width byte, or rebase the param the way `BankWriter` already does for the horn bank's `.OFF`.
+3. Update `A28D4A0D/DC19107B` (chunk size) and the wave EBX `SoundDataChunk.ChunkSize` (u32 right after the chunk
+   GUID).
+4. Write the chunk stored-uncompressed (`FrostbiteBlocks.Store`; Kraken-compressed audio plays as silence) through
+   `TocChunkWriter`, extended to repoint into a cas with headroom.
+
+**Adding takes** (rather than replacing) also grows the row count of `11D5B185`/`A29AF127`/`3FE2AFD5`. Keep
+`A29AF127` sorted by VariationId; `11D5B185` is a lookup whose order rule isn't known yet, and needs to be solved
+first.
+
+### Open
+
+- **audioid → keyword** (code side).
+- **NHL 27 side:** the same reader should work, since the classes are likely unchanged, but `BundleIndex` doesn't
+  read the PS5 layout. Use the TextureViewer `frostbite` package, or teach `BundleIndex` the PS5 tocs, to pull the
+  NHL 27 takes for the 40 missing players by transcription text.
+- **Duration column:** its exact rule (playback length vs stream samples) is unknown.
+
+## 7. Reuse: the Utah Mammoth goal horn
 
 A shared **SPS + Harmony/speech bank reader and writer** covers both goals:
 
@@ -115,5 +202,26 @@ A shared **SPS + Harmony/speech bank reader and writer** covers both goals:
 - **Write:** append the stream, rewrite the `.OFF`/`.SIZ` rows, patch the stream size, repoint the cas.
 
 The Utah horn is the simple case: a `hornbank` row, which `BankWriter` already handles. Name calls are the same
-machinery plus the speech-index layer. Build it once in `Suite.Sounds`. That project is an empty stub in this repo;
-the working `AudioCodec`/`BankWriter` code lives in 24Kit and its source isn't on this PC.
+machinery plus the speech-index layer. As of 2026-11-15, `Suite.Sounds` holds the reader side: `HarmonyBank`
+parses any SBle bank, horn bank included. The working `AudioCodec`/`BankWriter` code lives in 24Kit and its source
+isn't on this PC, so the writer has to be rebuilt here from the design in section 6.
+
+## 8. Tool and plan (2026-11-15)
+
+Built, tested in memory, **not applied**: the session's permission check blocked both the scratch copy of the game
+and the apply. Details and commands are in `docs/HANDOFF.md` (top section).
+
+- **NHL 27 reader:** `Ps5SoundAssets` reads the PS5 tocs and bundles directly. `SpeechProbe <app0> --verify` passes
+  on all 15,043 NHL 27 surname takes.
+  - NHL 27 waves: pa pxsend/pxspos, pm `level_1..4`, pm_pxby_player/goalie, pm_pxto.
+  - Keywords are per wave in NHL 27; in NHL 24 they are per surname.
+- **Writer:** `SpeechBankWriter` plus `BundleEntryWriter`, and `TocChunkWriter` with `into:` + `storeUncompressed`.
+  `Commentary --selftest` is byte-identical on all 17 NHL 24 surname waves, both for an unchanged rebuild and for the
+  stored-block re-encode. A swap test re-reads correctly.
+- **Plan** (`data/commentary_plan.json`): 21 DB-only reuses, 25 donor surnames (136 takes) and 30 silent players.
+  - The 30 aren't voiced in NHL 27 either (Hagens, Demidov, Buium, Frondell, Levshunov, …), or their only takes fit no
+    NHL 24 slot.
+- **Exported clips:** the 22 of the original 40 that NHL 27 voices, in `C:\dev\scratch\commentary\nhl27_names` (raw
+  SPS).
+- **Risk:** the in-game id mapping (`surnameid`/`audioid` → keyword) is inferred. Only a boot test with sound
+  confirms it.

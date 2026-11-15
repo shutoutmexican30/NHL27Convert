@@ -1,0 +1,1900 @@
+{
+  "generated": "2026-11-15T00:17:22.6961-06:00",
+  "target": "D:\\CIMS-test\\livecopy\\game",
+  "nhl27": "D:\\Archives\\PS5\\PPSA34063\\[DLPSGAME.COM]-PPSA34063\\[DLPSGAME.COM]-PPSA34063\\PPSA34063-app0",
+  "players": [
+    {
+      "game_id": 21316,
+      "name": "Sam Colangelo",
+      "team": 0,
+      "mode": "donor",
+      "audioid": 16361,
+      "surnameid": 9807,
+      "donor": {
+        "surname": "sakellaropoulos",
+        "keyword": 7509,
+        "player": "Alex Sakellaropoulos",
+        "free_agents_sharing_call": [
+          "Alex Sakellaropoulos (free agent, game_id 17042)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102779,
+          "text24": "Sakellaropoulos",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1032,
+          "text27": "Colangelo",
+          "seconds": 0.752078115940094
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69336,
+          "text24": "Sakellaropoulos",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1032,
+          "text27": "Colangelo",
+          "seconds": 0.752078115940094
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_goalie_l2_surname",
+          "variation": 67386,
+          "text24": "// by Sakellaropoulos.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5205,
+          "text27": "By Colangelo",
+          "seconds": 0.854729175567627
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68486,
+          "text24": "// by Sakellaropoulos",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5205,
+          "text27": "By Colangelo",
+          "seconds": 0.854729175567627
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 81049,
+          "text24": "to Sakellaropoulos.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6200,
+          "text27": "To Colangelo",
+          "seconds": 0.7808593809604645
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68830,
+          "text24": "// to Sakellaropoulos",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6200,
+          "text27": "To Colangelo",
+          "seconds": 0.7808593809604645
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72285,
+          "text24": "Sakellaropoulos",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1032,
+          "text27": "Colangelo",
+          "seconds": 0.752078115940094
+        }
+      ]
+    },
+    {
+      "game_id": 21320,
+      "name": "Ryan Greene",
+      "team": 6,
+      "mode": "donor",
+      "audioid": 4451,
+      "surnameid": 10428,
+      "donor": {
+        "surname": "simmonds",
+        "keyword": 1088,
+        "player": "Wayne Simmonds",
+        "free_agents_sharing_call": [
+          "Wayne Simmonds (free agent, game_id 5700)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102816,
+          "text24": "Simmonds",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25555,
+          "text27": "Greene",
+          "seconds": 0.34966665506362915
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 12055,
+          "text24": "Simmonds.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1068,
+          "text27": "Greene",
+          "seconds": 0.5730208456516266
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14465,
+          "text24": "Simmonds.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27649,
+          "text27": "Greene",
+          "seconds": 0.5763020813465118
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 20839,
+          "text24": "by Simmonds",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5329,
+          "text27": "By Greene",
+          "seconds": 0.7858229279518127
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 74065,
+          "text24": "// to Simmonds",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6338,
+          "text27": "To Greene",
+          "seconds": 0.59064581990242
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 20372,
+          "text24": "to Simmonds",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6338,
+          "text27": "To Greene",
+          "seconds": 0.59064581990242
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56286,
+          "text24": "Simmonds",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25555,
+          "text27": "Greene",
+          "seconds": 0.34966665506362915
+        }
+      ]
+    },
+    {
+      "game_id": 22026,
+      "name": "Shakir Mukhamadullin",
+      "team": 11,
+      "mode": "donor",
+      "audioid": 5925,
+      "surnameid": 3279,
+      "donor": {
+        "surname": "francouz",
+        "keyword": 2298,
+        "player": "Pavel Francouz",
+        "free_agents_sharing_call": [
+          "Pavel Francouz (free agent, game_id 6275)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 87273,
+          "text24": "Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10401,
+          "text27": "Mukhamadullin",
+          "seconds": 0.7876197993755341
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 15296,
+          "text24": "Francouz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10401,
+          "text27": "Mukhamadullin",
+          "seconds": 0.7876197993755341
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_goalie_l2_surname",
+          "variation": 41793,
+          "text24": "// by Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5545,
+          "text27": "By Mukhamadullin",
+          "seconds": 0.8518229126930237
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_goalie_l2_surname",
+          "variation": 53734,
+          "text24": "// by Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5545,
+          "text27": "By Mukhamadullin",
+          "seconds": 0.8518229126930237
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 73381,
+          "text24": "// to Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6583,
+          "text27": "To Mukhamadullin",
+          "seconds": 0.7653854191303253
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 30554,
+          "text24": "// to Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6583,
+          "text27": "To Mukhamadullin",
+          "seconds": 0.7653854191303253
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55870,
+          "text24": "Francouz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10401,
+          "text27": "Mukhamadullin",
+          "seconds": 0.7876197993755341
+        }
+      ]
+    },
+    {
+      "game_id": 22631,
+      "name": "Dmitri Voronkov",
+      "team": 8,
+      "mode": "donor",
+      "audioid": 22567,
+      "surnameid": 13350,
+      "donor": {
+        "surname": "grimes",
+        "keyword": 4711,
+        "player": "Dixon Grimes",
+        "free_agents_sharing_call": [
+          "Dixon Grimes (free agent, game_id 23264)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 103029,
+          "text24": "Grimes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1030,
+          "text27": "Voronkov",
+          "seconds": 0.7761979103088379
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 32849,
+          "text24": "Grimes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1030,
+          "text27": "Voronkov",
+          "seconds": 0.7761979103088379
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 33433,
+          "text24": "by Grimes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5734,
+          "text27": "By Voronkov",
+          "seconds": 0.8729895949363708
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 76565,
+          "text24": "to Grimes.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6798,
+          "text27": "To Voronkov",
+          "seconds": 0.7741875052452087
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 33079,
+          "text24": "to Grimes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6798,
+          "text27": "To Voronkov",
+          "seconds": 0.7741875052452087
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55915,
+          "text24": "Grimes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1030,
+          "text27": "Voronkov",
+          "seconds": 0.7761979103088379
+        }
+      ]
+    },
+    {
+      "game_id": 24825,
+      "name": "Marat Khusnutdinov",
+      "team": 2,
+      "mode": "donor",
+      "audioid": 21069,
+      "surnameid": 14328,
+      "donor": {
+        "surname": "lukosevicius",
+        "keyword": 5942,
+        "player": "Jarid Lukosevicius",
+        "free_agents_sharing_call": [
+          "Jarid Lukosevicius (free agent, game_id 21763)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104411,
+          "text24": "Lukosevicius",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1027,
+          "text27": "Khusnutdinov",
+          "seconds": 0.802630215883255
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 45936,
+          "text24": "Lukosevicius",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1027,
+          "text27": "Khusnutdinov",
+          "seconds": 0.802630215883255
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 47880,
+          "text24": "// by Lukosevicius",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5418,
+          "text27": "By Khusnutdinov",
+          "seconds": 0.8657812476158142
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78195,
+          "text24": "to Lukosevicius.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6438,
+          "text27": "To Khusnutdinov",
+          "seconds": 0.849567711353302
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 45439,
+          "text24": "// to Lukosevicius",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6438,
+          "text27": "To Khusnutdinov",
+          "seconds": 0.849567711353302
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 64775,
+          "text24": "Lukosevicius",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1027,
+          "text27": "Khusnutdinov",
+          "seconds": 0.802630215883255
+        }
+      ]
+    },
+    {
+      "game_id": 24826,
+      "name": "Matvei Michkov",
+      "team": 21,
+      "mode": "donor",
+      "audioid": 19768,
+      "surnameid": 14370,
+      "donor": {
+        "surname": "papais",
+        "keyword": 6274,
+        "player": "Matthew Papais",
+        "free_agents_sharing_call": [
+          "Matthew Papais (free agent, game_id 20461)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104417,
+          "text24": "Papais",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10378,
+          "text27": "Michkov",
+          "seconds": 0.7241354286670685
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 45969,
+          "text24": "// Papais",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10378,
+          "text27": "Michkov",
+          "seconds": 0.7241354286670685
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 48218,
+          "text24": "// by Papais",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5529,
+          "text27": "By Michkov",
+          "seconds": 0.8583229184150696
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78231,
+          "text24": "to Papais.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6565,
+          "text27": "To Michkov",
+          "seconds": 0.727427065372467
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 45777,
+          "text24": "// to Papais",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6565,
+          "text27": "To Michkov",
+          "seconds": 0.727427065372467
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 64776,
+          "text24": "Papais",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10378,
+          "text27": "Michkov",
+          "seconds": 0.7241354286670685
+        }
+      ]
+    },
+    {
+      "game_id": 24828,
+      "name": "Fydor Svechkov",
+      "team": 7,
+      "mode": "donor",
+      "audioid": 22025,
+      "surnameid": 7343,
+      "donor": {
+        "surname": "mcinnis",
+        "keyword": 7765,
+        "player": "Luke McInnis",
+        "free_agents_sharing_call": [
+          "Luke McInnis (free agent, game_id 22721)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102682,
+          "text24": "McInnis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10573,
+          "text27": "Svechkov",
+          "seconds": 0.746260404586792
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69000,
+          "text24": "McInnis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10573,
+          "text27": "Svechkov",
+          "seconds": 0.746260404586792
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68438,
+          "text24": "// by McInnis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5691,
+          "text27": "By Svechkov",
+          "seconds": 0.8373437523841858
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80499,
+          "text24": "to McInnis.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6753,
+          "text27": "To Svechkov",
+          "seconds": 0.7119374871253967
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68782,
+          "text24": "// to McInnis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6753,
+          "text27": "To Svechkov",
+          "seconds": 0.7119374871253967
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72283,
+          "text24": "McInnis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10573,
+          "text27": "Svechkov",
+          "seconds": 0.746260404586792
+        }
+      ]
+    },
+    {
+      "game_id": 24862,
+      "name": "Ian Moore",
+      "team": 0,
+      "mode": "db-reuse",
+      "audioid": 634,
+      "surnameid": 7713,
+      "from": "Dominic Moore"
+    },
+    {
+      "game_id": 24863,
+      "name": "Scott Morrow",
+      "team": 19,
+      "mode": "db-reuse",
+      "audioid": 6029,
+      "surnameid": 7751,
+      "from": "Joe Morrow"
+    },
+    {
+      "game_id": 24870,
+      "name": "Dominic James",
+      "team": 26,
+      "mode": "db-reuse",
+      "audioid": 20863,
+      "surnameid": 4976,
+      "from": "Brady James"
+    },
+    {
+      "game_id": 24874,
+      "name": "Mackie Samoskevich",
+      "team": 31,
+      "mode": "donor",
+      "audioid": 21073,
+      "surnameid": 14170,
+      "donor": {
+        "surname": "baylis",
+        "keyword": 7857,
+        "player": "Stephen Baylis",
+        "free_agents_sharing_call": [
+          "Stephen Baylis (free agent, game_id 21767)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104393,
+          "text24": "Baylis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4651,
+          "text27": "Samoskevich",
+          "seconds": 0.7211770713329315
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69006,
+          "text24": "Baylis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1024,
+          "text27": "Samoskevich",
+          "seconds": 0.7790676951408386
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68538,
+          "text24": "// by Baylis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5635,
+          "text27": "By Samoskevich",
+          "seconds": 0.86798956990242
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 77371,
+          "text24": "to Baylis.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6688,
+          "text27": "To Samoskevich",
+          "seconds": 0.7868333160877228
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68882,
+          "text24": "// to Baylis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6688,
+          "text27": "To Samoskevich",
+          "seconds": 0.7868333160877228
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72291,
+          "text24": "Baylis",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4651,
+          "text27": "Samoskevich",
+          "seconds": 0.7211770713329315
+        }
+      ]
+    },
+    {
+      "game_id": 26279,
+      "name": "Jackson Blake",
+      "team": 5,
+      "mode": "db-reuse",
+      "audioid": 81,
+      "surnameid": 943,
+      "from": "Rob Blake"
+    },
+    {
+      "game_id": 26729,
+      "name": "Jayden Struble",
+      "team": 16,
+      "mode": "donor",
+      "audioid": 22850,
+      "surnameid": 14629,
+      "donor": {
+        "surname": "esteves",
+        "keyword": 7908,
+        "player": "Gianluca Esteves",
+        "free_agents_sharing_call": [
+          "Gianluca Esteves (free agent, game_id 23547)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104432,
+          "text24": "Esteves",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4696,
+          "text27": "Struble",
+          "seconds": 0.567166656255722
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69013,
+          "text24": "Esteves",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10567,
+          "text27": "Struble",
+          "seconds": 0.7286041676998138
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68606,
+          "text24": "// by Esteves",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5685,
+          "text27": "By Struble",
+          "seconds": 0.753989577293396
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78455,
+          "text24": "to Esteves.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6747,
+          "text27": "To Struble",
+          "seconds": 0.6557916700839996
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68950,
+          "text24": "// to Esteves",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6747,
+          "text27": "To Struble",
+          "seconds": 0.6557916700839996
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72299,
+          "text24": "Esteves",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4696,
+          "text27": "Struble",
+          "seconds": 0.567166656255722
+        }
+      ]
+    },
+    {
+      "game_id": 26738,
+      "name": "Max Crozier",
+      "team": 26,
+      "mode": "donor",
+      "audioid": 21692,
+      "surnameid": 14632,
+      "donor": {
+        "surname": "fornaris",
+        "keyword": 7911,
+        "player": "Carlos Fornaris",
+        "free_agents_sharing_call": [
+          "Carlos Fornaris (free agent, game_id 22388)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104434,
+          "text24": "Fornaris",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25470,
+          "text27": "Crozier",
+          "seconds": 0.4661666750907898
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69015,
+          "text24": "Fornaris",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 994,
+          "text27": "Crozier",
+          "seconds": 0.6565312445163727
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68609,
+          "text24": "// by Fornaris",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5223,
+          "text27": "By Crozier",
+          "seconds": 0.8238229155540466
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78458,
+          "text24": "to Fornaris.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6220,
+          "text27": "To Crozier",
+          "seconds": 0.6565833389759064
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68953,
+          "text24": "// to Fornaris",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6220,
+          "text27": "To Crozier",
+          "seconds": 0.6565833389759064
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72301,
+          "text24": "Fornaris",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25470,
+          "text27": "Crozier",
+          "seconds": 0.4661666750907898
+        }
+      ]
+    },
+    {
+      "game_id": 26740,
+      "name": "Josh Doan",
+      "team": 3,
+      "mode": "db-reuse",
+      "audioid": 220,
+      "surnameid": 2469,
+      "from": "Shane Doan"
+    },
+    {
+      "game_id": 27099,
+      "name": "Jake O\u0027Brien",
+      "team": 31,
+      "mode": "db-reuse",
+      "audioid": 7873,
+      "surnameid": 8181,
+      "from": "Zach O\u0027Brien"
+    },
+    {
+      "game_id": 27168,
+      "name": "Matthew Schaefer",
+      "team": 18,
+      "mode": "db-reuse",
+      "audioid": 21358,
+      "surnameid": 9969,
+      "from": "Reid Schaefer"
+    },
+    {
+      "game_id": 27775,
+      "name": "Alex Laferriere",
+      "team": 13,
+      "mode": "db-reuse",
+      "audioid": 15050,
+      "surnameid": 6151,
+      "from": "Mathias Laferri\u00E8re"
+    },
+    {
+      "game_id": 27809,
+      "name": "Mason Lohrei",
+      "team": 2,
+      "mode": "donor",
+      "audioid": 22163,
+      "surnameid": 14637,
+      "donor": {
+        "surname": "humitz",
+        "keyword": 7916,
+        "player": "Max Humitz",
+        "free_agents_sharing_call": [
+          "Max Humitz (free agent, game_id 22859)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104435,
+          "text24": "Humitz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1029,
+          "text27": "Lohrei",
+          "seconds": 0.7575989663600922
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 69016,
+          "text24": "Humitz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1029,
+          "text27": "Lohrei",
+          "seconds": 0.7575989663600922
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 68614,
+          "text24": "// by Humitz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5475,
+          "text27": "By Lohrei",
+          "seconds": 0.8059895932674408
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78463,
+          "text24": "to Humitz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6504,
+          "text27": "To Lohrei",
+          "seconds": 0.7439479231834412
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 68958,
+          "text24": "// to Humitz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6504,
+          "text27": "To Lohrei",
+          "seconds": 0.7439479231834412
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 72302,
+          "text24": "Humitz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1029,
+          "text27": "Lohrei",
+          "seconds": 0.7575989663600922
+        }
+      ]
+    },
+    {
+      "game_id": 27814,
+      "name": "Sam Malinski",
+      "team": 7,
+      "mode": "donor",
+      "audioid": 21021,
+      "surnameid": 14323,
+      "donor": {
+        "surname": "lies",
+        "keyword": 8472,
+        "player": "Justin Lies",
+        "free_agents_sharing_call": [
+          "Justin Lies (free agent, game_id 21715)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 104410,
+          "text24": "Lies",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4506,
+          "text27": "Malinski",
+          "seconds": 0.6037604212760925
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 49714,
+          "text24": "Lies",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10341,
+          "text27": "Malinski",
+          "seconds": 0.7043854296207428
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 50487,
+          "text24": "// by Lies",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5496,
+          "text27": "By Malinski",
+          "seconds": 0.7798124849796295
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78190,
+          "text24": "to Lies.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6526,
+          "text27": "To Malinski",
+          "seconds": 0.6835208237171173
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 50088,
+          "text24": "// to Lies",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6526,
+          "text27": "To Malinski",
+          "seconds": 0.6835208237171173
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56478,
+          "text24": "Lies",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4506,
+          "text27": "Malinski",
+          "seconds": 0.6037604212760925
+        }
+      ]
+    },
+    {
+      "game_id": 27865,
+      "name": "Max Sasson",
+      "team": 28,
+      "mode": "donor",
+      "audioid": 21003,
+      "surnameid": 14469,
+      "donor": {
+        "surname": "wiles",
+        "keyword": 8495,
+        "player": "Raegan Wiles",
+        "free_agents_sharing_call": [
+          "Raegan Wiles (free agent, game_id 21697)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 50514,
+          "text24": "// by Wiles",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5827,
+          "text27": "By Sasson",
+          "seconds": 0.7738229036331177
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 78318,
+          "text24": "to Wiles.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6694,
+          "text27": "To Sasson",
+          "seconds": 0.6159375011920929
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 50115,
+          "text24": "// to Wiles",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6694,
+          "text27": "To Sasson",
+          "seconds": 0.6159375011920929
+        }
+      ]
+    },
+    {
+      "game_id": 27867,
+      "name": "Travis Mitchell",
+      "team": 0,
+      "mode": "db-reuse",
+      "audioid": 627,
+      "surnameid": 7625,
+      "from": "Willie Mitchell"
+    },
+    {
+      "game_id": 27875,
+      "name": "Jakub Dobes",
+      "team": 15,
+      "mode": "donor",
+      "audioid": 14561,
+      "surnameid": 3621,
+      "donor": {
+        "surname": "gilliss",
+        "keyword": 8510,
+        "player": "Lane Gilliss",
+        "free_agents_sharing_call": [
+          "Lane Gilliss (free agent, game_id 15244)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102454,
+          "text24": "Gilliss",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "src_variation": 7711,
+          "text27": "Dobes",
+          "seconds": 0.3787499964237213
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 49691,
+          "text24": "Gilliss",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10055,
+          "text27": "Dobes",
+          "seconds": 0.6878437399864197
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname",
+          "variation": 50214,
+          "text24": "// by Gilliss",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxby_player_surname_level_1",
+          "src_variation": 5246,
+          "text27": "By Dobes",
+          "seconds": 0.7591562569141388
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 79376,
+          "text24": "to Gilliss.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6245,
+          "text27": "To Dobes",
+          "seconds": 0.6858958303928375
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 49815,
+          "text24": "// to Gilliss",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6245,
+          "text27": "To Dobes",
+          "seconds": 0.6858958303928375
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56446,
+          "text24": "Gilliss",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "src_variation": 7711,
+          "text27": "Dobes",
+          "seconds": 0.3787499964237213
+        }
+      ]
+    },
+    {
+      "game_id": 27883,
+      "name": "Zach Metsa",
+      "team": 3,
+      "mode": "donor",
+      "audioid": 24463,
+      "surnameid": 603,
+      "donor": {
+        "surname": "bates",
+        "keyword": 1956,
+        "player": "Peter Bates",
+        "free_agents_sharing_call": [
+          "Peter Bates (free agent, game_id 25203)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 107152,
+          "text24": "Bates",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25721,
+          "text27": "Metsa",
+          "seconds": 0.398354172706604
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14431,
+          "text24": "Bates.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 28403,
+          "text27": "Metsa",
+          "seconds": 0.6772187352180481
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 79976,
+          "text24": "to Bates.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 28403,
+          "text27": "Metsa",
+          "seconds": 0.6772187352180481
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 28671,
+          "text24": "// to Bates",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_1",
+          "src_variation": 28402,
+          "text27": "Metsa",
+          "seconds": 0.6291354298591614
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55705,
+          "text24": "Bates",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25721,
+          "text27": "Metsa",
+          "seconds": 0.398354172706604
+        }
+      ]
+    },
+    {
+      "game_id": 27889,
+      "name": "Ivan Miroshnichenko",
+      "team": 29,
+      "mode": "donor",
+      "audioid": 1295,
+      "surnameid": 2217,
+      "donor": {
+        "surname": "dawes",
+        "keyword": 1976,
+        "player": "Nigel Dawes",
+        "free_agents_sharing_call": [
+          "Nigel Dawes (free agent, game_id 8)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102381,
+          "text24": "Dawes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25732,
+          "text27": "Miroshnichenko",
+          "seconds": 0.679708331823349
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14458,
+          "text24": "Dawes.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 28451,
+          "text27": "Miroshnichenko",
+          "seconds": 0.8613385558128357
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 77851,
+          "text24": "to Dawes.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 28451,
+          "text27": "Miroshnichenko",
+          "seconds": 0.8613385558128357
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 28735,
+          "text24": "// to Dawes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_1",
+          "src_variation": 28450,
+          "text27": "Miroshnichenko",
+          "seconds": 0.8586406111717224
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55806,
+          "text24": "Dawes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25732,
+          "text27": "Miroshnichenko",
+          "seconds": 0.679708331823349
+        }
+      ]
+    },
+    {
+      "game_id": 27896,
+      "name": "Macklin Celebrini",
+      "team": 25,
+      "mode": "donor",
+      "audioid": 12168,
+      "surnameid": 9441,
+      "donor": {
+        "surname": "rhodes",
+        "keyword": 2018,
+        "player": "Kyle Rhodes",
+        "free_agents_sharing_call": [
+          "Kyle Rhodes (free agent, game_id 12874)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102761,
+          "text24": "Rhodes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4213,
+          "text27": "Celebrini",
+          "seconds": 0.652999997138977
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14502,
+          "text24": "Rhodes.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 9996,
+          "text27": "Celebrini",
+          "seconds": 0.7458750009536743
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80960,
+          "text24": "to Rhodes.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6184,
+          "text27": "To Celebrini",
+          "seconds": 0.7192395925521851
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 28880,
+          "text24": "// to Rhodes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6184,
+          "text27": "To Celebrini",
+          "seconds": 0.7192395925521851
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56220,
+          "text24": "Rhodes",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4213,
+          "text27": "Celebrini",
+          "seconds": 0.652999997138977
+        }
+      ]
+    },
+    {
+      "game_id": 27897,
+      "name": "Matthew Wood",
+      "team": 31,
+      "mode": "db-reuse",
+      "audioid": 13823,
+      "surnameid": 12404,
+      "from": "Miles Wood"
+    },
+    {
+      "game_id": 27900,
+      "name": "Isaac Howard",
+      "team": 11,
+      "mode": "db-reuse",
+      "audioid": 1193,
+      "surnameid": 4683,
+      "from": "Jimmy Howard"
+    },
+    {
+      "game_id": 27901,
+      "name": "Ryan Leonard",
+      "team": 29,
+      "mode": "db-reuse",
+      "audioid": 22145,
+      "surnameid": 6468,
+      "from": "John Leonard"
+    },
+    {
+      "game_id": 27902,
+      "name": "Oliver Moore",
+      "team": 6,
+      "mode": "db-reuse",
+      "audioid": 634,
+      "surnameid": 7713,
+      "from": "Dominic Moore"
+    },
+    {
+      "game_id": 27903,
+      "name": "Frank Nazar",
+      "team": 6,
+      "mode": "donor",
+      "audioid": 24737,
+      "surnameid": 6346,
+      "donor": {
+        "surname": "lavins",
+        "keyword": 2062,
+        "player": "Martins Lavins",
+        "free_agents_sharing_call": []
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102626,
+          "text24": "Lavins",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1031,
+          "text27": "Nazar",
+          "seconds": 0.7052499949932098
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14550,
+          "text24": "Lavins.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1031,
+          "text27": "Nazar",
+          "seconds": 0.7052499949932098
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80260,
+          "text24": "to Lavins.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6589,
+          "text27": "To Nazar",
+          "seconds": 0.6930937469005585
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 29888,
+          "text24": "// to Lavins",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6589,
+          "text27": "To Nazar",
+          "seconds": 0.6930937469005585
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56065,
+          "text24": "Lavins",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 1031,
+          "text27": "Nazar",
+          "seconds": 0.7052499949932098
+        }
+      ]
+    },
+    {
+      "game_id": 27905,
+      "name": "Gabe Perreault",
+      "team": 19,
+      "mode": "db-reuse",
+      "audioid": 18545,
+      "surnameid": 8682,
+      "from": "Jacob Perreault"
+    },
+    {
+      "game_id": 27906,
+      "name": "Will Smith",
+      "team": 25,
+      "mode": "db-reuse",
+      "audioid": 890,
+      "surnameid": 10572,
+      "from": "Jason Smith"
+    },
+    {
+      "game_id": 27915,
+      "name": "Jacob Fowler",
+      "team": 15,
+      "mode": "db-reuse",
+      "audioid": 6738,
+      "surnameid": 3269,
+      "from": "Cam Fowler"
+    },
+    {
+      "game_id": 28018,
+      "name": "Victor Eklund",
+      "team": 18,
+      "mode": "db-reuse",
+      "audioid": 21611,
+      "surnameid": 2808,
+      "from": "William Eklund"
+    },
+    {
+      "game_id": 28043,
+      "name": "Judd Caulfield",
+      "team": 0,
+      "mode": "donor",
+      "audioid": 1095,
+      "surnameid": 8249,
+      "donor": {
+        "surname": "olesz",
+        "keyword": 2070,
+        "player": "Rostislav Olesz",
+        "free_agents_sharing_call": [
+          "Rostislav Olesz (free agent, game_id 3115)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102720,
+          "text24": "Olesz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25444,
+          "text27": "Caulfield",
+          "seconds": 0.5146249830722809
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14558,
+          "text24": "Olesz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27135,
+          "text27": "Caulfield",
+          "seconds": 0.6857291758060455
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80682,
+          "text24": "to Olesz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27135,
+          "text27": "Caulfield",
+          "seconds": 0.6857291758060455
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 29917,
+          "text24": "// to Olesz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_1",
+          "src_variation": 27134,
+          "text27": "Caulfield",
+          "seconds": 0.7049062550067902
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56172,
+          "text24": "Olesz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25444,
+          "text27": "Caulfield",
+          "seconds": 0.5146249830722809
+        }
+      ]
+    },
+    {
+      "game_id": 28381,
+      "name": "Collin Graf",
+      "team": 25,
+      "mode": "donor",
+      "audioid": 12115,
+      "surnameid": 7986,
+      "donor": {
+        "surname": "neuls",
+        "keyword": 2073,
+        "player": "Donovan Neuls",
+        "free_agents_sharing_call": [
+          "Donovan Neuls (free agent, game_id 12822)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102709,
+          "text24": "Neuls",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4341,
+          "text27": "Graf",
+          "seconds": 0.4636458158493042
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14561,
+          "text24": "Neuls.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10143,
+          "text27": "Graf",
+          "seconds": 0.6546666622161865
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80635,
+          "text24": "to Neuls.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6334,
+          "text27": "To Graf",
+          "seconds": 0.6479375064373016
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 29925,
+          "text24": "// to Neuls",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6334,
+          "text27": "To Graf",
+          "seconds": 0.6479375064373016
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56156,
+          "text24": "Neuls",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4341,
+          "text27": "Graf",
+          "seconds": 0.4636458158493042
+        }
+      ]
+    },
+    {
+      "game_id": 28762,
+      "name": "Ilya Protas",
+      "team": 29,
+      "mode": "db-reuse",
+      "audioid": 19176,
+      "surnameid": 9088,
+      "from": "Aliaksei Protas"
+    },
+    {
+      "game_id": 29375,
+      "name": "Victor Mancini",
+      "team": 28,
+      "mode": "db-reuse",
+      "audioid": 20510,
+      "surnameid": 14334,
+      "from": "Roberto Mancini"
+    },
+    {
+      "game_id": 29377,
+      "name": "Maxim Tsyplakov",
+      "team": 4,
+      "mode": "donor",
+      "audioid": 8727,
+      "surnameid": 9763,
+      "donor": {
+        "surname": "rytz",
+        "keyword": 2079,
+        "player": "Simon Rytz",
+        "free_agents_sharing_call": [
+          "Simon Rytz (free agent, game_id 9516)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102777,
+          "text24": "Rytz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4725,
+          "text27": "Tsyplakov",
+          "seconds": 0.6879166662693024
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14567,
+          "text24": "Rytz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10604,
+          "text27": "Tsyplakov",
+          "seconds": 0.7698593735694885
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 81038,
+          "text24": "to Rytz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6779,
+          "text27": "To Tsyplakov",
+          "seconds": 0.7609374821186066
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 29945,
+          "text24": "// to Rytz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6779,
+          "text27": "To Tsyplakov",
+          "seconds": 0.7609374821186066
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56246,
+          "text24": "Rytz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 4725,
+          "text27": "Tsyplakov",
+          "seconds": 0.6879166662693024
+        }
+      ]
+    },
+    {
+      "game_id": 29608,
+      "name": "Cole Hutson",
+      "team": 29,
+      "mode": "donor",
+      "audioid": 23516,
+      "surnameid": 1384,
+      "donor": {
+        "surname": "burgess",
+        "keyword": 2096,
+        "player": "Todd Burgess",
+        "free_agents_sharing_call": [
+          "Todd Burgess (free agent, game_id 24214)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102339,
+          "text24": "Burgess",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25594,
+          "text27": "Hutson",
+          "seconds": 0.4443333148956299
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 14584,
+          "text24": "Burgess.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 10204,
+          "text27": "Hutson",
+          "seconds": 0.6642916798591614
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 76259,
+          "text24": "to Burgess.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6396,
+          "text27": "To Hutson",
+          "seconds": 0.6285312473773956
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 29993,
+          "text24": "// to Burgess",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6396,
+          "text27": "To Hutson",
+          "seconds": 0.6285312473773956
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55752,
+          "text24": "Burgess",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25594,
+          "text27": "Hutson",
+          "seconds": 0.4443333148956299
+        }
+      ]
+    },
+    {
+      "game_id": 29612,
+      "name": "Trevor Connelly",
+      "team": 30,
+      "mode": "donor",
+      "audioid": 11511,
+      "surnameid": 7214,
+      "donor": {
+        "surname": "matus",
+        "keyword": 2172,
+        "player": "Radim Matus",
+        "free_agents_sharing_call": [
+          "Radim Matus (free agent, game_id 12224)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102678,
+          "text24": "Matus",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25464,
+          "text27": "Connelly",
+          "seconds": 0.4664374887943268
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 15169,
+          "text24": "Matus.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27219,
+          "text27": "Connelly",
+          "seconds": 0.6160104274749756
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 80464,
+          "text24": "to Matus.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27219,
+          "text27": "Connelly",
+          "seconds": 0.6160104274749756
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 30184,
+          "text24": "// to Matus",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_1",
+          "src_variation": 27218,
+          "text27": "Connelly",
+          "seconds": 0.6077812612056732
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 56116,
+          "text24": "Matus",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25464,
+          "text27": "Connelly",
+          "seconds": 0.4664374887943268
+        }
+      ]
+    },
+    {
+      "game_id": 29689,
+      "name": "Stephen Halliday",
+      "team": 20,
+      "mode": "donor",
+      "audioid": 5800,
+      "surnameid": 3345,
+      "donor": {
+        "surname": "froese",
+        "keyword": 2225,
+        "player": "Byron Froese",
+        "free_agents_sharing_call": [
+          "Byron Froese (free agent, game_id 6818)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxsend",
+          "variation": 102442,
+          "text24": "Froese",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25571,
+          "text27": "Halliday",
+          "seconds": 0.5622708201408386
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_pxsend",
+          "variation": 15223,
+          "text24": "Froese.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27713,
+          "text27": "Halliday",
+          "seconds": 0.6955520808696747
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 79315,
+          "text24": "to Froese.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_2",
+          "src_variation": 27713,
+          "text27": "Halliday",
+          "seconds": 0.6955520808696747
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 30356,
+          "text24": "// to Froese",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_player_surname_level_1",
+          "src_variation": 27712,
+          "text27": "Halliday",
+          "seconds": 0.7017291784286499
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/ps_player_surname_pxsend",
+          "variation": 55875,
+          "text24": "Froese",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pa_player_surname_pxspos",
+          "src_variation": 25571,
+          "text27": "Halliday",
+          "seconds": 0.5622708201408386
+        }
+      ]
+    },
+    {
+      "game_id": 32002,
+      "name": "T.J. Hughes",
+      "team": 7,
+      "mode": "db-reuse",
+      "audioid": 15766,
+      "surnameid": 4760,
+      "from": "John Hughes"
+    },
+    {
+      "game_id": 32006,
+      "name": "Cole Knuble",
+      "team": 21,
+      "mode": "db-reuse",
+      "audioid": 451,
+      "surnameid": 5608,
+      "from": "Mike Knuble"
+    },
+    {
+      "game_id": 32007,
+      "name": "Ben Kindel",
+      "team": 23,
+      "mode": "donor",
+      "audioid": 10360,
+      "surnameid": 1690,
+      "donor": {
+        "surname": "chavaillaz",
+        "keyword": 2272,
+        "player": "Benjamin Chavaillaz",
+        "free_agents_sharing_call": [
+          "Benjamin Chavaillaz (free agent, game_id 11142)"
+        ]
+      },
+      "takes": [
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_l2_surname",
+          "variation": 77677,
+          "text24": "to Chavaillaz.",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6440,
+          "text27": "To Kindel",
+          "seconds": 0.6232604086399078
+        },
+        {
+          "wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "variation": 30472,
+          "text24": "// to Chavaillaz",
+          "src_wave": "sound/speech/maincommentary/soundwaves/eng_inxp/pm_pxto_player_surname",
+          "src_variation": 6440,
+          "text27": "To Kindel",
+          "seconds": 0.6232604086399078
+        }
+      ]
+    }
+  ],
+  "silent": [
+    "Danila Yurov (24831)",
+    "Noah Laba (26287)",
+    "Tom Willander (26440)",
+    "James Hagens (27899)",
+    "Zeev Buium (27908)",
+    "Sam Rinzel (27914)",
+    "Anton Frondell (28020)",
+    "Igor Chernyshov (28784)",
+    "Matvei Gridin (29305)",
+    "Artyom Levshunov (29341)",
+    "Nikita Grebenkin (29475)",
+    "Jacob Quillan (29476)",
+    "Justin Hryckowian (29479)",
+    "Sergei Murashov (29492): NHL 27 takes do not fit any NHL 24 surname wave",
+    "Ivar Stenberg (29737)",
+    "Ivan Demidov (29927)",
+    "Tim Washe (29931)",
+    "Aydar Suniev (30002)",
+    "Alberts Smits (30150)",
+    "Alexander Nikishin (30205): NHL 27 takes do not fit any NHL 24 surname wave",
+    "Viggo Bj\u00F6rck (30648)",
+    "Nikita Klepov (30898)",
+    "Arseny Gritsyuk (31018)",
+    "Maxim Shabanov (31019)",
+    "Dmitri Simashev (31020)",
+    "Arsenii Sergeev (31119): NHL 27 takes do not fit any NHL 24 surname wave",
+    "Jonathan Castagna (32000)",
+    "Roman Kantserov (32001)",
+    "Owen Michaels (32003)",
+    "Vitali Pinchuk (32005)"
+  ]
+}

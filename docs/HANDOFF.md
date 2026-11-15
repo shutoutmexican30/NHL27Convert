@@ -3,28 +3,65 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
-## Commentary name calls: speech index decoded, 2026-11-15 (read only; nothing written to a game)
+## Commentary name calls: tool built and tested, NOT APPLIED (2026-11-15)
 
-Full notes: [COMMENTARY_FEASIBILITY.md](COMMENTARY_FEASIBILITY.md) sections 6–7.
+Full notes: [COMMENTARY_FEASIBILITY.md](COMMENTARY_FEASIBILITY.md) sections 6–8.
 
-- **Audio:** NHL 27 speech is the same EA SPS Opus as NHL 24 (no transcode).
-- **New code:** `src/Suite.Sounds` now has the reader side; the project was an empty stub before.
-  - `SpsStream`: walks SPS streams.
-  - `HarmonyBank`: parses an SBle/TESD bank (wave RES, horn bank).
+**Status:** the apply to `D:\CIMS-test\livecopy` was blocked by the session's permission check, so nothing has been
+written to any game. Run the apply yourself, or allow it.
+
+**Code** (`src/Suite.Sounds`):
+- **Readers:**
+  - `SpsStream`: SPS streams.
+  - `HarmonyBank`: SBle/TESD banks.
   - `SpeechDatabase`: transcriptions and keywords.
-  - `SpeechCatalog`: surname/keyword/VariationId → takes. It also references Suite.Core now.
-- **CLI:** `tools/SpeechProbe` (read only). `--verify` passes on all 35,641 surname takes.
-- **The chain:** keyword → VariationIds (SentenceKeywords) → offset/length in the wave chunk (wave RES bank) → text
-  (transcriptions). Example: Stamkos = keyword 1091.
-- **Still unknown:** player `audioid` → keyword, which is computed in code (`PG_*_surname_id`).
-- **Plan:** donor surnames. Overwrite the takes of a voiced surname that no NHL 27 player uses, then set the new
-  player's `audioid` to the donor's.
-- **Next:**
-  1. `HarmonyBankWriter`, per the design in the feasibility doc.
-  2. Cas-index-aware `TocChunkWriter` repoint.
-  3. An NHL 27 PS5 reader to pull the 40 players' takes.
-- **Quick win without new audio:** 17 new players share a surname NHL 24 already voices. Set their `audioid` to
-  that player's.
+  - `SpeechCatalog`: surname/keyword/VariationId → takes.
+- **Asset sources:** `ISoundAssets` with two implementations, `Nhl24SoundAssets` (NHL 24 bundle index) and
+  `Ps5SoundAssets` (NHL 27 PS5 tocs/bundles). NHL 27 differences from NHL 24:
+  - Data tocs have no 0x22C signature block.
+  - Bundle entries start at record +0x24.
+  - The "new file" flag is 0x80, followed by `{magic 0xF895, loc}`.
+  - Chunk locations are 16 bytes; package = ((loc >> 16) & 0xF) ^ 4.
+- **Writers:**
+  - `SpeechBankWriter`: rebuilds a wave's chunk, RES and EBX. Replacement takes are appended and their rows
+    repointed. An unchanged rebuild is byte-identical.
+  - `BundleEntryWriter`: same-size EBX/RES bundle copies, with the manifest SHA1 updated.
+
+**Core changes:**
+- `TocChunkWriter.Replace(..., into: CasTarget, storeUncompressed: true)` writes into another cas and repoints the
+  cas index through `TocFile.RepointTo`.
+- `ChunkBlocks.StoreBlocks` writes stored-only 256 KB blocks. It re-encodes the game's own audio chunks byte for byte.
+
+**`tools/Commentary`:**
+- **Commands:** `--make-plan` writes `data/commentary_plan.json`; `--selftest` runs in memory and passed on all 17
+  surname waves plus a swap test; apply is a dry run unless `--apply` is given, plus `--restore-check` and
+  `--restore`.
+- **Apply steps:** backup, chunks into `Data nhl_installpackage_02/cas_03` (`--cas data:02:03`), then the EBX/RES
+  copies, then the five roster DBs (`audioid` + `surnameid`), then a full read-back. Re-running is a no-op.
+
+**Plan** (`data/commentary_plan.json`):
+- **Counts:** 46 new NHL players get calls. 21 are DB-only reuses (same surname already voiced, e.g. Ian Moore ←
+  Dominic Moore). 25 use donor surnames (e.g. Celebrini ← Rhodes, Michkov ← Papais), 136 takes in 7 waves, about
+  0.7 MB of audio.
+- **Silent:** 30, e.g. Hagens, Demidov, Buium. NHL 27 doesn't voice them either, or their takes fit no NHL 24 slot.
+- **Donor rules:**
+  - Exactly one keyword for the surname.
+  - Its audioid/surnameid are held only by free agents (listed in the plan). Those free agents would also be called
+    by the new name if signed.
+  - Surname not on an NHL club or in NHL 27.
+  - No LCU takes.
+- **Unproven:** that the game maps `surnameid` (or `audioid`) to the keyword. The plan sets both to the donor's. Both
+  Toews brothers share keyword 1082 and surnameid 11400 but have different audioids, which points to surnameid.
+
+**Commands:**
+
+```
+tools\Commentary\bin\Release\net8.0\Commentary.exe --target D:\CIMS-test\livecopy\game --apply --restore-check
+tools\Commentary\bin\Release\net8.0\Commentary.exe --restore <backup> --target D:\CIMS-test\livecopy\game --apply   (undo)
+```
+
+**After applying, boot test:** play a game with Celebrini (SJS) and listen for his name. If the new players are
+called by the donor names, or stay silent, the id mapping guess is wrong.
 
 ## Arizona -> Utah Mammoth (DB + loc), 2026-11-12: PROVEN, NOT APPLIED (waiting for the uniform import to finish)
 
