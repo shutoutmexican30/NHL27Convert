@@ -124,10 +124,36 @@ public static class FontRemap
         return pairs;
     }
 
+    /// <summary>
+    /// Problems of a remapped sheet against the NHL 24 layout it was fitted into: every band must have the same glyph
+    /// count, and every glyph must stay inside its NHL 24 cell (one pixel of slack). A sliver of a neighbouring glyph
+    /// (Florida's gold line under the "1") or a glyph drawn past its stitching shows up as an extra or larger box.
+    /// </summary>
+    public static List<string> Verify(Rgba remapped, Rgba layout24)
+    {
+        var problems = new List<string>();
+        for (int band = 0; band < Bands.Length; band++)
+        {
+            var got = Glyphs(remapped, band);
+            var want = Glyphs(layout24, band);
+            if (got.Count != want.Count) { problems.Add($"band {band}: {got.Count} glyphs, NHL 24 has {want.Count}"); continue; }
+            for (int i = 0; i < got.Count; i++)
+            {
+                var g = got[i]; var w = want[i];
+                if (g.X1 < w.X1 - 1 || g.Y1 < w.Y1 - 1 || g.X2 > w.X2 + 1 || g.Y2 > w.Y2 + 1)
+                    problems.Add($"band {band} glyph {i}: ({g.X1},{g.Y1})-({g.X2},{g.Y2}) outside its cell ({w.X1},{w.Y1})-({w.X2},{w.Y2})");
+            }
+        }
+        return problems;
+    }
+
     /// <summary>A sheet in NHL 24's layout drawn from <paramref name="source"/> (colour, normal or coefficient map).</summary>
-    public static Rgba Apply(Rgba source, Rgba layoutBase, IReadOnlyList<(Box From, Box To)> pairs, Rgba? fill = null)
+    public static Rgba Apply(Rgba source, Rgba layoutBase, IReadOnlyList<(Box From, Box To)> pairs, Rgba? fill = null, int? mappedWidth = null)
     {
         int w = layoutBase.Width, h = layoutBase.Height;
+        // The boxes come from the sheet the glyphs were found on; NHL 27's normal sheet is half the size of its colour
+        // sheet (1024 vs 2048), so its source boxes are scaled to it.
+        double scale = (double)source.Width / (mappedWidth ?? source.Width);
         var output = fill is null ? new byte[w * h * 4] : (byte[])fill.Pixels.Clone();
         foreach (var (from, to) in pairs)
         {
@@ -135,8 +161,8 @@ public static class FontRemap
             for (int y = to.Y1; y <= to.Y2; y++)
             for (int x = to.X1; x <= to.X2; x++)
             {
-                int sx = from.X1 + (int)((x - to.X1 + 0.5) * from.Width / to.Width);
-                int sy = from.Y1 + (int)((y - to.Y1 + 0.5) * from.Height / to.Height);
+                int sx = (int)((from.X1 + (x - to.X1 + 0.5) * from.Width / to.Width) * scale);
+                int sy = (int)((from.Y1 + (y - to.Y1 + 0.5) * from.Height / to.Height) * scale);
                 sx = Math.Clamp(sx, 0, source.Width - 1); sy = Math.Clamp(sy, 0, source.Height - 1);
                 Array.Copy(source.Pixels, (sy * source.Width + sx) * 4, output, (y * w + x) * 4, 4);
             }

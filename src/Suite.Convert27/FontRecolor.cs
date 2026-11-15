@@ -138,6 +138,16 @@ public static class FontRecolor
         return all is not null && all.TryGetValue(kit, out var c) ? Bands(c) : null;
     }
 
+    /// <summary>True when the table marks the kit "remap": "true" (use NHL 27's own number sheets).</summary>
+    public static bool WantsRemap(string kit)
+    {
+        string path = Path.Combine(SuitePaths.Roaming, "data", "font_colours.json");
+        if (!File.Exists(path)) path = Path.Combine(AppContext.BaseDirectory, "data", "font_colours.json");
+        if (!File.Exists(path)) return false;
+        var all = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(path));
+        return all is not null && all.TryGetValue(kit, out var c) && c.GetValueOrDefault("remap") == "true";
+    }
+
     public static Func<int, Palette?>? Bands(IReadOnlyDictionary<string, string> c)
     {
         if (!c.TryGetValue("fill", out var f) || !c.TryGetValue("outline", out var o)) return null;

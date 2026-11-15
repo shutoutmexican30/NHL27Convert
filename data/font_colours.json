@@ -1,15 +1,75 @@
 {
-  "ottawa home": { "fill": "#E8E8E8", "outline": "#9E0D09" },
-  "ottawa away": { "fill": "#1A1A1A", "outline": "#9E0D09", "sleeveFill": "#E8E8E8", "sleeveOutline": "#9E0D09" },
-  "edmonton home": { "fill": "#D8381A", "outline": "#E8E9E8" },
-  "edmonton away": { "fill": "#1A245C", "outline": "#D8381B" },
-  "carolina home": { "fill": "#E8E8E8", "outline": "#9D0D08" },
-  "carolina away": { "fill": "#C5221A", "outline": "#C5221A", "sleeveFill": "#1B1A1B", "sleeveOutline": "#1A191A" },
-  "chicago home": { "fill": "#E8E9E8", "outline": "#FFB100", "sleeveFill": "#E8E8E8", "sleeveOutline": "#1A1A1A" },
-  "buffalo away": { "fill": "#182E7E", "outline": "#FFB200" },
-  "losangeles home": { "fill": "#A6AEAE", "outline": "#E7E9E7" },
-  "stlouis home": { "fill": "#FFB000", "outline": "#FFB000" },
-  "stlouis away": { "fill": "#1862C0", "outline": "#1862C0" },
-  "sanjose away": { "fill": "#1A1A1A", "outline": "#0D545D" },
-  "vegas home": { "fill": "#3E3D3E", "outline": "#E8E8E8", "sleeveFill": "keep", "letterFill": "#3E3D3E" }
+  "ottawa home": {
+    "fill": "#E8E8E8",
+    "outline": "#9E0D09",
+    "remap": "true"
+  },
+  "ottawa away": {
+    "fill": "#1A1A1A",
+    "outline": "#9E0D09",
+    "sleeveFill": "#E8E8E8",
+    "sleeveOutline": "#9E0D09",
+    "remap": "true"
+  },
+  "edmonton home": {
+    "fill": "#D8381A",
+    "outline": "#E8E9E8",
+    "remap": "true"
+  },
+  "edmonton away": {
+    "fill": "#1A245C",
+    "outline": "#D8381B",
+    "remap": "true"
+  },
+  "carolina home": {
+    "fill": "#E8E8E8",
+    "outline": "#9D0D08",
+    "remap": "true"
+  },
+  "carolina away": {
+    "fill": "#C5221A",
+    "outline": "#C5221A",
+    "sleeveFill": "#1B1A1B",
+    "sleeveOutline": "#1A191A",
+    "remap": "true"
+  },
+  "chicago home": {
+    "fill": "#E8E9E8",
+    "outline": "#FFB100",
+    "sleeveFill": "#E8E8E8",
+    "sleeveOutline": "#1A1A1A",
+    "remap": "true"
+  },
+  "buffalo away": {
+    "fill": "#182E7E",
+    "outline": "#FFB200",
+    "remap": "true"
+  },
+  "losangeles home": {
+    "fill": "#A6AEAE",
+    "outline": "#E7E9E7",
+    "remap": "true"
+  },
+  "stlouis home": {
+    "fill": "#FFB000",
+    "outline": "#FFB000",
+    "remap": "true"
+  },
+  "stlouis away": {
+    "fill": "#1862C0",
+    "outline": "#1862C0",
+    "remap": "true"
+  },
+  "sanjose away": {
+    "fill": "#1A1A1A",
+    "outline": "#0D545D",
+    "remap": "true"
+  },
+  "vegas home": {
+    "fill": "#3E3D3E",
+    "outline": "#E8E8E8",
+    "sleeveFill": "keep",
+    "letterFill": "#3E3D3E",
+    "remap": "true"
+  }
 }

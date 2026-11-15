@@ -83,7 +83,11 @@ public static class KitDonor
             // NHL 24 font sheets byte for byte: fitting NHL 27's colour glyphs over NHL 24's stitch (normal) sheet put
             // Florida's digits above their top stitching and a gold sliver under the "1".
             bool renamed = a.SourceFolder27 is { } folder27 && !folder27.Contains($"/nhl/{a.Team}/", StringComparison.Ordinal);
-            if (renamed && RemappedFont(index, a, nhl27Fonts) is { Count: > 0 } remapped)
+            // NHL 27's own number sheets (colour, stitch normal and coefficient together, so the stitches line up) for a
+            // renamed team and for kits whose numbers changed beyond a recolour (double outlines, Carolina's italic away
+            // font): "remap": "true" in font_colours.json.
+            if (renamed || FontRecolor.WantsRemap($"{a.Team} {a.SourceKit}")) nhl27Fonts = WithFontSiblings(nhl27Fonts);
+            if ((renamed || FontRecolor.WantsRemap($"{a.Team} {a.SourceKit}")) && RemappedFont(index, a, nhl27Fonts) is { Count: > 0 } remapped)
             {
                 kept.AddRange(remapped);
                 foreach (var t in remapped) covered.Add(t.SourceSlot);
@@ -318,6 +322,31 @@ public static class KitDonor
     }
 
     /// <summary>NHL 27's font maps redrawn in the team's NHL 24 font layout; empty when the glyphs cannot be matched.</summary>
+    /// <summary>NHL 27's font normal (blue 255) with NHL 24's blue level and alpha, like the jersey normals.</summary>
+    public static Rgba FontNormalForNhl24(Rgba nhl27, Rgba nhl24)
+    {
+        var px = (byte[])nhl27.Pixels.Clone();
+        byte blue = Mode(nhl24, 2);
+        for (int i = 0; i < px.Length; i += 4) { px[i + 2] = blue; px[i + 3] = nhl24.Pixels[i + 3]; }
+        return new Rgba(nhl27.Width, nhl27.Height, px);
+    }
+
+    /// <summary>The NHL 27 font colour plus its normal and coefficient sheets (from the same decoded folder) when missing.</summary>
+    static List<NewUniformTexture> WithFontSiblings(List<NewUniformTexture> fonts)
+    {
+        var result = new List<NewUniformTexture>(fonts);
+        if (fonts.FirstOrDefault(t => t.SourceSlot.EndsWith("_color", StringComparison.Ordinal)) is not { } color) return result;
+        // Colour and stitch (normal) only: the font's shine stays the team's NHL 24 coefficient sheet (owner's choice).
+        foreach (string kind in new[] { "normal" })
+        {
+            string slot = color.SourceSlot[..^"color".Length] + kind;
+            string png = color.Artwork.Source.Replace("_color.png", $"_{kind}.png", StringComparison.Ordinal);
+            if (result.Any(t => t.SourceSlot == slot) || !File.Exists(png)) continue;
+            result.Add(new NewUniformTexture { SourceSlot = slot, Artwork = new TextureReplacement(slot, png) });
+        }
+        return result;
+    }
+
     static List<NewUniformTexture> RemappedFont(BundleIndex index, NewUniformAddition a, List<NewUniformTexture> nhl27Fonts)
     {
         var result = new List<NewUniformTexture>();
@@ -325,14 +354,19 @@ public static class KitDonor
         if (color27 is null || !File.Exists(color27.Artwork.Source) || OwnTeamImage(index, a, color27.SourceSlot) is not { } own24) return result;
         var pairs = FontRemap.Map(ImageIO.Load(color27.Artwork.Source), own24);
         if (pairs is null) return result;
+        // Proof before use (Florida's slivers): the remapped colour sheet must hold exactly NHL 24's glyph cells.
+        var problems = FontRemap.Verify(FontRemap.Apply(ImageIO.Load(color27.Artwork.Source), own24, pairs, own24), own24);
+        if (problems.Count > 0) return result;
         string dir = SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "font-remap"));
         foreach (var t in nhl27Fonts)
         {
             if (!File.Exists(t.Artwork.Source) || OwnTeamImage(index, a, t.SourceSlot) is not { } fill) continue;
             var source = ImageIO.Load(t.Artwork.Source);
-            if (source.Width != ImageIO.Load(color27.Artwork.Source).Width) continue;
+            int colourWidth = ImageIO.Load(color27.Artwork.Source).Width;
+            var remapped = FontRemap.Apply(source, fill, pairs, fill, colourWidth);
+            if (t.SourceSlot.EndsWith("_normal", StringComparison.Ordinal)) remapped = KitDonor.FontNormalForNhl24(remapped, fill);
             string png = Path.Combine(dir, $"{a.Team}_{a.SourceKit}_" + Path.GetFileName(t.Artwork.Source));
-            ImageIO.SavePng(FontRemap.Apply(source, fill, pairs, fill), png);
+            ImageIO.SavePng(remapped, png);
             result.Add(new NewUniformTexture { SourceSlot = t.SourceSlot, Artwork = new TextureReplacement(t.SourceSlot, png) });
         }
         return result;

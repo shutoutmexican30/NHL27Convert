@@ -886,3 +886,31 @@ public class SponsorSpotInPlaceTests
         Assert.Null(UniformHotspots.CopyBrandSpotInPlace(System.Text.Encoding.ASCII.GetBytes(stamp), nhl27, "sponsor"));
     }
 }
+
+public class FontRemapScaleTests
+{
+    [Fact]
+    public void A_half_size_normal_sheet_is_sampled_at_half_the_colour_boxes()
+    {
+        // NHL 27's font normal is 1024 wide against a 2048 colour sheet; a glyph at colour x 100-139 lives at normal x 50-69.
+        var normal = new Rgba(100, 100, new byte[100 * 100 * 4]);
+        for (int y = 0; y < 100; y++) for (int x = 50; x < 70; x++) normal.Pixels[(y * 100 + x) * 4] = 200;
+        var layout = new Rgba(40, 40, new byte[40 * 40 * 4]);
+        var pairs = new List<(FontRemap.Box, FontRemap.Box)> { (new FontRemap.Box(100, 0, 139, 39), new FontRemap.Box(0, 0, 9, 9)) };
+        var o = FontRemap.Apply(normal, layout, pairs, layout, mappedWidth: 200);
+        Assert.Equal(200, o.Pixels[(5 * 40 + 5) * 4]);
+    }
+
+    [Fact]
+    public void A_remapped_sheet_with_a_sliver_outside_its_cell_fails_verification()
+    {
+        int s = 200; var a = new byte[s * s * 4];
+        void Box(byte[] p, int x1, int y1, int x2, int y2) { for (int y = y1; y <= y2; y++) for (int x = x1; x <= x2; x++) p[(y * s + x) * 4 + 3] = 255; }
+        for (int i = 0; i < 5; i++) Box(a, 4 + i * 30, 45, 24 + i * 30, 85);
+        var layout = new Rgba(s, s, a);
+        Assert.Empty(FontRemap.Verify(layout, layout));
+        var b = (byte[])a.Clone();
+        Box(b, 4, 86, 24, 88); // a glyph drawn past its cell
+        Assert.NotEmpty(FontRemap.Verify(new Rgba(s, s, b), layout));
+    }
+}
