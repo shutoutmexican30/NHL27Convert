@@ -159,6 +159,29 @@ public partial class Convert27View : UserControl
         finally { _vm.Busy = false; IsEnabled = true; }
     }
 
+    async void RepairNumberKits_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Rebuild the kits whose numbers now come from NHL 27 (the list in font_colours.json)? "
+                + "One backup first; every kit is read back and checked; if anything fails the game is put back exactly as it was.\n\n"
+                + $"Game: {_vm.Settings.ApplyTargetDir}\nClose the game first.",
+                "Repair number-fix kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        IsEnabled = false;
+        _vm.Busy = true;
+        try
+        {
+            SuiteLog.Write("repair-numbers: clicked");
+            var (ok, message) = await NewUniformExport.RepairNumberKitsAsync(_vm);
+            SuiteLog.Write($"repair-numbers: finished ok={ok}: {message}");
+            _vm.Status = (ok ? "Repaired: " : "Repair not done: ") + message;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("repair-numbers: FAILED " + ex);
+            _vm.Status = "Repair failed: " + ex.Message;
+        }
+        finally { _vm.Busy = false; IsEnabled = true; }
+    }
+
     async void RebuildAll_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("Rebuild every team's Fanatics home and away kit? Each kit's old copy (complete or not) is removed "

@@ -105,6 +105,8 @@
             <Button Content="Stamp a sponsor…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a jersey that has no logo slots." />
             <Button Content="Mod list…" Click="ModList_Click" />
             <Button Content="Undo last add" Click="UndoLast_Click" ToolTip="Restore the game to the backup taken just before the last write." />
+            <Button Content="Repair number-fix kits" Click="RepairNumberKits_Click"
+                    ToolTip="Rebuild only the kits whose numbers now come from NHL 27 (listed in font_colours.json): one backup, each kit read back and checked; put back as it was if anything fails." />
             <Button Content="Rebuild all Fanatics kits" Click="RebuildAll_Click"
                     ToolTip="Remove and add fresh every team's Fanatics home and away kit (complete or not), with today's rules. One backup; each kit is read back and checked (KIT CHECK lines in the log); put back as it was if anything fails." />
             <Button Content="Repair broken kits" Click="Repair_Click"

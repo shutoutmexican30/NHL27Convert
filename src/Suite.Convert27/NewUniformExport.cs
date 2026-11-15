@@ -80,6 +80,18 @@ public static class NewUniformExport
         return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report, rebuildComplete: true));
     }
 
+    /// <summary>
+    /// Rebuilds only the kits whose number art comes from NHL 27 ("remap" in font_colours.json): after a number fix the
+    /// owner repairs those in one go instead of one uniform at a time, and nothing else in the game is rewritten.
+    /// </summary>
+    public static async Task<(bool Ok, string Message)> RepairNumberKitsAsync(Convert27ViewModel vm)
+    {
+        var (unplanned, Report) = await BuildUnplannedAsync(vm, "NHL 27 Fanatics number fixes", currentFolderOnly: false);
+        unplanned.Additions = (unplanned.Additions ?? []).Where(a => FontRecolor.WantsRemap($"{a.Team} {a.SourceKit}")).ToList();
+        if (unplanned.Additions.Count == 0) return (false, "No kit is listed for NHL 27 number art in font_colours.json.");
+        return await Task.Run(() => NewUniformApply.Repair(vm.Settings, unplanned, Report, rebuildComplete: true));
+    }
+
     public static async Task<Draft> PlanAsync(Convert27ViewModel vm, string name, bool currentFolderOnly)
     {
         var (unplanned, Report) = await BuildUnplannedAsync(vm, name, currentFolderOnly);

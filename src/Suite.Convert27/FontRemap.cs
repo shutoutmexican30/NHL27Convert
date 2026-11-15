@@ -43,6 +43,12 @@ public static class FontRemap
         var (t, b, l, r) = Bands[band];
         int w = img.Width, h = img.Height, y0 = (int)(h * t), y1 = Math.Min(h, (int)(h * b)), x0 = (int)(w * l), x1 = Math.Min(w, (int)(w * r));
         bool vertical = band == 4;
+        if (vertical)
+        {
+            // The captain column's left edge can cut through the right edge of the big digits beside it (Edmonton's
+            // NHL 27 sheet), which then counts as part of the C or A; move it to the nearest empty column.
+            x0 = EmptyColumn(img, x0, y0, y1);
+        }
         if (!vertical)
         {
             // A fixed band edge can cut through the bottom of the row above (Florida's big digits end at 46.1%): that
@@ -92,6 +98,21 @@ public static class FontRemap
         var across = kept.Select(x => vertical ? x.Height : x.Width).Order().ToList();
         int median = across.Count == 0 ? 0 : across[across.Count / 2];
         return kept.Where(x => (vertical ? x.Height : x.Width) >= median * 0.25).ToList();
+    }
+
+    /// <summary>The empty column (no ink between y0 and y1) nearest to x, within 3% of the sheet; x itself when none.</summary>
+    static int EmptyColumn(Rgba img, int x, int y0, int y1)
+    {
+        int reach = Math.Max(1, img.Width * 3 / 100);
+        for (int d = 0; d <= reach; d++)
+            foreach (int c in new[] { x + d, x - d })
+            {
+                if (c <= 0 || c >= img.Width) continue;
+                bool ink = false;
+                for (int y = y0; y < y1 && !ink; y++) ink = Ink(img, c, y);
+                if (!ink) return c;
+            }
+        return x;
     }
 
     /// <summary>The empty row (no ink between x0 and x1) nearest to y, within 3% of the sheet; y itself when none.</summary>
@@ -166,6 +187,28 @@ public static class FontRemap
                 sx = Math.Clamp(sx, 0, source.Width - 1); sy = Math.Clamp(sy, 0, source.Height - 1);
                 Array.Copy(source.Pixels, (sy * source.Width + sx) * 4, output, (y * w + x) * 4, 4);
             }
+        }
+        // NHL 24 captain artwork outside the C/A cells (a shadow strip left of Edmonton's and Ottawa's A) is not part of
+        // any glyph cell; clear it so nothing from the old sheet remains next to the new letters.
+        var (cx0, cy0, cx1, cy1) = BandRect(layoutBase, 4);
+        var captainCells = pairs.Where(p => p.To.X2 >= cx0 && p.To.X1 < cx1 && p.To.Y2 >= cy0 && p.To.Y1 < cy1).Select(p => p.To).ToList();
+        if (captainCells.Count > 0)
+        {
+            // The sheet's empty value: its most common pixel (transparent on a colour sheet, flat blue on a normal sheet).
+            var counts = new Dictionary<uint, int>();
+            bool anyClear = false;
+            for (int i = 3; i < layoutBase.Pixels.Length && !anyClear; i += 4 * 7) anyClear = layoutBase.Pixels[i] < 128;
+            for (int i = 0; i < layoutBase.Pixels.Length; i += 4 * 7)
+            {
+                if (anyClear && layoutBase.Pixels[i + 3] >= 128) continue; // a colour sheet's empty value is transparent
+                uint v = BitConverter.ToUInt32(layoutBase.Pixels, i);
+                counts[v] = counts.GetValueOrDefault(v) + 1;
+            }
+            byte[] background = BitConverter.GetBytes(counts.MaxBy(kv => kv.Value).Key);
+            for (int y = cy0; y < cy1; y++)
+            for (int x = cx0; x < cx1; x++)
+                if (!captainCells.Any(b => x >= b.X1 - 1 && x <= b.X2 + 1 && y >= b.Y1 - 1 && y <= b.Y2 + 1))
+                    Array.Copy(background, 0, output, (y * w + x) * 4, 4);
         }
         return new Rgba(w, h, output);
     }
