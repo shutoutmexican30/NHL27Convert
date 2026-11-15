@@ -11,6 +11,8 @@ public class ModPackageTests
         .Concat(Directory.Exists(Path.Combine(root, "game-UPDATE")) ? Directory.EnumerateFiles(Path.Combine(root, "game-UPDATE"), "*", SearchOption.AllDirectories) : [])
         .ToDictionary(f => Path.GetRelativePath(root, f), f => PackageIo.Sha256(f));
 
+    const string Xml = @"user\patches\nhl24.xml";
+
     [Fact]
     public void RoundTrip()
     {
@@ -33,21 +35,25 @@ public class ModPackageTests
             Put(stock, @"game\Data\gone.bin", Rnd(5000, 7)); Put(test, @"game\Data\gone.bin", Rnd(5000, 7));
             Put(mod, @"game\Data\new.bin", Rnd(9000, 8));
             Put(mod, @"game\eboot.bin", Rnd(100, 9));   // setup-managed, must be ignored
+            Put(mod, Xml, Rnd(700, 10));   // runtime patch: put whole
+            Put(test, Xml, Rnd(300, 11));  // player's own copy, backed up and restored
 
             var pkg = Path.Combine(dir, "t.cimspkg");
             var m = PackageBuilder.Build(new BuildOptions { StockRoot = stock, ModdedRoot = mod, OutputPath = pkg });
-            Assert.Equal(4, m.Files.Count);
+            Assert.Equal(5, m.Files.Count);
             Assert.True(m.Files.Single(f => f.Path.EndsWith("big.cas")).RangeBytes < 200_000);
 
             var before = Snap(test);
             ModInstaller.Install(test, pkg);
             var modSnap = Snap(mod); modSnap.Remove(@"game\eboot.bin");
             var after = Snap(test); after.Remove(@"game\eboot.bin");
+            Assert.Equal(PackageIo.Sha256(Path.Combine(mod, Xml)), PackageIo.Sha256(Path.Combine(test, Xml)));
             Assert.Equal(modSnap.OrderBy(k => k.Key), after.OrderBy(k => k.Key));
 
             Assert.Throws<InvalidOperationException>(() => ModInstaller.Install(test, pkg));   // already installed
             ModInstaller.Uninstall(test);
             Assert.Equal(before.OrderBy(k => k.Key), Snap(test).OrderBy(k => k.Key));
+            Assert.Equal(Rnd(300, 11), File.ReadAllBytes(Path.Combine(test, Xml)));
             Assert.False(Directory.Exists(ModInstaller.BackupDir(test)));
         }
         finally { try { Directory.Delete(dir, true); } catch { } }

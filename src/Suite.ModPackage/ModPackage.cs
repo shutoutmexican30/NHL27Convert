@@ -99,6 +99,9 @@ public sealed class BuildOptions
     /// Folders under the roots that are compared. eboot.bin is left out: the NHL24PC setup and launcher patch it per machine.
     public string[] Scopes { get; set; } = { "game", "game-UPDATE" };
     public Func<string, bool> Exclude { get; set; } = DefaultExclude;
+    /// Single files outside the scopes that carry mod content (the salary cap runtime patch). Packed whole as "put":
+    /// a player's existing copy is backed up and replaced, and put back on uninstall.
+    public string[] PutFiles { get; set; } = { @"user\patches\nhl24.xml" };
 
     public static bool DefaultExclude(string rel)
     {
@@ -141,6 +144,18 @@ public static class PackageBuilder
             int d = Interlocked.Increment(ref done);
             if (d % 200 == 0) log?.Report($"  {d}/{list.Length} compared");
         });
+
+        foreach (var rel in o.PutFiles)
+        {
+            var mp = Path.Combine(o.ModdedRoot, rel);
+            if (!File.Exists(mp)) continue;
+            var sp = Path.Combine(o.StockRoot, rel);
+            var mh = PackageIo.Sha256(mp, ct);
+            if (File.Exists(sp) && PackageIo.Sha256(sp, ct) == mh) continue;
+            long len = new FileInfo(mp).Length;
+            results = results.Append(new PackageFile { Path = rel, Action = "put", ModSize = len, ModSha256 = mh, Ranges = len > 0 ? new() { new[] { 0L, len } } : new() }).ToArray();
+            log?.Report($"  changed: {rel} (put, {PackageIo.Size(len)})");
+        }
 
         var m = new PackageManifest
         {
@@ -335,7 +350,9 @@ public static class ModInstaller
             ct.ThrowIfCancellationRequested();
             var p = Path.Combine(root, f.Path);
             FileState st;
-            if (!File.Exists(p)) st = f.Action == "add" ? FileState.Stock : f.Action == "delete" ? FileState.Installed : FileState.Missing;
+            if (f.Action == "put")   // any existing copy is fine: it is backed up whole and put back on uninstall
+                st = File.Exists(p) && new FileInfo(p).Length == f.ModSize && PackageIo.Sha256(p, ct) == f.ModSha256 ? FileState.Installed : FileState.Stock;
+            else if (!File.Exists(p)) st = f.Action == "add" ? FileState.Stock : f.Action == "delete" ? FileState.Installed : FileState.Missing;
             else
             {
                 long len = new FileInfo(p).Length;
@@ -373,10 +390,10 @@ public static class ModInstaller
                 + string.Join("\n", bad.Take(15).Select(b => $"  {b.File.Path}: {(b.State == FileState.Missing ? "missing" : "different")}"))
                 + (bad.Count > 15 ? $"\n  ...and {bad.Count - 15} more" : "")
                 + "\nThis mod needs: " + m.Requires);
-        if (chk.Files.Any(f => f.State == FileState.Installed))
+        if (chk.Files.Any(f => f.State == FileState.Installed && f.File.Action != "put"))
             throw new InvalidOperationException("Some of this mod's files are already in place, but there is no backup to undo them. Reinstall the stock game files first.");
 
-        long backupBytes = m.Files.Where(f => f.Action != "add").Sum(f => SavedRanges(f).Sum(r => Math.Max(0, Math.Min(r[0] + r[1], f.StockSize) - r[0])));
+        long backupBytes = m.Files.Where(f => f.Action is "patch" or "delete").Sum(f => SavedRanges(f).Sum(r => Math.Max(0, Math.Min(r[0] + r[1], f.StockSize) - r[0])));
         long growBytes = m.Files.Sum(f => Math.Max(0, f.ModSize - f.StockSize));
         var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root))!);
         if (drive.AvailableFreeSpace < backupBytes + growBytes + (256L << 20))
@@ -396,7 +413,19 @@ public static class ModInstaller
                     var p = Path.Combine(root, f.Path);
                     log?.Report($"Installing {f.Path}");
                     var e = new BackupEntry { Path = f.Path, Action = f.Action, StockSize = f.StockSize, StockSha256 = f.StockSha256 };
-                    if (f.Action != "add")
+                    if (f.Action == "put")
+                    {
+                        if (File.Exists(p))
+                        {
+                            e.StockSize = new FileInfo(p).Length;
+                            e.StockSha256 = PackageIo.Sha256(p, ct);
+                            e.Saved.Add(new[] { 0L, e.StockSize, data.Position });
+                            using var src = new FileStream(p, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            CopyN(src, data, e.StockSize, buf, f.Path);
+                        }
+                        else e.Action = "add";
+                    }
+                    else if (f.Action != "add")
                     {
                         using var src = new FileStream(p, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20);
                         var save = SavedRanges(f);
@@ -417,7 +446,7 @@ public static class ModInstaller
                     Directory.CreateDirectory(Path.GetDirectoryName(p)!);
                     pkg.Position = f.BlobOffset;
                     using var z = new DeflateStream(new SubStream(pkg, f.BlobOffset, f.BlobLength), CompressionMode.Decompress);
-                    using var dst = new FileStream(p, f.Action == "add" ? FileMode.CreateNew : FileMode.Open, FileAccess.ReadWrite, FileShare.None, 1 << 20);
+                    using var dst = new FileStream(p, f.Action switch { "add" => FileMode.CreateNew, "put" => FileMode.Create, _ => FileMode.Open }, FileAccess.ReadWrite, FileShare.None, 1 << 20);
                     if (dst.Length < f.ModSize) dst.SetLength(f.ModSize);
                     foreach (var r in f.Ranges) { dst.Position = r[0]; CopyN(z, dst, r[1], buf, f.Path); }
                     dst.SetLength(f.ModSize);

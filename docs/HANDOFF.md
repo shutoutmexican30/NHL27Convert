@@ -17,7 +17,13 @@ holds the exe, the .cimspkg and `INSTALL GUIDE.txt` (template `data/mod-installe
   appended tail. If more than half the file changed, the whole file is shipped.
 - **Why ranges are enough:** the suite's writers only append or overwrite and never shift data.
 - **Scope:** `game\` and `game-UPDATE\`. `eboot.bin` and `*.orig` are excluded because NHL24PC setup patches
-  `game-UPDATE\eboot.bin` per machine.
+  `game-UPDATE\eboot.bin` per machine. The main game's 1.60 eboot differs from stock by 21 bytes in 6 runs, all of them
+  setup patches; the cap is not among them.
+- **Salary cap patch:** it lives in the runtime patch `user\patches\nhl24.xml` (cap 104M, floor 76.9M, min/max). The
+  emulator log shows "Applied patch: Salary cap 2026-27". `BuildOptions.PutFiles` packs this file whole as a **put**
+  entry: the player's existing copy (if any) is backed up whole and restored on uninstall. NHL24PC's `setup.ps1` renames
+  `nhl24.xml` to `.off` whenever Install.bat runs, so the guide tells players to reinstall the mod after re-running
+  Install.bat.
 
 **Installer:**
 1. Refuses to run if the emulator or launcher is running from that folder.

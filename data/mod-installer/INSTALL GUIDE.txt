@@ -1,5 +1,5 @@
 {NAME} {VERSION} - INSTALL GUIDE
-==========================================
+===========================================
 
 This mod is for NHL 24 played on PC with NHL24PC. It does not include the game. It changes your own game files
 and can be removed again at any time.
@@ -40,6 +40,14 @@ UNINSTALL
 1. Close the game.
 2. Run CIMS-Mod-Installer.exe, pick the same NHL24PC folder, and click "Uninstall".
 3. Your files go back to stock exactly, and the backup folder (NHL24PC\user\cims_mod_backup) is deleted.
+
+
+IMPORTANT: RE-RUNNING NHL24PC'S INSTALL.BAT
+--------------------------------------------
+This mod's salary cap changes (2026-27 cap, floor and contract limits) live in NHL24PC\user\patches\nhl24.xml.
+Running NHL24PC's Install.bat again renames that file to nhl24.xml.off and switches the cap changes off. If you
+re-run Install.bat, run this installer afterwards: Uninstall, then Install again. The cap changes only apply to a
+NEW franchise or Be a GM. Existing saves keep their old cap.
 
 
 UPDATING TO A NEWER VERSION OF THIS MOD
