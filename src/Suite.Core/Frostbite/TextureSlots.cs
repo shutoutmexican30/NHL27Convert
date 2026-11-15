@@ -124,7 +124,8 @@ public static class TextureSlots
             index = BundleIndex.Build(game);
             foreach (var job in jobs)
                 foreach (var rb in ChunkReplace.ReadAll(game, index, job.Chunk))
-                    if (rb.LogicalOffset + (long)rb.Raw.Length > job.Data.Length || !rb.Raw.AsSpan().SequenceEqual(job.Data.AsSpan((int)rb.LogicalOffset, rb.Raw.Length)))
+                    if (rb.LogicalOffset > 0 && rb.Raw.Length == job.Data.Length ? !rb.Raw.AsSpan().SequenceEqual(job.Data)   // tail record storing the whole chunk
+                        : rb.LogicalOffset + (long)rb.Raw.Length > job.Data.Length || !rb.Raw.AsSpan().SequenceEqual(job.Data.AsSpan((int)rb.LogicalOffset, rb.Raw.Length)))
                         throw new InvalidOperationException($"Read-back differs: {job.Name} via {rb.Where}.");
             Timed("Read-back verification completed");
             return (true, $"{jobs.Select(j => j.Name).Distinct().Count()} texture(s) written ({jobs.Count} chunk copies) and read back identical; " +
