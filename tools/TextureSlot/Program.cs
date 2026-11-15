@@ -11,6 +11,16 @@ var settings = SuiteSettings.Load();
 foreach (var original in new[] { settings.Nhl24GameDir, settings.Nhl24BaseDir, settings.Nhl24UpdateDir, settings.Nhl24ReadView })
     if (args[0] == "apply" && !string.IsNullOrWhiteSpace(original) && string.Equals(Path.GetFullPath(original).TrimEnd(Path.DirectorySeparatorChar), game, StringComparison.OrdinalIgnoreCase))
         { Console.Error.WriteLine("REFUSED: the original game."); return 1; }
+if (args[0] == "applymany")
+{
+    // applymany <game> <list.tsv> --apply : one TextureSlots.Apply (one backup, one read-back) for every "slot<TAB>png" line.
+    if (!args.Contains("--apply")) { Console.WriteLine("dry run (add --apply to write)"); return 0; }
+    var list = File.ReadAllLines(args[2]).Where(l => l.Contains('\t')).Select(l => l.Split('\t'))
+        .Select(p => new TextureReplacement(p[0], Path.GetFullPath(p[1]), null, null)).ToList();
+    var (okMany, msgMany, _) = TextureSlots.Apply(game, list, Console.WriteLine);
+    Console.WriteLine(msgMany);
+    return okMany ? 0 : 1;
+}
 var index = BundleIndex.Build(game);
 var slot = TextureSlots.Read(game, index, args[2]);
 Console.WriteLine($"{args[2]}: {slot.Res.Width}x{slot.Res.Height}, {slot.Res.MipCount} mips, {Ps4Codec.Slices(slot.Res.Header)} layer(s), {Ps4Codec.Of(slot.Res.Header, slot.Res.BlockBytes)}");
