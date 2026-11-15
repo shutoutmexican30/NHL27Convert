@@ -11,6 +11,28 @@ var settings = SuiteSettings.Load();
 foreach (var original in new[] { settings.Nhl24GameDir, settings.Nhl24BaseDir, settings.Nhl24UpdateDir, settings.Nhl24ReadView })
     if (args[0] == "apply" && !string.IsNullOrWhiteSpace(original) && string.Equals(Path.GetFullPath(original).TrimEnd(Path.DirectorySeparatorChar), game, StringComparison.OrdinalIgnoreCase))
         { Console.Error.WriteLine("REFUSED: the original game."); return 1; }
+if (args[0] == "compare")
+{
+    // compare <gameA> <gameB> <names.txt> : per line "tex:<texture>" | "legacy:<file>" | "chunk:<guid>", same/different (read only).
+    var gb = Path.GetFullPath(args[2]).TrimEnd(Path.DirectorySeparatorChar);
+    var ia = BundleIndex.Build(game); var ib = BundleIndex.Build(gb);
+    var la = new LegacyFiles(game, settings); var lb = new LegacyFiles(gb, settings);
+    string H(byte[] b) => Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(b))[..10];
+    foreach (var line in File.ReadAllLines(args[3]).Where(l => l.Contains(':')))
+    {
+        var (kind, name) = (line[..line.IndexOf(':')], line[(line.IndexOf(':') + 1)..]);
+        try
+        {
+            byte[] A, B;
+            if (kind == "tex") { A = TextureSlots.Read(game, ia, name).Stock; B = TextureSlots.Read(gb, ib, name).Stock; }
+            else if (kind == "legacy") { A = la.Read(name); B = lb.Read(name); }
+            else { var id = Guid.Parse(name); A = ChunkReplace.ReadAll(game, ia, id).First(r => r.LogicalOffset == 0).Raw; B = ChunkReplace.ReadAll(gb, ib, id).First(r => r.LogicalOffset == 0).Raw; }
+            Console.WriteLine($"{(A.AsSpan().SequenceEqual(B) ? "SAME" : "DIFF")}  {line}  ({H(A)} / {H(B)})");
+        }
+        catch (Exception ex) { Console.WriteLine($"ERR   {line}: {ex.Message}"); }
+    }
+    return 0;
+}
 if (args[0] == "applymany")
 {
     // applymany <game> <list.tsv> --apply : one TextureSlots.Apply (one backup, one read-back) for every "slot<TAB>png" line.
