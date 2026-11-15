@@ -3,13 +3,18 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Disk cleanup (2026-11-15)
+
+At the owner's request, every test game copy was deleted (D:\CIMS-test livecopy, play, install-validation, NHL24-merged(-kit), installer-test; Debugging apply-target and v32-recovery), as were all suite restore points (`%LOCALAPPDATA%\CenterIceModdingSuiteackups`, D:\CIMS-test backups/fullkit-backups/array-backups) and NHL24PC.rar. **Backup paths named in older sections below no longer exist.** Every livecopy cas file was a byte prefix of the main game's, so main holds all of livecopy's work. Kept: main game, `D:\CIMS-test\stock-v32`, the release zip, the 1.00 and 1.60 PKGs, and the play copy's saves in `D:\CIMS-test\saves-from-play-copy`. Test on a fresh robocopy of stock-v32 and delete it afterwards.
+
 ## Mod installer for sharing the mod without the game (2026-11-15): BUILT AND SELF-TESTED
 
 **What:** `src/Suite.ModPackage` diffs a modded NHL24PC against a fresh stock install and writes a `.cimspkg` with only
 the changed files and byte ranges. `src/Suite.ModInstaller` is the player-facing `CIMS-Mod-Installer.exe`: a WinForms app,
 self-contained single file (~72 MB, no .NET needed), that also has a CLI (`--game <NHL24PC> --check|--install|--uninstall [--package f]`).
 The suite has a **Build mod installer** nav page (`Pages/ModInstallerPage.cs`). It writes `<out>\<name> <version>\`, which
-holds the exe, the .cimspkg and `INSTALL GUIDE.txt` (template `data/mod-installer/INSTALL GUIDE.txt`), plus a stored .zip of the folder (optional checkbox). Shared release 2026-11-15: `D:CIMS-testeleaseCenter Ice Mod 2026-11-15.zip` (11.5 GB, tested with 7z t). Headless builds use `tools/ModPackageBuild`.
+holds the exe, the .cimspkg and `INSTALL GUIDE.txt` (template `data/mod-installer/INSTALL GUIDE.txt`), plus a stored .zip of the folder (optional checkbox). Shared release 2026-11-15: `D:CIMS-test
+eleaseCenter Ice Mod 2026-11-15.zip` (11.5 GB, tested with 7z t). Headless builds use `tools/ModPackageBuild`.
 
 **Format:** `"CIMSPKG1"`, then one Deflate blob per file, then the manifest JSON, its int64 length, and `"CIMSPKG1"`.
 - **Entry actions:** patch, add or delete. Each entry stores the stock and mod size and SHA-256.
