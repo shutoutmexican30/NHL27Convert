@@ -3,6 +3,29 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## Commentary name calls: speech index decoded, 2026-11-15 (read only; nothing written to a game)
+
+Full notes: [COMMENTARY_FEASIBILITY.md](COMMENTARY_FEASIBILITY.md) sections 6–7.
+
+- **Audio:** NHL 27 speech is the same EA SPS Opus as NHL 24 (no transcode).
+- **New code:** `src/Suite.Sounds` now has the reader side; the project was an empty stub before.
+  - `SpsStream`: walks SPS streams.
+  - `HarmonyBank`: parses an SBle/TESD bank (wave RES, horn bank).
+  - `SpeechDatabase`: transcriptions and keywords.
+  - `SpeechCatalog`: surname/keyword/VariationId → takes. It also references Suite.Core now.
+- **CLI:** `tools/SpeechProbe` (read only). `--verify` passes on all 35,641 surname takes.
+- **The chain:** keyword → VariationIds (SentenceKeywords) → offset/length in the wave chunk (wave RES bank) → text
+  (transcriptions). Example: Stamkos = keyword 1091.
+- **Still unknown:** player `audioid` → keyword, which is computed in code (`PG_*_surname_id`).
+- **Plan:** donor surnames. Overwrite the takes of a voiced surname that no NHL 27 player uses, then set the new
+  player's `audioid` to the donor's.
+- **Next:**
+  1. `HarmonyBankWriter`, per the design in the feasibility doc.
+  2. Cas-index-aware `TocChunkWriter` repoint.
+  3. An NHL 27 PS5 reader to pull the 40 players' takes.
+- **Quick win without new audio:** 17 new players share a surname NHL 24 already voices. Set their `audioid` to
+  that player's.
+
 ## Arizona -> Utah Mammoth (DB + loc), 2026-11-12: PROVEN, NOT APPLIED (waiting for the uniform import to finish)
 
 Owner approved going ahead; the owner then said they were still importing uniforms, so **nothing was written to the live
@@ -1166,3 +1189,5 @@ Left: 49 Arizona team-select jersey tiles (ui/textures/common/teamjerseys*/jerse
 Ice projection (found 2026-11-15): a movie, content/worlds/rink/movies/movie_projection_arizona (+ framecolor_projection_arizona, *_worlds_iceprojection_brt bundles). Needs a movie chunk locator/writer (video data chunk inside the movie EBX) and an NHL 27 Utah projection movie in the same format; not written.
 
 Ice from NHL 27 (2026-11-15, livecopy): 356 same-name textures from rink/textures/hotspot (ice ads), common (ice material maps) and runtime written in ONE batch, backup backups\20261114-232913 (restore = undo all). Added Data nhl_installpackage_02\cas_03 +1.18 GB (1.47 GB left before 4 GB) plus ~29 MB elsewhere. Tool: TextureSlot applymany <game> <list.tsv> --apply.
+
+Ice projection (2026-11-15, livecopy): movie_projection_arizona's video = TOC chunk 326b26f8-1de2-a0ae-cd9b-742272c8de4a (contentlaunchsb.toc, Data pkg02 cas_07), a VP8 WebM 2000x850 yuv420p 30000/1001 fps 12.012 s, 6,709,015 bytes. Utah version: frames recoloured (tools\CrowdMammoth\projection\recolor.py) + Mammoth logo, ffmpeg libvpx 4000k, padded to the exact size with an EBML Void element inside the Segment (segment size patched). Written with ChunkWrite, backup 20261115-000215, every reference read back, cas_07 +5.9 MB. Ice: common/runtime material maps reverted to NHL 24 (NHL 27 packing killed reflections), only the 321 hotspots kept (backup 20261114-234258). framecolor_projection_arizona (EBX tint) not edited.
