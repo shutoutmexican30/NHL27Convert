@@ -90,6 +90,9 @@ public static class ChunkReplace
                 // A streamed texture's tail record (logical offset = mip 0 size) can store the whole chunk, not just the
                 // slice (crowd 512 jersey sheets: logical 131072+46080, stored raw 177152): write the whole new data.
                 else if (c.LogicalOffset > 0 && oldRawSize == full.LongLength) stored = Reencode(oldStored, full);
+                // ...or the chunk from a larger mip on (it ends where the data ends): write that same tail of the new data.
+                else if (c.LogicalOffset > 0 && oldRawSize > slice.LongLength && oldRawSize < full.LongLength)
+                    stored = Reencode(oldStored, full.AsSpan((int)(full.LongLength - oldRawSize)).ToArray());
                 else if (c.LogicalOffset == 0 && c.LogicalSize == slice.LongLength && oldRawSize < slice.LongLength)
                 {
                     // Older expansion writes could update the manifest's full logical size while retaining the short
