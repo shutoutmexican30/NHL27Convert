@@ -167,10 +167,7 @@ public partial class Convert27View : UserControl
     {
         string what = undo ? "Put the original NHL 24 home and away kits back as every team's defaults?"
             : "Make every team's Fanatics 26-27 home and away its default kits? The original NHL 24 home and away stay as selectable alternates. New seasons, leagues and franchises use the new defaults; saved rosters and existing franchises keep their own.";
-        if (MessageBox.Show(what + $"
-
-Game: {_vm.Settings.ApplyTargetDir}
-Close the game first. A backup is taken first.",
+        if (MessageBox.Show(what + $"\n\nGame: {_vm.Settings.ApplyTargetDir}\nClose the game first. A backup is taken first.",
                 undo ? "Undo Fanatics defaults" : "Make Fanatics the default kits", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         IsEnabled = false;
         _vm.Busy = true;
