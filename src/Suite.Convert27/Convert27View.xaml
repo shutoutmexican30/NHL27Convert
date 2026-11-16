@@ -105,6 +105,10 @@
             <Button Content="Stamp a sponsor…" Click="Stamp_Click" ToolTip="Paint a sponsor onto a jersey that has no logo slots." />
             <Button Content="Mod list…" Click="ModList_Click" />
             <Button Content="Undo last add" Click="UndoLast_Click" ToolTip="Restore the game to the backup taken just before the last write." />
+            <Button Content="Make Fanatics the default kits" Click="FanaticsDefault_Click"
+                    ToolTip="Each team's Fanatics 26-27 home and away become its default kits; the original NHL 24 home and away stay as selectable alternates. Database change only; backup first; undo below." />
+            <Button Content="Undo Fanatics defaults" Click="FanaticsDefaultUndo_Click"
+                    ToolTip="Put the original NHL 24 home and away back as the default kits, exactly as they were." />
             <Button Content="Repair number-fix kits" Click="RepairNumberKits_Click"
                     ToolTip="Rebuild only the kits whose numbers now come from NHL 27 (listed in font_colours.json): one backup, each kit read back and checked; put back as it was if anything fails." />
             <Button Content="Rebuild all Fanatics kits" Click="RebuildAll_Click"

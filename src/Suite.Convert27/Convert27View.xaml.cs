@@ -159,6 +159,36 @@ public partial class Convert27View : UserControl
         finally { _vm.Busy = false; IsEnabled = true; }
     }
 
+    async void FanaticsDefault_Click(object sender, RoutedEventArgs e) => await RunKitDefaults(undo: false);
+
+    async void FanaticsDefaultUndo_Click(object sender, RoutedEventArgs e) => await RunKitDefaults(undo: true);
+
+    async Task RunKitDefaults(bool undo)
+    {
+        string what = undo ? "Put the original NHL 24 home and away kits back as every team's defaults?"
+            : "Make every team's Fanatics 26-27 home and away its default kits? The original NHL 24 home and away stay as selectable alternates. New seasons, leagues and franchises use the new defaults; saved rosters and existing franchises keep their own.";
+        if (MessageBox.Show(what + $"
+
+Game: {_vm.Settings.ApplyTargetDir}
+Close the game first. A backup is taken first.",
+                undo ? "Undo Fanatics defaults" : "Make Fanatics the default kits", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        IsEnabled = false;
+        _vm.Busy = true;
+        try
+        {
+            var lines = new List<string>();
+            var (ok, message) = await Task.Run(() => KitDefaults.Run(_vm.Settings, undo, l => { lines.Add(l); SuiteLog.Write("kit-defaults: " + l); }));
+            SuiteLog.Write($"kit-defaults: finished ok={ok}: {message}");
+            _vm.Status = message;
+        }
+        catch (Exception ex)
+        {
+            SuiteLog.Write("kit-defaults: FAILED " + ex);
+            _vm.Status = "Not done: " + ex.Message;
+        }
+        finally { _vm.Busy = false; IsEnabled = true; }
+    }
+
     async void RepairNumberKits_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("Rebuild the kits whose numbers now come from NHL 27 (the list in font_colours.json)? "
