@@ -79,7 +79,7 @@ public static class FanaticsKitCheck
         var font = Read($"{f}font_adidas_{id}_color");
         var font24 = Read($"{own}font_adidas_{ownId}_color");
         if (font is null) bad.Add("no number/letter sheet");
-        else if (team != "arizona" && font24 is not null && InkDiffers(font, font24)) bad.Add("number/letter sheet is not the team's NHL 24 sheet");
+        else if (team != "arizona" && !FontRecolor.WantsRemap($"{team} {ownKit}") && font24 is not null && InkDiffers(font, font24)) bad.Add("number/letter sheet is not the team's NHL 24 sheet");
 
         foreach (string garment in new[] { "jersey", "pant", "sock" })
         foreach (string variant in new[] { "base_", "" })
