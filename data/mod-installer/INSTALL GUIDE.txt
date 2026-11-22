@@ -42,14 +42,6 @@ UNINSTALL
 3. Your files go back to stock exactly, and the backup folder (NHL24PC\user\cims_mod_backup) is deleted.
 
 
-IMPORTANT: RE-RUNNING NHL24PC'S INSTALL.BAT
---------------------------------------------
-This mod's salary cap changes (2026-27 cap, floor and contract limits) live in NHL24PC\user\patches\nhl24.xml.
-Running NHL24PC's Install.bat again renames that file to nhl24.xml.off and switches the cap changes off. If you
-re-run Install.bat, run this installer afterwards: Uninstall, then Install again. The cap changes only apply to a
-NEW franchise or Be a GM. Existing saves keep their old cap.
-
-
 UPDATING TO A NEWER VERSION OF THIS MOD
 ---------------------------------------
 Uninstall the old version with its own installer first, then install the new one.

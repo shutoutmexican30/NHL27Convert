@@ -20,10 +20,14 @@ public static unsafe class Oodle
 
     const int Kraken = 8, LevelOptimal2 = 6;
 
-    /// <summary>oo2core_9_win64.dll in an FMT install under D:\Tools (any version), or next to the NHL24Kit runtime.</summary>
+    /// <summary>oo2core_9_win64.dll next to the suite's exe, in an FMT install under any drive's \Tools (any version), or next
+    /// to the NHL24Kit runtime. The DLL is not redistributed with the suite; a user can drop it beside the exe.</summary>
     public static IEnumerable<string> Candidates(SuiteSettings? s = null)
     {
-        foreach (var root in new[] { @"D:\Tools", @"C:\Tools", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) })
+        var beside = Path.Combine(AppContext.BaseDirectory, "oo2core_9_win64.dll");
+        if (File.Exists(beside)) yield return beside;
+        var drives = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady).Select(d => Path.Combine(d.RootDirectory.FullName, "Tools"));
+        foreach (var root in drives.Append(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)))
         {
             if (!Directory.Exists(root)) continue;
             IEnumerable<string> found;

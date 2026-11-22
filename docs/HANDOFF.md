@@ -3,6 +3,32 @@
 Last updated: 2026-11-06. Repo: `C:\dev\NHL27Convert` (git, branch `convert27-slice`, not pushed anywhere).
 Earlier survey notes (pre-decision): `C:\Users\devin\Documents\Codex\2026-10-20\where-are-the-imported-rosters-located\docs\HANDOFF.md`.
 
+## NHL 24 online revival (2026-11-16): IMPLEMENTATION STARTED
+
+Full study: `docs/NHL24_ONLINE_REVIVAL.md`. Infrastructure: `C:\dev\nhl24-online\`.
+
+**BlueLine study (2026-11-16):** Cloned and analyzed Puck Peak's BlueLine (`github.com/MatusRiedl/nhl-legacy-pc-online-blueline`),
+which has WORKING online multiplayer for NHL Legacy Edition. Key insight: NHL Legacy uses `gosredirector.ea.com` redirected
+via RPCS3's IP swap list or a DLL proxy (`XINPUT1_4.dll`) to a private "Overtime" lobby server. NHL 24 uses the same
+redirector family (`spring18.gosredirector.ea.com`). BlueLine's architecture maps directly.
+
+**Built so far:**
+- `nhl24-online/setup_certs.py` — generates CA + server certs for all EA hostnames (done, certs in `certs/`)
+- `nhl24-online/setup_hosts.py` — adds/removes EA hostname redirects in Windows hosts file
+- `nhl24-online/setup_emulator.py` — enables shadPS4 networking (`connected_to_network`, `shad_net_enabled`)
+- `nhl24-online/setup_eadpsdk.py` — installs eadpsdk.json override pointing endpoints to our server
+- `nhl24-online/capture_proxy/` — TLS-terminating proxy that logs all NHL 24 → EA traffic (auto-detects HTTP/Blaze/gRPC)
+- `nhl24-online/lobby/` — Overtime-style REST lobby server (create/join/ready/chat/leaderboard)
+- `nhl24-online/auth/` — Nucleus/EADP auth stub (OAuth tokens, identity, personas, gateway catch-all)
+- `nhl24-online/blaze/` — Blaze binary protocol server (TDF codec, component handlers for Authentication, Redirector, Util, UserSessions, GameManager)
+- `nhl24-online/server.py` — **Unified server** combining HTTP (Nucleus) + Blaze (binary) on single TLS port, tested working
+
+**Blocker (2026-11-16):** Emulator `nhl24_new.exe` is shadPS4 v0.8.3 — sceSslInit is DUMMY (no TLS). Latest shadPS4 is v0.20+ with full HTTP/SSL. Drop-in upgrade should work (game patches are in eboot.bin via launcher scripts, not the emulator).
+
+**EA endpoints extracted from game binary:** 54 unique URLs. Redirector: `spring18.gosredirector.ea.com`. Blaze components: Authentication, GameManager, Redirector, Util, UserSessions, Clubs, HutGameModes, CardHouse, Matchmaking, Seasons, OTP, GameReporting, Messaging.
+
+**Next:** Upgrade emulator to v0.20+, then capture real traffic and end-to-end test.
+
 ## Obfuscating the Suite (2026-11-15): WORKING
 
 Protects the distributed Suite against casual and AI-assisted reverse engineering with Obfuscar (free, in the NuGet
@@ -362,6 +388,124 @@ values that look like block hashes; the DATA container itself (len+tag+payload b
 unchanged. **Next step:** decode the new INDEX against old+new samples and update `SavedRoster` (keep read/write of
 the old layout for backwards compatibility; write must produce the layout the current emulator reads). Until then
 the editor works through "Open .db file…" and the sync path works on the five stock DBs as before.
+
+## Session 2026-11-19: Tweaks page — every variable of the fork, organized (built, tested, not committed)
+
+User asked for every variable and tweakable setting in the tool, organized. New feature:
+
+- `data\tweakables.json` — the catalog, hand-editable like everything else in data\: 51 entries in 8 sections
+  (Display & frame pacing, CPU & GPU thread, VRAM & memory, Textures & filtering, GPU-specific fixes & shader
+  overrides, Correctness/stability/extras, Audio & input, System/trophies/network). Two kinds: `config` =
+  a user\config.json key (Section.key); `env` = one of the 25 NHLPORT_* variables, each with the description
+  from the fork's source (D:\CIMS-test\livecopy\source_changes — every getenv site was read).
+- `src/Suite.Core\Tweaks.cs` — catalog load, per-build values (`%APPDATA%\CenterIceModdingSuite\tweaks.json`,
+  keyed by the active game build id), validation (bool/int/float/choice/text), `ApplyConfig` (merges config-kind
+  values into the build's user\config.json, backup `config.json.before-tweaks`, atomic write, refuses while the
+  game runs), `WriteEnvFile` (user\nhlport_env.json, unset values skipped), `PatchLauncher` (idempotently makes
+  tools\launcher.ps1 import the env file before Start-Process — preserves the UTF-8 BOM PowerShell 5.1 needs;
+  reports when a build ships the native launcher.exe, which cannot take env tweaks).
+- `src\Suite.App\Pages\TweaksPage.cs` — nav "Tweaks": search, per-section expanders, tri-state checkboxes for
+  bools (indeterminate = unset = fork default), combos with a "(default)" empty choice, validated numeric/text
+  boxes, advanced rows hidden behind "Show advanced", Save & apply + Reset all.
+- Env vars reach the game only through the PowerShell launcher; the config.json values apply on any boot.
+- Tests: `tests\Suite.Tests\TweaksTests.cs` (6) — catalog integrity (all 25 NHLPORT vars present, defaults
+  valid), validation, config merge with backup, env round-trip, launcher patch idempotence + BOM, native-launcher
+  report. Suite.Tests 310/310; Suite.Rosters.Tests 55/56 (the 1 failure is the pre-existing dbwork fixture
+  drift, documented since 2026-11-06). App smoke-tested on the new page.
+- Not in scope (still blocked): the in-game EA tunables (LT/L2 gVisionControl* etc.) need the EBX reader —
+  the "Gameplay tweakables" nav placeholder stays for that.
+
+**Fix 2026-11-19 (same session): the Tweaks page rendered as overlapping unreadable rows** — the section grids
+had no RowDefinitions (every row landed in the same grid cell). Same bug in the Teams & lines page's Lines and
+Strategy grids; both fixed. Rows are now label + description-with-default + control. NOTE the recurring trap:
+a running CIMS instance locks the Release DLLs and MSBuild then silently keeps the stale exe (MSB3026 shows as
+a *warning*) — always build with the app closed, or verify with the Debug config.
+
+**Texture suite: the "Ducks in every team" finding (2026-11-19).** Jersey branding families ship legacy
+per-index singles (`branding_jersey_adidas_<team>_…_0_color` …) alongside the live array texture
+(`…_color_array`, 7 layers) that the game actually reads (the matcher's branding work already knew: "the game
+reads logos from the array"). In the stock data every single's chunk points at a shared default — Anaheim,
+alphabetically first — so the suite decoded the Ducks logo for every team's singles. Not a decode bug: the RES
+records are distinct per team, the guids genuinely resolve to that shared content. The page now blanks the
+misleading singles preview and labels them "legacy single — the game reads the *_array". The cached PNGs under
+the singles' keys in nhl24png are poisoned with that default art; they are no longer displayed (delete the
+singles' cache files if you want them back clean). Diagnostics: `tools\ArrayProbe` (RES entries, guids, chunk
+copies, slice dumps).
+
+**SavedRoster v2 (2026-11-19) — the editor's save source works.** The current emulator's INDEX is still
+80-byte records, but the file record's numbers are guest-side metadata (its start can point past EOF) and the
+__SaveLoadFileInfo/__SaveLoadMetaData/__SaveloadVer records carve system blocks out of DATA with
+(total, start, end) triples. `SavedRoster` now finds the file block by validation (container parse + LZ4 +
+T3DB magic) in the DATA ranges outside the system blocks — legacy saves still parse via their exact extents.
+Writes encode at LZ4 L12_MAX and (almost always) replace the block in place, padded, keeping DATA's total size
+and the INDEX byte-identical; when the re-encode is larger, DATA is rebuilt and the system triples are repaired
+(the file record's own numbers are left as the game wrote them). `SavedRoster.Create` fabricates a roster save
+folder exactly like "save roster in game" (used by the editor's new "Write into game as a new roster…" button
+and `tools\MakeRosterSave`); a real RosterCustom0 was created in the Downloads build from the stock DB.
+Verified: 4 new format tests + a full create→find→edit lines/strategies→write-back→re-read flow test.
+**TeamEditor verify fix:** "letter wearer scratched" is now relative to the load-time count — stock legitimately
+scratches injured captains (Landeskog, Ellis…), and the absolute rule made the editor refuse to save stock
+rosters.
+
+**Gameplay tunables — where the values live (2026-11-19, verified):** the g* globals' names sit in a
+NUL-separated string table inside each eboot; the registration code that references them was found statically
+(exactly one RIP-relative LEA per name, building the tuner table at boot). The VALUES are compiled into the
+executable and not reachable statically: the SELF's dynamic table is obfuscated (tag/value pairs that are code
+addresses, e.g. tag 0x88e74d0 → value 0xa6574a8), which the fork decrypts at load — so plain-ELF relocation
+chasing dead-ends. EA's online "tuner sets" (`gamemodes/service-defs/data/game_setting/tuner.json`,
+`ai_tuner_sets.json`) are SCHEMA ONLY in this build; the value blob (≤ 50 KB, stored in the user profile under
+AITunerSets) never shipped and the servers are gone.
+**The way to adjustable sliders is a runtime patch in the fork** (model on `nhl_teams_patch.h`): at boot, scan
+guest memory for the tunable table (the name strings as needles, validate the structs that reference them —
+{char* name; float* value; float min; float max} per the registration pattern), then override chosen floats
+from `user\tuner_overrides.json`; re-apply like the teams patch does. That makes every g* global editable with
+stock value + min/max shown — and it persists across boots without touching the eboot file. Queued behind the
+fork build (needs the shadPS4 tree + the user's build pipeline).
+
+**Gameplay tweakables are ADJUSTABLE (2026-11-19, shipped):** no fork rebuild needed after all — `Suite.Core\
+TunerMemory.cs` patches the running emulator process directly (OpenProcess + memory scan): the name string is
+the needle, the table entry that points at it is validated ({namePtr, value, min, max} — the value sits right
+after the pointer), the float is read/written live. `GameplayPage`: pick a global → "Find value in the running
+game" → candidates with value + detected min/max → slider → Apply (read-back verified) → "Save override"
+(`%APPDATA%\CenterIceModdingSuite\tuner_overrides.json`) → the "Re-apply my overrides while the game runs" box
+rewrites them every 5 s (table addresses can move between matches). Stock values return on game restart; the
+page re-applies from the saved list. Tested with a planted needle + fake struct in the test process (find,
+min/max detection, write, read-back) — the in-game bind is the user's first-run check: find, set an obviously
+visible global, watch it in game. Candidates are filtered to plausible floats (|v| ≤ 1e6) to skip pointer
+garbage; when several entries remain, the right one is the entry whose value visibly changes the game.
+
+**"Real hockey" preset (2026-11-19):** a curated set of 28 globals on the Gameplay page applying exactly the
+user's direction — physics on (`gAlwaysAllowPhysics`, `gAllowPhysicsPlayerInteraction`, scrums, net), more
+contact (`gHitPowerSlider` x1.15, lower body-check closing threshold, more board-play auto-hits), pace down 5%
+(`gSkatingSpeedSlider`, `gAccelerationSlider`, shot power x0.97), pressure off (`gArtificialUpIcePressure` = 0,
+halved pressure influence), durable calmer goalies (energy drain x0.7, tiredness a quarter later, faster
+recovery, no unprompted diving, fewer aborted saves). `xN` entries multiply the stock value found in memory so
+slider scales stay honest; absolute entries (0/1 switches) are written as-is. One click applies all of it to
+the running game; a second click saves them as the user's overrides for the auto re-apply. Calibration is v1 by
+design — adjust by feel per global with the slider, and the page shows stock -> applied for every row. The 54
+`*Slider` globals are the game's own gameplay sliders, all addressable the same way (calibrating shot power to
+NHL Edge average shot speeds is the documented next step).
+
+**Gameplay tweakables page (2026-11-19):** no longer a placeholder. Reads every `g*` tuning global live from
+the NHL 24 (and NHL 27, when configured) executable — the full census with filter — and a button runs
+`tools\TuningScan` on the selected name to find which EBX holds its value; the page says plainly that sliders
+come once a value's home is found (EBX scan: 0 hits so far for the LT names — values are compiled or in chunks).
+
+**Texture suite (2026-11-19, replaces Asset browser + Textures & logos):** the `textures` nav entry is now the
+texture suite — FMT-style. Left: the game's full folder tree (lazy, subtree texture counts, auto-opens the first
+folder that holds textures). Right: preview cards (decoded from the game, 156-px tiles) for the selected folder —
+or, while the search box has text, the first 400 index-wide matches (token query: `team:detroit color`, `512`,
+`kind:texturearray`, trailing `*`). Game switch NHL 24 / NHL 27 kept; export-PNG, replacement picker, mod list,
+Apply/Undo all unchanged. The Asset browser nav entry is gone (AssetsPage.cs remains on disk, unused). Verified
+live: tree → content/…/toronto/adidas/twentyfive renders 54 decoded cards; 310/310 tests.
+
+**Gameplay tunables hunt (started):** `tools\TuningScan` scans every EBX payload (decoded) for an ASCII needle —
+finds a tunable asset by the property name inside it, whatever the file name. First run over the 1.60 update
+layer for `gFacingAngleBlendPivotSpamMaxEffect` / `gProtectPuckWithVisionControlFriction`: **0 hits** — so the
+shared tunables are not in the update layer's EBX under those names; next: the base game layer, then RES
+payloads and chunks, then the NHL 27 dump (D:\Archives\PS5\PPSA34063, via nhl27_bridge) for the 27-only vars.
+(2026-11-19 update: base game layer also 0 hits — the tunable table is likely in RES/chunk payloads or compiled;
+the next scan target is RES payloads + referenced chunks, then the NHL 27 side.)
 
 ## Session 2026-11-06 (later): the Patch-merge — game tree restructure in progress
 

@@ -110,7 +110,14 @@ public sealed class BundleIndex
         var manifests = new ConcurrentDictionary<(string Toc, int RecordAt), byte[]>();
         Parallel.ForEach(all.GroupBy(r => r.Entries[0].Cas).Where(g => File.Exists(g.Key)), g =>
         {
-            using var fs = new FileStream(g.Key, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16);
+            // Antivirus/search indexers briefly lock freshly written CAS files; retry instead of failing the build.
+            FileStream? fs = null;
+            for (var attempt = 0; ; attempt++)
+            {
+                try { fs = new FileStream(g.Key, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1 << 16); break; }
+                catch (IOException) when (attempt < 10) { Thread.Sleep(500); }
+            }
+            using (fs)
             foreach (var r in g.OrderBy(r => r.Entries[0].Offset))
             {
                 var m = r.Entries[0];

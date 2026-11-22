@@ -140,7 +140,6 @@ public sealed class RostersPage : ScrollViewer
         _last = null;
         try
         {
-            if (!Worker.Available(_settings)) throw new InvalidOperationException("The NHL24Kit worker is not installed (check Settings for the runtime path).");
             if (!File.Exists(TeamsFile)) throw new FileNotFoundException("Team map not found: " + TeamsFile);
             var only = _teams.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);

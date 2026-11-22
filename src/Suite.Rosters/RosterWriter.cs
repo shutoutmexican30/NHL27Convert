@@ -21,7 +21,8 @@ public sealed class WriteReport
 /// overflowed. Players the API has on an NHL roster go there; NHL players no longer on one go to their club's AHL
 /// affiliate when the club still lists them as a prospect, otherwise to free agency. Teams whose players changed get
 /// their lines repaired so every line slot stays filled.
-/// Tables: exhibitionplayerbiotable (team, proteam, jersey, position), exhibitionrostertable, exhibitionfreeagents;
+/// Tables: exhibitionplayerbiotable (team, proteam, jersey, position), exhibitionrostertable, exhibitionfreeagents,
+/// exhibitiondraftpick (the shared NHL 27 + verified-trades grid, same in every database);
 /// read only: exhibitionplayers (game_id → player index), exhibitionteams (AHL affiliates).
 /// </summary>
 public static class RosterWriter
@@ -411,6 +412,11 @@ public static class RosterWriter
         if (keys.Distinct().Count() != keys.Count) throw new InvalidOperationException("Two roster rows ended up with the same key; nothing written.");
         bio.Save(outDir); ro.Save(outDir); fa.Save(outDir);
         report.Tables.AddRange([Bio, Roster, FreeAgents]);
+
+        // Draft picks: every database gets the same current grid (NHL 27 plus verified trades; Utah in Arizona's slot).
+        var draftPicks = DraftPicks.Load();
+        if (draftPicks is null) report.Warnings.Add("draft_picks.tsv not found; exhibitiondraftpick left as it is");
+        else draftPicks.ApplyTo(dumpDir, outDir, report);
 
         // nhl_game also carries customonlinerostertable, a row-for-row mirror of the exhibition roster in stock. It gets
         // the same rows, only when it really was a mirror (anything else is reported, not overwritten).

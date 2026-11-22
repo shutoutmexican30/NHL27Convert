@@ -46,16 +46,34 @@ public static class CenterIceSlots
     /// <summary>Writes the images into their slots of <paramref name="game"/>. Returns (ok, message, backup).</summary>
     public static (bool Ok, string Message, string? Backup) Apply(string game, IReadOnlyDictionary<int, Rgba> images, Action<string>? progress = null)
     {
-        if (ApplyTarget.RunningGame() is { } running) return (false, running + " is running. Close the game first.", null);
-        var problems = ApplyTarget.Problems(game);
-        if (problems.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", problems), null);
         progress?.Invoke("Reading the game's bundles...");
         var index = BundleIndex.Build(game);
         var jobs = images.Select(kv => { var s = Read(game, index, kv.Key); return (s.Chunk, Data: Build(s.Res, kv.Value)); }).ToList();
+        return ApplyJobs(game, jobs, progress);
+    }
+
+    /// <summary>
+    /// Like <see cref="Apply"/>, but the caller supplies finished chunk bytes per slot (the full-rink build).
+    /// The slot is looked up for its chunk id only; the bytes are used exactly as given.
+    /// </summary>
+    public static (bool Ok, string Message, string? Backup) ApplyChunks(string game, IReadOnlyDictionary<int, byte[]> data, Action<string>? progress = null)
+    {
+        progress?.Invoke("Reading the game's bundles...");
+        var index = BundleIndex.Build(game);
+        var jobs = data.Select(kv => { var s = Read(game, index, kv.Key); return (s.Chunk, Data: kv.Value); }).ToList();
+        return ApplyJobs(game, jobs, progress);
+    }
+
+    static (bool Ok, string Message, string? Backup) ApplyJobs(string game, List<(Guid Chunk, byte[] Data)> jobs, Action<string>? progress)
+    {
+        if (ApplyTarget.RunningGame() is { } running) return (false, running + " is running. Close the game first.", null);
+        var problems = ApplyTarget.Problems(game);
+        if (problems.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", problems), null);
         progress?.Invoke("Backing up TOCs and CAS lengths...");
         var backup = ApplyTarget.Backup(game);
         try
         {
+            var index = BundleIndex.Build(game);
             foreach (var (id, data) in jobs)
             {
                 foreach (var line in ChunkReplace.Replace(game, index, id, data)) SuiteLog.Write("center ice: " + line);
@@ -133,12 +151,75 @@ public static class Faceoff
             if (PlaceholderMedia.Length > 0 && imageUrl.Contains(PlaceholderMedia, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("That page has no center ice posted yet (placeholder picture). Try the previous season's page.");
         }
-        // Wix serves resized copies under /v1/...; the part before it is the original upload.
+        return await DownloadAsync(imageUrl, link, ct);
+    }
+
+    /// <summary>A picture embedded in a rink page: the size the page states for it, its wixstatic media id, and the page it links to when it has one.</summary>
+    public sealed record PageImage(int Width, int Height, string MediaId, string? Href)
+    {
+        /// <summary>The full-size original on the wixstatic CDN.</summary>
+        public string Url => $"https://static.wixstatic.com/media/{MediaId}";
+    }
+
+    public const double LayoutAspect = 5000.0 / 2236.0;
+
+    /// <summary>True when a picture is a top-down rink layout (TheFaceoff.net draws them ~5000x2236); the stated
+    /// width/height arrive in either order, so the aspect is checked both ways.</summary>
+    public static bool IsLayoutShape(PageImage image)
+    {
+        var lo = Math.Min(image.Width, image.Height);
+        var hi = Math.Max(image.Width, image.Height);
+        return hi >= 2000 && Math.Abs(hi / (double)lo - LayoutAspect) <= 0.02 * LayoutAspect;
+    }
+
+    // The site's page data writes {"width","height"...,"uri"} or {"height","width"...,"uri"}, sometimes with the
+    // picture's own link. Both orders and the optional link are read.
+    static readonly Regex PageImageEntry = new(
+        "\\{\"(?<a>width|height)\":(?<av>\\d+),\"(?<b>width|height)\":(?<bv>\\d+),[^{}]{0,400}?\"uri\":\"(?<id>84911f_[0-9a-f]{32}~mv2\\.\\w+)\"[^{}]{0,300}?(?:\\{\"href\":\"(?<href>[^\"]+)\")?",
+        RegexOptions.Compiled);
+
+    public static IReadOnlyList<PageImage> ParsePageImages(string html) =>
+        PageImageEntry.Matches(html).Select(m =>
+        {
+            var av = int.Parse(m.Groups["av"].Value);
+            var bv = int.Parse(m.Groups["bv"].Value);
+            var (w, h) = m.Groups["a"].Value == "width" ? (av, bv) : (bv, av);
+            var href = m.Groups["href"].Success ? m.Groups["href"].Value.Replace("\\/", "/", StringComparison.Ordinal) : null;
+            return new PageImage(w, h, m.Groups["id"].Value, href);
+        }).DistinctBy(i => i.MediaId).ToList();
+
+    /// <summary>
+    /// The page's top-down rink layout for full-rink mode: not the og:image (a page's main picture is often a
+    /// banner or a center-logo thumbnail), but the embedded ~5000x2236 layout, preferring the one that links to
+    /// the page itself. Same politeness, cache and credit as <see cref="FetchAsync"/>.
+    /// </summary>
+    public static async Task<string> FetchLayoutAsync(string link, CancellationToken ct = default)
+    {
+        var uri = new Uri(link.Trim());
+        if (!uri.Host.EndsWith("thefaceoff.net", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Fetch a rink layout from a thefaceoff.net rink page link.");
+        var html = System.Text.Encoding.UTF8.GetString(await GetAsync(uri.ToString(), ct));
+        var page = uri.ToString().TrimEnd('/');
+        PageImage? own = null, any = null;
+        foreach (var image in ParsePageImages(html))
+        {
+            if (!IsLayoutShape(image)) continue;
+            if (image.Href is { } href && href.TrimEnd('/').Equals(page, StringComparison.OrdinalIgnoreCase)) { own = image; break; }
+            any ??= image;
+        }
+        var layout = own ?? any
+            ?? throw new InvalidOperationException("That page has no top-down rink layout (no ~5000x2236 picture). If it is a team-season page, try its previous season.");
+        return await DownloadAsync(layout.Url, link + "\nlayout " + layout.Width + "x" + layout.Height, ct);
+    }
+
+    /// <summary>The original upload (wix serves resized copies under /v1/...; the part before it is the full size), cached.</summary>
+    static async Task<string> DownloadAsync(string imageUrl, string sourceLink, CancellationToken ct)
+    {
         int v1 = imageUrl.IndexOf("/v1/", StringComparison.Ordinal);
         if (v1 > 0 && imageUrl.Contains("wixstatic.com")) imageUrl = imageUrl[..v1];
         var file = Path.Combine(Cache, Regex.Replace(Path.GetFileName(new Uri(imageUrl).AbsolutePath), "[^A-Za-z0-9._-]", "_"));
         if (!File.Exists(file)) await File.WriteAllBytesAsync(file, await GetAsync(imageUrl, ct), ct);
-        File.WriteAllText(file + ".source.txt", link + "\n" + imageUrl + "\n" + Credit + "\n");
+        File.WriteAllText(file + ".source.txt", sourceLink + "\n" + imageUrl + "\n" + Credit + "\n");
         return file;
     }
 }

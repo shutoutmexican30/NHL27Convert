@@ -20,7 +20,6 @@ public static class PlannedPage
             "RosterPort from NHL 27 (specs A–D): team/arena text and colours only, gear colours, masks, X-Factor map, meta-driven validator as the only write path.",
             "Roster: NHL API sync with a diff to confirm (spec E), player matching, headshots.",
         ]),
-        ["gameplay"] = ("Gameplay tweakables", ["Sliders and tuning values, each hand-editable with the stock value shown."]),
         ["sounds"] = ("Sounds", ["Goal horns, arena audio and bank sounds: list, preview, replace."]),
         ["ui"] = ("UI scripts", ["Lua/layout files from the legacy file system: view, edit, diff against stock."]),
         ["apply"] = ("Apply & restore", [

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Suite.Core;
+using Suite.Core.Frostbite;
 
 namespace Suite.Convert27;
 
@@ -153,31 +154,71 @@ public sealed class TextureImages(SuiteSettings settings)
     public async Task<Dictionary<string, string>> Nhl24FolderAsync(string folder, Action<string>? progress = null,
         CancellationToken ct = default, IReadOnlyList<string>? expected = null)
     {
-        var dumpDir = await DumpDirAsync(folder, progress, ct, expected);
         var result = new ConcurrentDictionary<string, string>();
-        if (dumpDir is null) return [];
-        var files = Directory.GetFiles(dumpDir, "*.dds");
-        int done = 0;
-        await Parallel.ForEachAsync(files, new ParallelOptions { MaxDegreeOfParallelism = settings.Workers, CancellationToken = ct }, (dds, _) =>
+
+        // A previously dumped DDS cache (ours or the legacy NHL24Kit one) is still valid input.
+        var dumpDir = await DumpDirAsync(folder, progress, ct, expected);
+        if (dumpDir is not null)
         {
-            var leaf = Path.GetFileNameWithoutExtension(dds);
-            var key = folder + "/" + leaf;
-            var png = Path.Combine(SuitePaths.Nhl24Images, SuitePaths.Flatten(key) + ".png");
+            var files = Directory.GetFiles(dumpDir, "*.dds");
+            int done = 0;
+            await Parallel.ForEachAsync(files, new ParallelOptions { MaxDegreeOfParallelism = settings.Workers, CancellationToken = ct }, (dds, _) =>
+            {
+                var leaf = Path.GetFileNameWithoutExtension(dds);
+                var key = folder + "/" + leaf;
+                var png = Path.Combine(SuitePaths.Nhl24Images, SuitePaths.Flatten(key) + ".png");
+                try
+                {
+                    if (!File.Exists(png) || File.GetLastWriteTimeUtc(png) < File.GetLastWriteTimeUtc(dds))
+                        ImageIO.SavePng(ImageIO.Shrink(Dds.Load(dds), 2048), png);
+                    result[key] = png;
+                }
+                catch (Exception ex)
+                {
+                    SuiteLog.Write($"NHL 24 decode {leaf}: {ex.Message}");
+                }
+                progress?.Invoke($"Decoding NHL 24 textures {Interlocked.Increment(ref done)}/{files.Length}");
+                return ValueTask.CompletedTask;
+            });
+            return new Dictionary<string, string>(result);
+        }
+
+        // Primary path: the suite's own bundle reader (the FMT Worker cannot read this dump's TOC header variant).
+        var view = Nhl24ReadView.Ensure(settings);
+        var index = IndexFor(view);
+        var names = index.ResByName.Keys
+            .Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal) && !k.EndsWith("_mesh", StringComparison.Ordinal))
+            .ToList();
+        int n = 0;
+        await Parallel.ForEachAsync(names, new ParallelOptions { MaxDegreeOfParallelism = settings.Workers, CancellationToken = ct }, async (name, _) =>
+        {
             try
             {
-                if (!File.Exists(png) || File.GetLastWriteTimeUtc(png) < File.GetLastWriteTimeUtc(dds))
-                    ImageIO.SavePng(ImageIO.Shrink(Dds.Load(dds), 2048), png);
-                result[key] = png;
+                var slot = TextureSlots.Read(view, index, name);
+                var slices = Ps4Codec.DecodeSlices(slot.Res, slot.Stock);
+                for (int i = 0; i < slices.Count; i++)
+                {
+                    var key = slices.Count > 1 ? $"{name}#{i}" : name;
+                    var png = Path.Combine(SuitePaths.Nhl24Images, SuitePaths.Flatten(key) + ".png");
+                    if (!File.Exists(png))
+                        ImageIO.SavePng(ImageIO.Shrink(slices[i], 2048), png);
+                    result[key] = png;
+                }
             }
             catch (Exception ex)
             {
-                SuiteLog.Write($"NHL 24 decode {leaf}: {ex.Message}");
+                SuiteLog.Write($"NHL 24 decode {name}: {ex.Message}");
             }
-            progress?.Invoke($"Decoding NHL 24 textures {Interlocked.Increment(ref done)}/{files.Length}");
-            return ValueTask.CompletedTask;
+            progress?.Invoke($"Decoding NHL 24 textures {Interlocked.Increment(ref n)}/{names.Count}");
+            await Task.CompletedTask;
         });
         return new Dictionary<string, string>(result);
     }
+
+    static readonly ConcurrentDictionary<string, Lazy<BundleIndex>> _indices = new(StringComparer.Ordinal);
+
+    static BundleIndex IndexFor(string view) =>
+        _indices.GetOrAdd(view, v => new Lazy<BundleIndex>(() => BundleIndex.Build(v))).Value;
 
     /// <summary>
     /// A cached dump is only usable when it holds the arrays the folder actually has. Carolina and Calgary ship no branding
@@ -206,26 +247,10 @@ public sealed class TextureImages(SuiteSettings settings)
         if (Directory.Exists(legacy) && Directory.GetFiles(legacy, "*.dds").Length > 0 && DumpCovers(legacy, expected))
             return legacy;
         if (Directory.Exists(legacy) || Directory.Exists(own))
-            SuiteLog.Write($"NHL 24 dump for {folder} does not cover its arrays; re-dumping into the suite cache");
-        if (!Worker.Available(settings)) return null;
-
-        await _workerGate.WaitAsync(ct);
-        try
-        {
-            progress?.Invoke($"Dumping NHL 24 {folder} (stopgap Worker)...");
-            var view = Nhl24ReadView.Ensure(settings);
-            await Worker.RunAsync(settings, ["refs", view, folder, own], ct);
-            return own;
-        }
-        catch (Exception ex)
-        {
-            SuiteLog.Write($"NHL 24 dump of {folder} failed: {ex.Message}");
-            return null;
-        }
-        finally
-        {
-            _workerGate.Release();
-        }
+            SuiteLog.Write($"NHL 24 dump for {folder} does not cover its arrays; falling back to the suite's own reader");
+        // The FMT Worker cannot read this dump's 48-byte-header contentsb.toc variant (magic 0x30),
+        // so it is deliberately not used here; Nhl24FolderAsync decodes straight from the bundles instead.
+        return null;
     }
 
     /// <summary>A viewer-sized PNG copy of any image the user dropped (PNG/JPG/TGA/DDS...).</summary>

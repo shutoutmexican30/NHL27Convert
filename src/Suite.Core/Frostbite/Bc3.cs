@@ -128,6 +128,49 @@ public static class Bc3
         dst[12] = (byte)cbits; dst[13] = (byte)(cbits >> 8); dst[14] = (byte)(cbits >> 16); dst[15] = (byte)(cbits >> 24);
     }
 
+    /// <summary>Decode tiled BC3 into RGBA (alpha from the BC4 half of each block).</summary>
+    public static Rgba DecodeTiled(byte[] tiled, int width, int height)
+    {
+        int bw = (width + 3) / 4, bh = (height + 3) / 4, pw = (bw + 7) / 8 * 8, ph = (bh + 7) / 8 * 8;
+        if (tiled.Length < pw * ph * 16)
+            throw new InvalidDataException($"BC3 data is {tiled.Length} bytes, {pw * ph * 16} expected for {width}x{height}.");
+        var px = new byte[width * height * 4];
+        Parallel.For(0, bh, by =>
+        {
+            Span<int> pal = stackalloc int[12];
+            for (int bx = 0; bx < bw; bx++)
+            {
+                var block = tiled.AsSpan(TiledIndex(bx, by, pw) * 16, 16);
+                // alpha: BC4 ramp over bytes 0..7
+                int a0 = block[0], a1 = block[1];
+                ulong abits = 0;
+                for (int i = 0; i < 6; i++) abits |= (ulong)block[2 + i] << (8 * i);
+                Span<int> aramp = stackalloc int[8];
+                aramp[0] = a0; aramp[1] = a1;
+                if (a0 > a1) for (int i = 1; i <= 6; i++) aramp[i + 1] = ((7 - i) * a0 + i * a1) / 7;
+                else { aramp[2] = (4 * a0 + a1) / 5; aramp[3] = (3 * a0 + 2 * a1) / 5; aramp[4] = (2 * a0 + 3 * a1) / 5; aramp[5] = (a0 + 4 * a1) / 5; aramp[6] = 0; aramp[7] = 255; }
+                // colour: BC1 565 endpoints over bytes 8..15
+                ushort e0 = (ushort)(block[8] | block[9] << 8), e1 = (ushort)(block[10] | block[11] << 8);
+                From565(e0, pal[0..3]); From565(e1, pal[3..6]);
+                if (e0 > e1)
+                    for (int k = 0; k < 3; k++) { pal[6 + k] = (2 * pal[k] + pal[3 + k]) / 3; pal[9 + k] = (pal[k] + 2 * pal[3 + k]) / 3; }
+                else
+                    for (int k = 0; k < 3; k++) { pal[6 + k] = (pal[k] + pal[3 + k]) / 2; pal[9 + k] = 0; }
+                uint cbits = (uint)(block[12] | block[13] << 8 | block[14] << 16 | block[15] << 24);
+                for (int i = 0; i < 16; i++)
+                {
+                    int sx = bx * 4 + i % 4, sy = by * 4 + i / 4;
+                    if (sx >= width || sy >= height) continue;
+                    int d = (sy * width + sx) * 4;
+                    int ci = (int)(cbits >> (2 * i)) & 3;
+                    px[d] = (byte)pal[ci * 3]; px[d + 1] = (byte)pal[ci * 3 + 1]; px[d + 2] = (byte)pal[ci * 3 + 2];
+                    px[d + 3] = (byte)aramp[(int)(abits >> (3 * i)) & 7];
+                }
+            }
+        });
+        return new Rgba(width, height, px);
+    }
+
     static ushort To565(double r, double g, double b)
     {
         int R = (int)Math.Round(Math.Clamp(r, 0, 255) * 31 / 255), G = (int)Math.Round(Math.Clamp(g, 0, 255) * 63 / 255), B = (int)Math.Round(Math.Clamp(b, 0, 255) * 31 / 255);

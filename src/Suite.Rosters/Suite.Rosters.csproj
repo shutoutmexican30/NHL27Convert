@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Suite.Core\Suite.Core.csproj" />
@@ -6,6 +6,10 @@
 
   <ItemGroup>
     <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\data\draft_picks.tsv" Link="data\draft_picks.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

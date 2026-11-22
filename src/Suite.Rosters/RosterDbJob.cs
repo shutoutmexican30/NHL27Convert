@@ -13,7 +13,7 @@ public sealed record GuardResult(bool Ok, List<string> Problems)
 }
 
 /// <summary>
-/// Runs the roster sync on database files through the stopgap Worker (db-dump / db-import / db-layout) and checks
+/// Runs the roster sync on database files with the suite's own T3DB dump/import (<see cref="T3DbIo"/>) and checks
 /// that NHL 24's layout survived: same file size, same file header bytes, and an identical db-layout (table order,
 /// record slots, record sizes, string sizes, CRC positions). Only record contents and CRC values may differ.
 /// Works on copies in %LOCALAPPDATA%\CenterIceModdingSuite\dbwork; putting the result in a game is the Apply step's job.
@@ -27,14 +27,13 @@ public sealed class RosterDbJob(SuiteSettings settings)
 
     public async Task<JsonElement> DumpAsync(DbTarget db, string outDir, CancellationToken ct = default)
     {
-        if (Directory.Exists(outDir)) Directory.Delete(outDir, true);
-        var json = await Worker.RunAsync(settings, ["db-dump", db.DbPath, db.MetaXml, outDir], ct);
+        var json = await Task.Run(() => T3DbIo.Dump(db.DbPath, db.MetaXml, outDir), ct);
         File.WriteAllText(Path.Combine(outDir, "tables.json"), json);
         return JsonDocument.Parse(json).RootElement.Clone();
     }
 
     public Task<string> LayoutAsync(string dbPath, string metaXml, CancellationToken ct = default) =>
-        Worker.RunAsync(settings, ["db-layout", dbPath, metaXml], ct);
+        Task.Run(() => T3DbIo.Layout(dbPath, metaXml), ct);
 
     /// <summary>
     /// Same size, same header bytes, and every db-layout entry identical. The one thing allowed to move is a table's
@@ -103,8 +102,7 @@ public sealed class RosterDbJob(SuiteSettings settings)
                 report.Tables.Add(t);
             }
         progress?.Invoke($"{db.Name}: writing");
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outDb))!);
-        await Worker.RunAsync(settings, ["db-import", db.DbPath, db.MetaXml, edit, outDb], ct);
+        await Task.Run(() => T3DbIo.Import(db.DbPath, db.MetaXml, before, edit, outDb), ct);
         progress?.Invoke($"{db.Name}: checking");
         var afterTables = await DumpAsync(db with { DbPath = outDb }, after, ct);
         var guard = Guard(db.DbPath, outDb, await LayoutAsync(db.DbPath, db.MetaXml, ct), await LayoutAsync(outDb, db.MetaXml, ct),

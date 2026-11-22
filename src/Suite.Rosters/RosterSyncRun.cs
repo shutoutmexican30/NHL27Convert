@@ -238,7 +238,14 @@ public static class RosterSyncRun
         var dir = Path.Combine(RosterDbJob.WorkDir, "stock");
         progress?.Invoke("Reading the roster databases from NHL 24");
         var view = Nhl24ReadView.Ensure(settings);
-        await Worker.RunAsync(settings, ["export-legacy", view, dir, MetaName, .. Databases.Select(LegacyName)], ct);
+        var files = new Suite.Core.Frostbite.LegacyFiles(view, settings);
+        if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        foreach (var name in new[] { MetaName }.Concat(Databases.Select(LegacyName)))
+        {
+            var to = Path.Combine(dir, name.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.WriteAllBytes(to, files.Read(name));
+        }
         string Local(string legacy) => Path.Combine(dir, legacy.Replace('/', Path.DirectorySeparatorChar));
         return Databases.Select(d => new DbTarget(d, Local(LegacyName(d)), Local(MetaName))).ToList();
     }

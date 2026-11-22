@@ -10,21 +10,26 @@ using Suite.Core;
 namespace Suite.App.Pages;
 
 /// <summary>
-/// Texture browser: every folder of either game, its textures with previews, and a replacement picker that
-/// writes into the mod library. Nothing here touches the game — it reads the index and the cached decodes only.
+/// The texture suite: every texture of the game in one place, organized like FMT. Left: the game's folder
+/// tree (lazy, with texture counts). Right: the selected folder's textures as preview cards, or — while the
+/// search box has text — every matching texture of the game. Replacement picks write into the mod library;
+/// Apply writes the mod list into the game. Nothing here touches the game on browse — reads use the index
+/// and the cached decodes, export reads the game read-only.
 /// </summary>
 public partial class TexturesPage : UserControl
 {
     readonly SuiteSettings _settings;
     readonly TextureImages _images;
-    readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(300) };
     readonly Dictionary<string, string> _replacements = [];
     List<string> _folders24 = [];
     List<string> _folders27 = [];
     ObservableCollection<TextureRow> _rows = [];
     TextureRow? _selected;
     AssetIndex? _index24, _index27;
-    bool _ready, _suppressFolder;
+    FolderNode? _tree24, _tree27;
+    string _currentFolder = "";
+    bool _ready, _suppressTree, _searchMode;
     int _loadToken;
 
     public TexturesPage(SuiteSettings settings)
@@ -32,11 +37,13 @@ public partial class TexturesPage : UserControl
         InitializeComponent();
         _settings = settings;
         _images = new TextureImages(settings);
-        _debounce.Tick += (_, _) => { _debounce.Stop(); RefillFolders(); };
+        _debounce.Tick += (_, _) => { _debounce.Stop(); RunSearch(); };
         Loaded += async (_, _) => await LoadAsync();
     }
 
     bool Game24 => Game.SelectedIndex != 1;
+
+    AssetIndex? CurIndex => Game24 ? _index24 : _index27;
 
     async Task LoadAsync()
     {
@@ -50,10 +57,12 @@ public partial class TexturesPage : UserControl
             _index27 = await IndexStore.GetAsync(IndexStore.Nhl27, _settings, progress: s => Status.Text = s);
             _folders24 = _index24.Folders.Order(StringComparer.Ordinal).ToList();
             _folders27 = _index27.Folders.Order(StringComparer.Ordinal).ToList();
+            _tree24 = BuildTree(_index24, _folders24);
+            _tree27 = BuildTree(_index27, _folders27);
             _ready = true;
             Status.Text = $"{_index24.Entries.Count:N0} NHL 24 textures in {_folders24.Count:N0} folders · " +
-                          $"{_index27.Entries.Count:N0} NHL 27 textures in {_folders27.Count:N0} folders";
-            RefillFolders();
+                          $"{_index27.Entries.Count:N0} NHL 27 textures in {_folders27.Count:N0} folders — pick a folder, or search.";
+            FillTree();
         }
         catch (Exception ex)
         {
@@ -75,85 +84,128 @@ public partial class TexturesPage : UserControl
     /// <summary>Progress callbacks come from the decode's worker threads, so marshal them onto the UI thread.</summary>
     void SetStatus(string text) => Dispatcher.Invoke(() => Status.Text = text);
 
-    void Game_Changed(object sender, SelectionChangedEventArgs e)
+    // ---------------------------------------------------------------- folder tree
+
+    sealed class FolderNode(string name, string path)
     {
-        if (_ready) RefillFolders();
+        public string Name { get; } = name;
+        public string Path { get; } = path;
+        public int Count { get; set; }                 // textures in this exact folder
+        public int Total { get; set; }                 // textures in this subtree
+        public Dictionary<string, FolderNode> Children { get; } = new(StringComparer.Ordinal);
     }
 
-    void Search_Changed(object sender, TextChangedEventArgs e)
+    static FolderNode BuildTree(AssetIndex index, List<string> folders)
     {
-        if (!_ready) return;
-        _debounce.Stop();
-        _debounce.Start();
+        var root = new FolderNode("", "");
+        foreach (var folder in folders)
+        {
+            var count = index.InFolder(folder).Count;
+            var node = root;
+            node.Total += count;
+            var parts = folder.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var path = "";
+            for (int i = 0; i < parts.Length; i++)
+            {
+                path = path.Length == 0 ? parts[i] : path + "/" + parts[i];
+                if (!node.Children.TryGetValue(parts[i], out var child))
+                    node.Children[parts[i]] = child = new FolderNode(parts[i], path);
+                child.Total += count;
+                node = child;
+            }
+            node.Count = count;
+        }
+        return root;
     }
 
-    void RefillFolders()
+    void FillTree()
     {
-        var all = Game24 ? _folders24 : _folders27;
-        var q = Search.Text.Trim();
-        var matches = q.Length == 0 ? all : all.Where(f => f.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
-        _suppressFolder = true;
+        _suppressTree = true;
+        TreeViewItem? firstItem = null;
         try
         {
-            Folder.ItemsSource = matches.Take(800).ToList();
-            Folder.SelectedIndex = matches.Count > 0 ? 0 : -1;
+            Tree.Items.Clear();
+            var root = Game24 ? _tree24 : _tree27;
+            if (root is null) return;
+            foreach (var child in root.Children.Values.OrderByDescending(c => c.Total).ThenBy(c => c.Name, StringComparer.Ordinal))
+                Tree.Items.Add(ItemFor(child));
+            if (Tree.Items.Count == 0) return;
+            // Open the first folder that actually holds textures, expanding the way down.
+            TreeViewItem item = (TreeViewItem)Tree.Items[0];
+            while (item.Tag is FolderNode { Count: 0, Children.Count: > 0 })
+            {
+                item.IsExpanded = true;   // populates the child items
+                item = (TreeViewItem)item.Items[0];
+            }
+            firstItem = item;
+            firstItem.IsSelected = true;
         }
-        finally
-        {
-            _suppressFolder = false;
-        }
-        if (matches.Count == 0)
-        {
-            _rows = [];
-            CardList.ItemsSource = _rows;
-            Status.Text = $"No folder matches “{q}”.";
-            return;
-        }
-        Status.Text = $"{matches.Count:N0} folders{(q.Length == 0 ? "" : $" matching “{q}”")}" +
-                      (matches.Count > 800 ? " (showing the first 800 — narrow the filter)" : "");
-        _ = LoadFolderAsync(matches[0]);
+        finally { _suppressTree = false; }
+        if (firstItem?.Tag is FolderNode first)
+            _ = LoadFolderAsync(first.Path);
     }
 
-    async void Folder_Changed(object sender, SelectionChangedEventArgs e)
+    static TreeViewItem ItemFor(FolderNode node)
     {
-        if (_suppressFolder) return;
-        if (Folder.SelectedItem is string folder) await LoadFolderAsync(folder);
+        var item = new TreeViewItem { Header = $"{node.Name}  ({node.Total:N0})", Tag = node };
+        if (node.Children.Count > 0) item.Items.Add("…");   // children are populated on first expand
+        return item;
     }
+
+    void Tree_Expanded(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not TreeViewItem { Tag: FolderNode node } item) return;
+        if (item.Items.Count == 1 && item.Items[0] is string) item.Items.Clear();
+        if (item.Items.Count > 0) return;
+        foreach (var child in node.Children.Values.OrderByDescending(c => c.Total).ThenBy(c => c.Name, StringComparer.Ordinal))
+            item.Items.Add(ItemFor(child));
+    }
+
+    async void Tree_Changed(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (_suppressTree || e.NewValue is not TreeViewItem { Tag: FolderNode node }) return;
+        _searchMode = false;
+        Mode.Text = "";
+        await LoadFolderAsync(node.Path);
+    }
+
+    FolderNode? FindNode(string path)
+    {
+        var root = Game24 ? _tree24 : _tree27;
+        if (root is null) return null;
+        var node = root;
+        foreach (var part in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            if (!node.Children.TryGetValue(part, out var child)) return null;
+            else node = child;
+        return node;
+    }
+
+    // ---------------------------------------------------------------- folder view & search
 
     async Task LoadFolderAsync(string folder)
     {
-        if (_index24 is null || _index27 is null) return;
+        if (CurIndex is null) return;
+        _currentFolder = folder;
         var token = ++_loadToken;
         Busy(true);
         try
         {
             var rows = new ObservableCollection<TextureRow>();
-            if (Game24)
-            {
-                foreach (var entry in _index24.InFolder(folder).OrderBy(e => e.Path, StringComparer.Ordinal))
-                    rows.Add(new TextureRow { Slot = entry.Path, Sub = Describe(entry) });
-                Status.Text = $"{folder}: {rows.Count} textures — decoding…";
-                var pngs = await _images.Nhl24FolderAsync(folder, SetStatus);
-                if (token != _loadToken) return;
-                foreach (var r in rows)
-                    if (pngs.TryGetValue(r.Slot, out var png) || pngs.TryGetValue(r.Slot + "#0", out png)) r.Preview = png;
-            }
-            else
-            {
-                var entries = _index27.InFolder(folder).OrderBy(e => e.Path, StringComparer.Ordinal).ToList();
-                foreach (var entry in entries) rows.Add(new TextureRow { Slot = entry.Path, Sub = Describe(entry) });
-                Status.Text = $"{folder}: {rows.Count} textures — decoding…";
-                var pngs = await _images.Nhl27Async(entries.Select(e => new Nhl27Texture(e)), SetStatus);
-                if (token != _loadToken) return;
-                foreach (var r in rows) if (pngs.TryGetValue(r.Slot, out var png)) r.Preview = png;
-            }
+            foreach (var entry in CurIndex.InFolder(folder).OrderBy(e => e.Path, StringComparer.Ordinal))
+                rows.Add(new TextureRow { Slot = entry.Path, Sub = Describe(entry) });
+            await FillPreviewsAsync(rows, token, $"{folder}: {rows.Count} textures");
+            if (token != _loadToken) return;
+            MarkLegacySingles(rows);
             foreach (var r in rows) // put back anything already chosen for these slots this session
                 if (_replacements.TryGetValue(r.Slot, out var existing)) r.Replacement = existing;
             _rows = rows;
             CardList.ItemsSource = _rows;
             _selected = null;
             Selection.Text = "(none)";
-            Status.Text = $"{folder}: {rows.Count} textures";
+            var node = FindNode(folder);
+            Status.Text = rows.Count > 0
+                ? $"{folder}: {rows.Count} textures"
+                : $"{folder}: no textures directly here — expand it for {node?.Total ?? 0:N0} in its subfolders.";
         }
         catch (Exception ex)
         {
@@ -163,6 +215,110 @@ public partial class TexturesPage : UserControl
         finally
         {
             if (token == _loadToken) Busy(false);
+        }
+    }
+
+    /// <summary>Decode previews for the rows (from the on-disk PNG cache, decoding missing folders as needed).</summary>
+    async Task FillPreviewsAsync(ObservableCollection<TextureRow> rows, int token, string what)
+    {
+        if (rows.Count == 0) return;
+        if (Game24)
+        {
+            var folders = rows.Select(r => r.Slot[..r.Slot.LastIndexOf('/')]).Distinct().Take(16).ToList();
+            Status.Text = $"{what} — decoding…";
+            foreach (var folder in folders)
+            {
+                var pngs = await _images.Nhl24FolderAsync(folder, SetStatus);
+                if (token != _loadToken) return;
+                foreach (var r in rows)
+                    if (r.Slot.StartsWith(folder + "/", StringComparison.Ordinal) &&
+                        (pngs.TryGetValue(r.Slot, out var png) || pngs.TryGetValue(r.Slot + "#0", out png)))
+                        r.Preview = png;
+            }
+        }
+        else
+        {
+            var entries = rows.Select(r => CurIndex!.Get(r.Slot)).Where(e => e is not null).Cast<AssetEntry>().ToList();
+            Status.Text = $"{what} — decoding…";
+            var pngs = await _images.Nhl27Async(entries.Select(e => new Nhl27Texture(e)), SetStatus);
+            if (token != _loadToken) return;
+            foreach (var r in rows) if (pngs.TryGetValue(r.Slot, out var png)) r.Preview = png;
+        }
+    }
+
+    void Game_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+        Search.Text = "";
+        _searchMode = false;
+        Mode.Text = "";
+        FillTree();
+    }
+
+    void Search_Changed(object sender, TextChangedEventArgs e)
+    {
+        if (!_ready) return;
+        _debounce.Stop();
+        _debounce.Start();
+    }
+
+    async void RunSearch()
+    {
+        var q = Search.Text.Trim();
+        if (q.Length == 0)
+        {
+            if (_searchMode) { _searchMode = false; Mode.Text = ""; await LoadFolderAsync(_currentFolder); }
+            return;
+        }
+        if (CurIndex is null) return;
+        var token = ++_loadToken;
+        Busy(true);
+        try
+        {
+            var entries = CurIndex.Query(q).Take(400).ToList();
+            var rows = new ObservableCollection<TextureRow>(entries.Select(e => new TextureRow
+            {
+                Slot = e.Path,
+                Sub = $"{e.Name.Folder} · {Describe(e)}",
+            }));
+            _searchMode = true;
+            Mode.Text = $"search: {entries.Count:N0} textures{(entries.Count == 400 ? " (first 400 — narrow the search)" : "")}";
+            await FillPreviewsAsync(rows, token, Mode.Text);
+            if (token != _loadToken) return;
+            MarkLegacySingles(rows);
+            foreach (var r in rows)
+                if (_replacements.TryGetValue(r.Slot, out var existing)) r.Replacement = existing;
+            _rows = rows;
+            CardList.ItemsSource = _rows;
+            _selected = null;
+            Selection.Text = "(none)";
+            Status.Text = Mode.Text;
+        }
+        catch (Exception ex)
+        {
+            Status.Text = "Search failed: " + ex.Message;
+        }
+        finally
+        {
+            if (token == _loadToken) Busy(false);
+        }
+    }
+
+    /// <summary>Jersey branding families ship legacy per-index singles (…_0_color, _1_color…) alongside the live
+    /// array texture (…_color_array) the game actually reads. In the stock data every single's chunk points at a
+    /// shared default (Anaheim — alphabetically first), so their previews are identical and wrong for every team.
+    /// Blank the misleading preview and say where the live art lives.</summary>
+    static void MarkLegacySingles(ObservableCollection<TextureRow> rows)
+    {
+        var live = rows.Where(r => r.Slot.EndsWith("_array", StringComparison.Ordinal)).Select(r => r.Slot).ToHashSet(StringComparer.Ordinal);
+        if (live.Count == 0) return;
+        foreach (var r in rows)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(r.Slot, @"^(.*)_\d+_(color|coeff|normal)$");
+            if (!m.Success) continue;
+            if (!live.Contains(m.Groups[1].Value + "_color_array") && !live.Contains(m.Groups[1].Value + "_coeff_array")) continue;
+            r.Preview = null;
+            r.Sub += "  · legacy single — the game reads the *_array";
         }
     }
 

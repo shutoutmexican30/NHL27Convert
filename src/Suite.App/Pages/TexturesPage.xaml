@@ -13,6 +13,13 @@
     <Style x:Key="Caption" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#8c97a8" /><Setter Property="Margin" Value="10,0,6,0" /><Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <Style TargetType="TreeView">
+      <Setter Property="Background" Value="#141a24" /><Setter Property="BorderBrush" Value="#273246" />
+      <Setter Property="Foreground" Value="#e6ebf2" /><Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style TargetType="TreeViewItem">
+      <Setter Property="IsExpanded" Value="False" />
+    </Style>
   </UserControl.Resources>
 
   <Grid>
@@ -31,12 +38,10 @@
             <ComboBoxItem Content="NHL 24" IsSelected="True" />
             <ComboBoxItem Content="NHL 27" />
           </ComboBox>
-          <TextBlock Style="{StaticResource Caption}" Text="Filter folders" />
-          <TextBox x:Name="Search" Width="260" VerticalContentAlignment="Center" TextChanged="Search_Changed"
-                   ToolTip="Substring of the asset folder, e.g. 'detroit', 'logo', 'ui/textures', 'goalie'." />
-          <TextBlock Style="{StaticResource Caption}" Text="Folder" />
-          <ComboBox x:Name="Folder" Width="560" IsEditable="True" SelectionChanged="Folder_Changed"
-                    ToolTip="Every texture folder of the game; pick one to see its textures." />
+          <TextBlock Style="{StaticResource Caption}" Text="Search all textures" />
+          <TextBox x:Name="Search" Width="300" VerticalContentAlignment="Center" TextChanged="Search_Changed"
+                   ToolTip="Searches every texture of the game: words match path parts (team:detroit color, jersey, 512, kind:texturearray), a trailing * matches a prefix, anything else matches anywhere in the path. Results replace the folder view until cleared." />
+          <TextBlock x:Name="Mode" Style="{StaticResource Caption}" Text="" />
         </WrapPanel>
         <WrapPanel Margin="0,8,0,0">
           <TextBlock Style="{StaticResource Caption}" Text="Selected" Margin="0,0,6,0" />
@@ -63,28 +68,48 @@
       </StackPanel>
     </Border>
 
-    <!-- Texture grid -->
-    <ScrollViewer Grid.Row="1" Padding="10" VerticalScrollBarVisibility="Auto">
-      <ItemsControl x:Name="CardList">
-        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <Border Width="156" Margin="5" Padding="6" Background="#1b2230" BorderBrush="#2a3750" BorderThickness="1" CornerRadius="4">
-              <StackPanel>
-                <Border Height="128" Background="#222832" CornerRadius="3" Cursor="Hand"
-                        MouseLeftButtonUp="Card_Click" Tag="{Binding}" ToolTip="Click to select, then Choose replacement…">
-                  <Image Source="{Binding Preview, Converter={StaticResource Img}, ConverterParameter=300}" Stretch="Uniform" Margin="2" />
-                </Border>
-                <TextBlock Text="{Binding Leaf}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" ToolTip="{Binding Slot}" />
-                <TextBlock Text="{Binding Sub}" Foreground="#8c97a8" FontSize="10" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding ReplaceText}" Foreground="#5fc97a" FontSize="10" TextTrimming="CharacterEllipsis"
-                           ToolTip="{Binding Replacement}" />
-              </StackPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </ScrollViewer>
+    <!-- Folder tree + texture grid -->
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="330" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Border Background="#141a24" BorderBrush="#273246" BorderThickness="0,0,1,0">
+          <TreeView x:Name="Tree" SelectedItemChanged="Tree_Changed" TreeViewItem.Expanded="Tree_Expanded" FontSize="14">
+          <TreeView.Resources>
+            <Style TargetType="TreeViewItem">
+              <Setter Property="IsExpanded" Value="False" />
+              <Setter Property="FontSize" Value="14" />
+              <Setter Property="Padding" Value="2,3" />
+              <Setter Property="Foreground" Value="#e6ebf2" />
+            </Style>
+          </TreeView.Resources>
+        </TreeView>
+      </Border>
+      <GridSplitter Grid.Column="1" Width="4" Background="#273246" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+      <ScrollViewer Grid.Column="2" Padding="10" VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="CardList">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Width="156" Margin="5" Padding="6" Background="#1b2230" BorderBrush="#2a3750" BorderThickness="1" CornerRadius="4">
+                <StackPanel>
+                  <Border Height="128" Background="#222832" CornerRadius="3" Cursor="Hand"
+                          MouseLeftButtonUp="Card_Click" Tag="{Binding}" ToolTip="Click to select, then Choose replacement…">
+                    <Image Source="{Binding Preview, Converter={StaticResource Img}, ConverterParameter=300}" Stretch="Uniform" Margin="2" />
+                  </Border>
+                  <TextBlock Text="{Binding Leaf}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" ToolTip="{Binding Slot}" />
+                  <TextBlock Text="{Binding Sub}" Foreground="#8c97a8" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding ReplaceText}" Foreground="#5fc97a" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding Replacement}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
 
     <!-- Status -->
     <Border Grid.Row="2" Background="#1b2230" Padding="10,5" BorderBrush="#273246" BorderThickness="0,1,0,0">

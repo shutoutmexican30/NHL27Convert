@@ -31,18 +31,45 @@ public static class KitDefaults
 
     public static string UndoPath => Path.Combine(SuitePaths.Ensure(Path.Combine(SuitePaths.Roaming, "data")), "kit_defaults_undo.json");
 
-    /// <summary>The teams that have both Fanatics kits and both original kits in this table.</summary>
+    /// <summary>NHL clubs only: team ids 0-31 (32-35 are the All-Star teams; World of CHEL and other non-club rows are excluded).</summary>
+    public const int NhlClubs = 32;
+
+    /// <summary>
+    /// The NHL clubs that have both Fanatics kits plus a current default home (dark) and away (light) kit of their own.
+    /// The current defaults are read from the table (isdefault = 1), never assumed to be variants 0/1: on V3.2 Boston dresses
+    /// 6/7, Buffalo 4/5, Carolina 2/3, Edmonton 4/5, Ottawa 3/4, San Jose 4/5, Vancouver 4/5, Vegas 2/1, and Philadelphia
+    /// carries two default pairs (0/1 and 6/7).
+    /// </summary>
     public static List<int> Teams(T3Db db)
     {
         var t = db.Tables["stockteamjerseys"];
-        var variants = Enumerable.Range(0, t.InUse).Where(r => db.GetInt(t, r, "style") == Style)
-            .GroupBy(r => (int)db.GetInt(t, r, "teamid")).ToDictionary(g => g.Key, g => g.Select(r => (int)db.GetInt(t, r, "variant")).ToHashSet());
-        return variants.Where(kv => kv.Value.IsSupersetOf([FanaticsHome, FanaticsAway, OldHome, OldAway])).Select(kv => kv.Key).Order().ToList();
+        var result = new List<int>();
+        for (int team = 0; team < NhlClubs; team++)
+        {
+            var rows = Enumerable.Range(0, t.InUse).Where(r => db.GetInt(t, r, "teamid") == team && db.GetInt(t, r, "style") == Style).ToList();
+            var variants = rows.Select(r => (int)db.GetInt(t, r, "variant")).ToHashSet();
+            if (!variants.Contains(FanaticsHome) || !variants.Contains(FanaticsAway)) continue;
+            if (OldDefaults(db, t, team, light: false).Count == 0 && !IsFanaticsDefault(db, t, team)) continue;
+            result.Add(team);
+        }
+        return result;
     }
 
     /// <summary>The kit's row; a team listed twice for the same kit (an older test install) uses its first row.</summary>
     static int Row(T3Db db, T3Db.Table t, int team, int variant) => Enumerable.Range(0, t.InUse)
         .First(r => db.GetInt(t, r, "teamid") == team && db.GetInt(t, r, "style") == Style && db.GetInt(t, r, "variant") == variant);
+
+    /// <summary>The team's current default rows of one colour that are not Fanatics kits, the primary (lowest orderid) first.</summary>
+    static List<int> OldDefaults(T3Db db, T3Db.Table t, int team, bool light) => Enumerable.Range(0, t.InUse)
+        .Where(r => db.GetInt(t, r, "teamid") == team && db.GetInt(t, r, "style") == Style && db.GetInt(t, r, "isdefault") == 1
+            && db.GetInt(t, r, "active") == 1 && (db.GetInt(t, r, "islightcolor") == 1) == light
+            && db.GetInt(t, r, "variant") is not (FanaticsHome or FanaticsAway))
+        .OrderBy(r => db.GetInt(t, r, "orderid")).ThenBy(r => r).ToList();
+
+    /// <summary>True when the Fanatics kits are the team's only default kits.</summary>
+    public static bool IsFanaticsDefault(T3Db db, T3Db.Table t, int team) =>
+        db.GetInt(t, Row(db, t, team, FanaticsHome), "isdefault") == 1 && db.GetInt(t, Row(db, t, team, FanaticsAway), "isdefault") == 1
+        && OldDefaults(db, t, team, false).Count == 0 && OldDefaults(db, t, team, true).Count == 0;
 
     /// <summary>Applies the swap to one database; returns the rows' previous values.</summary>
     public static List<RowState> MakeFanaticsDefault(T3Db db, out List<string> labelKeys)
@@ -52,21 +79,27 @@ public static class KitDefaults
         labelKeys = [];
         foreach (int team in Teams(db))
         {
-            int home = Row(db, t, team, FanaticsHome), away = Row(db, t, team, FanaticsAway), oldHome = Row(db, t, team, OldHome), oldAway = Row(db, t, team, OldAway);
-            foreach (var (row, v) in new[] { (home, FanaticsHome), (away, FanaticsAway), (oldHome, OldHome), (oldAway, OldAway) })
-                before.Add(new RowState(team, v, db.GetInt(t, row, "isdefault"), db.GetInt(t, row, "orderid"), db.GetInt(t, row, "locstring")));
-            if (db.GetInt(t, home, "isdefault") == 1 && db.GetInt(t, oldHome, "isdefault") == 0) continue; // already done
+            if (IsFanaticsDefault(db, t, team)) continue; // already done
+            int home = Row(db, t, team, FanaticsHome), away = Row(db, t, team, FanaticsAway);
+            var oldHomes = OldDefaults(db, t, team, light: false);
+            var oldAways = OldDefaults(db, t, team, light: true);
+            if (oldHomes.Count == 0 || oldAways.Count == 0)
+                throw new InvalidDataException($"Team {team}: no current default {(oldHomes.Count == 0 ? "home (dark)" : "away (light)")} kit to swap with.");
+            foreach (int row in new[] { home, away }.Concat(oldHomes).Concat(oldAways))
+                before.Add(new RowState(team, (int)db.GetInt(t, row, "variant"), db.GetInt(t, row, "isdefault"), db.GetInt(t, row, "orderid"), db.GetInt(t, row, "locstring")));
+            int oldHome = oldHomes[0], oldAway = oldAways[0];
             long oHome = db.GetInt(t, oldHome, "orderid"), oAway = db.GetInt(t, oldAway, "orderid");
             long fHome = db.GetInt(t, home, "orderid"), fAway = db.GetInt(t, away, "orderid");
             db.SetInt(t, home, "isdefault", 1); db.SetInt(t, away, "isdefault", 1);
-            db.SetInt(t, oldHome, "isdefault", 0); db.SetInt(t, oldAway, "isdefault", 0);
+            foreach (int row in oldHomes.Concat(oldAways)) db.SetInt(t, row, "isdefault", 0);
             db.SetInt(t, home, "orderid", oHome); db.SetInt(t, away, "orderid", oAway);
             db.SetInt(t, oldHome, "orderid", fHome); db.SetInt(t, oldAway, "orderid", fAway);
             if (!NameOldKits) continue;
-            db.SetInt(t, oldHome, "locstring", VintageLabel); db.SetInt(t, oldAway, "locstring", VintageLabel);
-            long art = db.GetInt(t, oldHome, "teamartid");
-            labelKeys.Add($"VINTAGE_{Style}_{art}_{OldHome}");
-            labelKeys.Add($"VINTAGE_{Style}_{db.GetInt(t, oldAway, "teamartid")}_{OldAway}");
+            foreach (int row in new[] { oldHome, oldAway })
+            {
+                db.SetInt(t, row, "locstring", VintageLabel);
+                labelKeys.Add($"VINTAGE_{Style}_{db.GetInt(t, row, "teamartid")}_{db.GetInt(t, row, "variant")}");
+            }
         }
         return before;
     }
@@ -110,14 +143,14 @@ public static class KitDefaults
             if (undo)
             {
                 if (!saved.TryGetValue(name, out var rows)) continue;
-                edits[file] = bytes => { var db = T3Db.Load(bytes, metaPath); Restore(db, rows); return db.Save(); };
+                edits[file] = bytes => { var db = T3Db.Load((byte[])bytes.Clone(), metaPath); /* Load edits in place; the caller compares with the original */ Restore(db, rows); return db.Save(); };
             }
             else
             {
                 saved[name] = MakeFanaticsDefault(first, out var k);
                 foreach (var key in k) keys.Add(key);
                 say?.Invoke($"{name}: Fanatics default for {Teams(first).Count} teams");
-                edits[file] = bytes => { var db = T3Db.Load(bytes, metaPath); MakeFanaticsDefault(db, out _); return db.Save(); };
+                edits[file] = bytes => { var db = T3Db.Load((byte[])bytes.Clone(), metaPath); /* Load edits in place; the caller compares with the original */ MakeFanaticsDefault(db, out _); return db.Save(); };
             }
         }
         if (!undo && keys.Count > 0)
@@ -140,11 +173,19 @@ public static class KitDefaults
                 {
                     var db = T3Db.Load(copy, metaPath);
                     var t = db.Tables["stockteamjerseys"];
-                    foreach (int team in Teams(db))
+                    var expected = undo ? null : saved[name].Select(s => s.TeamId).ToHashSet();
+                    foreach (int team in undo ? saved[name].Select(s => s.TeamId).Distinct() : expected!)
                     {
-                        bool fanatics = db.GetInt(t, Row(db, t, team, FanaticsHome), "isdefault") == 1 && db.GetInt(t, Row(db, t, team, OldHome), "isdefault") == 0;
+                        bool fanatics = IsFanaticsDefault(db, t, team);
                         if (fanatics == undo) throw new InvalidDataException($"{name}: team {team} defaults did not read back.");
                     }
+                    if (undo)
+                        foreach (var s in saved[name])
+                        {
+                            int row = Row(db, t, s.TeamId, s.Variant);
+                            if (db.GetInt(t, row, "isdefault") != s.IsDefault || db.GetInt(t, row, "orderid") != s.OrderId || db.GetInt(t, row, "locstring") != s.LocString)
+                                throw new InvalidDataException($"{name}: team {s.TeamId} variant {s.Variant} was not restored exactly.");
+                        }
                 }
             if (!undo)
             {

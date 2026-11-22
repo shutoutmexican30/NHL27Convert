@@ -99,9 +99,10 @@ public sealed class BuildOptions
     /// Folders under the roots that are compared. eboot.bin is left out: the NHL24PC setup and launcher patch it per machine.
     public string[] Scopes { get; set; } = { "game", "game-UPDATE" };
     public Func<string, bool> Exclude { get; set; } = DefaultExclude;
-    /// Single files outside the scopes that carry mod content (the salary cap runtime patch). Packed whole as "put":
-    /// a player's existing copy is backed up and replaced, and put back on uninstall.
-    public string[] PutFiles { get; set; } = { @"user\patches\nhl24.xml" };
+    /// Single files outside the scopes that carry mod content. Packed whole as "put": a player's existing copy is
+    /// backed up and replaced, and put back on uninstall. Empty by default: the salary cap patch in
+    /// user\patches\nhl24.xml was dropped (user, 2026-11-22), and that file now also holds machine-specific online patches.
+    public string[] PutFiles { get; set; } = Array.Empty<string>();
 
     public static bool DefaultExclude(string rel)
     {

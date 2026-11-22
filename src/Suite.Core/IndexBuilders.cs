@@ -36,16 +36,41 @@ public static class IndexStore
         return index;
     }
 
-    /// <summary>NHL 24: every TextureAsset/TextureArrayAsset, listed by the stopgap Worker through the read view.</summary>
+    /// <summary>
+    /// NHL 24: every texture/array, listed by the suite's own bundle reader (replaces the stopgap FMT Worker,
+    /// which cannot read this dump's 48-byte-header contentsb.toc variant).
+    /// </summary>
     static async Task<AssetIndex> BuildNhl24Async(SuiteSettings s, string fp, CancellationToken ct)
     {
         var view = Nhl24ReadView.Ensure(s);
-        var json = await Worker.RunAsync(s, ["find", view], ct);
-        var rows = JsonSerializer.Deserialize<List<FindRow>>(json) ?? [];
-        var entries = rows.AsParallel().Select(r => new AssetEntry
+        var entries = await Task.Run(() =>
         {
-            Game = Nhl24, Kind = r.Array ? AssetKind.TextureArray : AssetKind.Texture, Path = r.Name,
-        });
+            var index = Frostbite.BundleIndex.Build(view);
+            var bag = new System.Collections.Concurrent.ConcurrentBag<AssetEntry>();
+            var names = index.ResByName
+                .Where(kv => !kv.Key.EndsWith("_mesh", StringComparison.Ordinal))
+                .Select(kv => kv.Value[0]).ToList();
+            Parallel.ForEach(names, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2), CancellationToken = ct }, r =>
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var stored = Frostbite.BundleIndex.ReadBytes(r.Data);
+                    byte[] header; try { header = Frostbite.ChunkBlocks.Parse(stored).Decode(); } catch { header = stored; }
+                    if (header.Length < Frostbite.TextureRes.HeaderSize) return;
+                    var tr = Frostbite.TextureRes.Parse(header);
+                    int slices = Frostbite.Ps4Codec.Slices(header);
+                    bag.Add(new AssetEntry
+                    {
+                        Game = Nhl24, Kind = slices > 1 ? AssetKind.TextureArray : AssetKind.Texture, Path = r.Name,
+                        Width = tr.Width, Height = tr.Height, Slices = slices, Mips = tr.MipCount,
+                        Format = $"0x{header[12]:X2}",
+                    });
+                }
+                catch { /* not a BC1/3/5/7 texture: meshes, data RES, other formats */ }
+            });
+            return bag.ToList();
+        }, ct);
         return new AssetIndex(Nhl24, fp, DateTime.Now, entries);
     }
 

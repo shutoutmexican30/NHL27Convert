@@ -37,18 +37,37 @@ public sealed class ModInstallerPage : ScrollViewer
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        TextBox Row(string label, string value)
+        TextBox Row(string label, string value, Func<string, string?>? browse = null, Action<string>? picked = null)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var l = new TextBlock { Text = label, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 10, 4) };
-            var b = new TextBox { Text = value, Margin = new Thickness(0, 4, 0, 4), Padding = new Thickness(4, 3, 4, 3), FontFamily = new FontFamily("Consolas") };
-            Grid.SetRow(l, grid.RowDefinitions.Count - 1); Grid.SetRow(b, grid.RowDefinitions.Count - 1); Grid.SetColumn(b, 1);
-            grid.Children.Add(l); grid.Children.Add(b);
+            var b = new TextBox { Text = value, Style = (Style)Application.Current.Resources["PathBox"] };
+            FrameworkElement cell = b;
+            if (browse is not null)
+            {
+                var dock = new DockPanel();
+                var btn = new Button { Content = "Browse…", Style = (Style)Application.Current.Resources["BrowseButton"], ToolTip = "Choose the " + label + " folder" };
+                btn.Click += (_, _) =>
+                {
+                    if (browse(b.Text) is not { } folder) return;
+                    b.Text = folder;
+                    picked?.Invoke(folder);
+                };
+                DockPanel.SetDock(btn, Dock.Right);
+                dock.Children.Add(btn);
+                dock.Children.Add(b);
+                cell = dock;
+            }
+            Grid.SetRow(l, grid.RowDefinitions.Count - 1); Grid.SetRow(cell, grid.RowDefinitions.Count - 1); Grid.SetColumn(cell, 1);
+            grid.Children.Add(l); grid.Children.Add(cell);
             return b;
         }
-        _modded = Row("Modded NHL24PC", settings.Nhl24GameDir);
-        _stock = Row("Stock NHL24PC (fresh)", settings.StockGameDir);
-        _out = Row("Output folder", settings.ModInstallerOutDir.Length > 0 ? settings.ModInstallerOutDir : Path.Combine(SuitePaths.Local, "mod-installers"));
+        void SaveQuietly() { try { _settings.Save(); } catch { } }
+        _modded = Row("Modded NHL24PC", settings.Nhl24GameDir, cur => GameFolderPicker.PickFolder("Modded NHL24PC folder (the one holding game\\eboot.bin)", cur));
+        _stock = Row("Stock NHL24PC (fresh)", settings.StockGameDir, cur => GameFolderPicker.PickFolder("Fresh stock NHL24PC folder (the one holding game\\eboot.bin)", cur),
+            f => { _settings.StockGameDir = f; SaveQuietly(); });
+        _out = Row("Output folder", settings.ModInstallerOutDir.Length > 0 ? settings.ModInstallerOutDir : Path.Combine(SuitePaths.Local, "mod-installers"),
+            cur => GameFolderPicker.PickFolder("Where to write the mod installer", cur), f => { _settings.ModInstallerOutDir = f; SaveQuietly(); });
         _name = Row("Mod name", "Center Ice mod");
         _version = Row("Version", DateTime.Now.ToString("yyyy.MM.dd"));
         _notes = Row("Notes for players", "");

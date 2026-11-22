@@ -15,6 +15,7 @@ public sealed class TeamEditor
     readonly Dictionary<int, string> _gameOfIndex = new();      // exhibitionplayers.index -> bio game_id
     readonly Dictionary<string, List<int>> _rowsByIndex = new(StringComparer.Ordinal); // exhibitionplayers.index -> roster rows
     readonly Dictionary<int, int> _dressShapeAtLoad = new();    // team -> count of core slots filled at load (verify compares)
+    readonly Dictionary<int, int> _lettersScratchedAtLoad = new(); // team -> letter wearers who are scratched at load (stock ships some)
 
     TeamEditor(T3Db db)
     {
@@ -38,7 +39,15 @@ public sealed class TeamEditor
                 if (!_rowsByIndex.TryGetValue(idx, out var l)) _rowsByIndex[idx] = l = [];
                 l.Add(r);
             }
-            foreach (var t in TeamIndexes()) _dressShapeAtLoad[t] = CoreSlots.Count(s => HolderRow(t, s) is not null);
+            foreach (var t in TeamIndexes())
+            {
+                _dressShapeAtLoad[t] = CoreSlots.Count(s => HolderRow(t, s) is not null);
+                var scratched = 0;
+                for (int r = 0; r < _roster.InUse; r++)
+                    if (Db.GetInt(_roster, r, "team") == t && Db.GetInt(_roster, r, "captain") != 0 && Db.GetInt(_roster, r, "rosterstatus") == 0)
+                        scratched++;
+                _lettersScratchedAtLoad[t] = scratched;
+            }
         }
     }
 
@@ -47,6 +56,13 @@ public sealed class TeamEditor
     public bool HasTeams => _teams is not null && _roster is not null;
     public bool HasStrategies => _strat is not null;
     public bool IsDirty { get; private set; }
+
+    /// <summary>Tables this model caches at load (names, rows by player, the verify baseline). The database editor edits
+    /// their values in place but never inserts or deletes their records, so the cached positions stay true.</summary>
+    public static readonly string[] ModelTables = ["exhibitionteams", "exhibitionrostertable", "exhibitionplayers", "exhibitionplayerbiotable", "exhibitionteamstrategies"];
+
+    /// <summary>Marks the database edited by something other than this model (the raw database editor).</summary>
+    public void MarkDirty() => IsDirty = true;
 
     // ---------------------------------------------------------------- teams
 
@@ -279,8 +295,12 @@ public sealed class TeamEditor
             var letters = rows.Count(r => Db.GetInt(_roster, r, "captain") != 0);
             if (c > 1) problems.Add($"Team {team}: {c} captains (the game allows one).");
             if (letters > 3) problems.Add($"Team {team}: {letters} letter wearers (the game allows three).");
-            foreach (var r in rows.Where(r => Db.GetInt(_roster, r, "captain") != 0 && Db.GetInt(_roster, r, "rosterstatus") == 0))
-                problems.Add($"Team {team}: {Who(r)} wears a letter but is scratched.");
+            // Stock rosters legitimately scratch letter wearers (injured captains keep the C). Only an INCREASE
+            // over the load-time count is a problem — the edit moved a letter onto a scratch.
+            var lettersScratched = rows.Count(r => Db.GetInt(_roster, r, "captain") != 0 && Db.GetInt(_roster, r, "rosterstatus") == 0);
+            var atLoadLetters = _lettersScratchedAtLoad.GetValueOrDefault(team);
+            if (lettersScratched > atLoadLetters)
+                problems.Add($"Team {team}: {lettersScratched - atLoadLetters} letter wearer(s) scratched who were dressed at load.");
 
             var numbers = rows.GroupBy(r => Db.GetInt(_roster, r, "jersey")).Where(g => g.Key != 0 && g.Count() > 1);
             foreach (var g in numbers) problems.Add($"Team {team}: number {g.Key} is worn by {g.Count()} players.");

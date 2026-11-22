@@ -10,25 +10,31 @@ using Suite.Rosters;
 namespace Suite.App.Pages;
 
 /// <summary>
-/// Teams &amp; lines editor: open a saved roster (or a roster database file), pick a team and edit its roster (numbers,
-/// letters, player style), its lines (every slot the game knows, from the four lines to the shootout list) and its
-/// strategies. Every edit is an in-place integer edit, so the database keeps NHL 24's layout exactly; before anything is
-/// written the built-in verify must pass, the game must be closed, and a backup of the original is kept.
+/// Teams &amp; database editor: open a saved roster (or a roster database file), pick a team and edit its roster (numbers,
+/// letters, player style) and strategies, or edit any table of the database directly in the Database tab. Every edit is
+/// in place, so the database keeps NHL 24's layout exactly; before anything is written the built-in verify must pass,
+/// the game must be closed, and a backup of the original is kept.
 /// </summary>
 public sealed class EditorPage : ScrollViewer
 {
     readonly SuiteSettings _settings;
     readonly TextBlock _status = new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8c, 0x97, 0xa8)), TextWrapping = TextWrapping.Wrap };
     readonly ComboBox _sources = new() { MinWidth = 420, Padding = new Thickness(4, 3, 4, 3) };
-    readonly ListBox _teams = new() { MinWidth = 250, MaxHeight = 620, Background = new SolidColorBrush(Color.FromRgb(0x1a, 0x22, 0x30)) };
-    readonly TabControl _tabs = new() { MinWidth = 780 };
+    readonly ListBox _teams = new() { MinWidth = 300, MaxHeight = 820, Background = new SolidColorBrush(Color.FromRgb(0x1a, 0x22, 0x30)) };
+    readonly TabControl _tabs = new() { MinWidth = 940 };
     readonly Button _open = new() { Content = "Open" }, _save = new() { Content = "Save", IsEnabled = false }, _verify = new() { Content = "Verify", IsEnabled = false };
-    readonly StackPanel _rosterPanel = new(), _linesPanel = new(), _stratPanel = new();
+    readonly StackPanel _rosterPanel = new(), _stratPanel = new();
+    readonly DbEditorPanel _dbPanel;
+    readonly TabItem _dbTab;
+    bool _dbTouched;
     readonly Dictionary<string, TeamEditor.Team> _teamByItem = [];
 
     ISource? _source;
     TeamEditor? _editor;
     byte[] _trailer = [];
+    HashSet<string> _baseline = [];
+
+    List<string> NewProblems() => _editor is null ? [] : _editor.Verify().Where(p => !_baseline.Contains(p)).ToList();
     bool _building;
 
     interface ISource
@@ -78,16 +84,41 @@ public sealed class EditorPage : ScrollViewer
         }
     }
 
+    /// <summary>One of the game's own databases (nhl_game holds stockteamjerseys / stockteamequipmenttable, the tables the
+    /// game builds its uniform and equipment lists from), read from and written back into the apply target's game files.</summary>
+    sealed class GameDbSource(SuiteSettings settings, string game, string database) : ISource
+    {
+        byte[]? _original;
+        public string Label => $"Game database: {database} ({game})";
+        public byte[] ReadDb(out byte[] trailer)
+        {
+            trailer = [];
+            _original = Suite.Convert27.GameDatabaseEdit.Read(game, settings, database);
+            return (byte[])_original.Clone();
+        }
+        public string WriteDb(byte[] dbWithTrailer)
+        {
+            if (_original is null) throw new InvalidOperationException("Open the database first.");
+            var log = new List<string>();
+            var backup = Suite.Convert27.GameDatabaseEdit.Write(game, settings, database, _original, dbWithTrailer, log.Add);
+            _original = (byte[])dbWithTrailer.Clone();
+            return log.LastOrDefault() ?? $"Wrote {database}. Backup: {backup}";
+        }
+    }
+
     public EditorPage(SuiteSettings settings)
     {
         _settings = settings;
+        // Bigger base text for the whole page: rosters, strategy boxes and the database grid all inherit it.
+        FontSize = 14;
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         var root = new StackPanel { Margin = new Thickness(32, 26, 32, 26), MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Left };
         Content = root;
 
-        root.Children.Add(Heading("Teams & lines editor"));
+        root.Children.Add(Heading("Teams & database editor"));
         root.Children.Add(Text("Open a roster saved in game (or a roster database file from the work folder), pick a team, and edit " +
-            "its roster, lines and strategies. Edits keep the game's own layout — nothing grows or moves, only values change. " +
+            "its roster and strategies — or edit any table of the database in the Database tab. Edits keep the game's own layout — " +
+            "the file never grows or moves, only values change. " +
             "Save runs the same checks as an update, refuses while NHL 24 is running, and keeps a backup. Load the roster in the game " +
             "with Customize > Save/Load/Delete > Load > Rosters."));
         var row = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
@@ -96,6 +127,17 @@ public sealed class EditorPage : ScrollViewer
         var browse = new Button { Content = "Open .db file…", Margin = new Thickness(8, 0, 0, 0), Style = (Style)Application.Current.Resources["Action"] };
         browse.Click += (_, _) => Browse();
         row.Children.Add(browse);
+        var makeSave = new Button { Content = "Write into game as a new roster…", Margin = new Thickness(8, 0, 0, 0), Style = (Style)Application.Current.Resources["Action"] };
+        makeSave.Click += (_, _) => WriteIntoGameAsNewSave();
+        row.Children.Add(makeSave);
+        var extract = new Button { Content = "Extract .db…", Margin = new Thickness(8, 0, 0, 0), Style = (Style)Application.Current.Resources["Action"],
+            ToolTip = "Save the open database (with any edits) to a .db file, with its meta XML beside it" };
+        extract.Click += (_, _) => Extract();
+        row.Children.Add(extract);
+        var import = new Button { Content = "Import .db…", Margin = new Thickness(8, 0, 0, 0), Style = (Style)Application.Current.Resources["Action"],
+            ToolTip = "Replace the open database with a .db file (same size and layout); Save then writes it to the open source" };
+        import.Click += (_, _) => Import();
+        row.Children.Add(import);
         root.Children.Add(row);
         root.Children.Add(_status);
 
@@ -117,8 +159,17 @@ public sealed class EditorPage : ScrollViewer
         root.Children.Add(body);
 
         _tabs.Items.Add(Tab("Roster", _rosterPanel));
-        _tabs.Items.Add(Tab("Lines", _linesPanel));
         _tabs.Items.Add(Tab("Strategy", _stratPanel));
+        _dbPanel = new DbEditorPanel(m => _status.Text = m, () => { _editor?.MarkDirty(); _dbTouched = true; });
+        _dbTab = new TabItem { Header = "Database", Content = _dbPanel };
+        _tabs.Items.Add(_dbTab);
+        _tabs.SelectionChanged += (_, e) =>
+        {
+            // Inner lists and grids bubble SelectionChanged too; only a tab switch away from Database refreshes the team views.
+            if (!ReferenceEquals(e.OriginalSource, _tabs) || !_dbTouched || ReferenceEquals(_tabs.SelectedItem, _dbTab)) return;
+            _dbTouched = false;
+            if (_teams.SelectedItem is ListBoxItem { Tag: TeamEditor.Team t }) Show(t);
+        };
         var bar = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         bar.Children.Add(_verify);
         bar.Children.Add(_save);
@@ -129,11 +180,18 @@ public sealed class EditorPage : ScrollViewer
 
     static TabItem Tab(string title, UIElement content) => new() { Header = title, Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
 
-    static TextBlock Heading(string text) => new() { Text = text, FontSize = 20, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White };
+    static UIElement Heading(string text) => new Border
+    {
+        BorderBrush = (SolidColorBrush)Application.Current.Resources["Accent"],
+        BorderThickness = new Thickness(3, 0, 0, 0),
+        Padding = new Thickness(12, 0, 0, 0),
+        Margin = new Thickness(0, 0, 0, 2),
+        Child = new TextBlock { Text = text, FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White },
+    };
 
     static TextBlock Text(string text) => new()
     {
-        Text = text, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), LineHeight = 20, Margin = new Thickness(0, 6, 0, 0),
+        Text = text, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), LineHeight = 22, Margin = new Thickness(0, 6, 0, 0),
     };
 
     // ---------------------------------------------------------------- sources
@@ -144,6 +202,12 @@ public sealed class EditorPage : ScrollViewer
         if (!string.IsNullOrEmpty(_settings.ApplyTargetDir))
             foreach (var save in SavedRoster.SavedataRoots(_settings.ApplyTargetDir).SelectMany(SavedRoster.Find))
                 _sources.Items.Add(new ListBoxItem { Content = new SaveSource(save).Label, Tag = new SaveSource(save) });
+        if (!string.IsNullOrEmpty(_settings.ApplyTargetDir) && Directory.Exists(_settings.ApplyTargetDir))
+            foreach (var name in Suite.Convert27.GameDatabaseEdit.Databases)
+            {
+                var g = new GameDbSource(_settings, _settings.ApplyTargetDir, name);
+                _sources.Items.Add(new ListBoxItem { Content = g.Label, Tag = g });
+            }
         var stock = Path.Combine(SuitePaths.Local, "dbwork", "stock", "gamemodes", "database", "t3db", "nhl_game.db");
         if (File.Exists(stock)) _sources.Items.Add(new ListBoxItem { Content = new FileSource(stock).Label, Tag = new FileSource(stock) });
         if (_sources.Items.Count > 0) _sources.SelectedIndex = 0;
@@ -166,27 +230,120 @@ public sealed class EditorPage : ScrollViewer
 
     void OpenSelected() { if (_sources.SelectedItem is ListBoxItem { Tag: ISource s }) Open(s); }
 
+    static string SourceFileName(ISource s) => s switch
+    {
+        GameDbSource => s.Label.Split(':')[1].Trim().Split(' ')[0] + ".db",
+        FileSource f => Path.GetFileName(f.Path),
+        _ => "roster.db",
+    };
+
+    /// <summary>Writes the open database (edits included, CRCs recomputed) to a .db file, plus nhl_game-meta.xml beside it,
+    /// so it can be edited elsewhere and imported back.</summary>
+    void Extract()
+    {
+        if (_editor is null || _source is null) { _status.Text = "Open a database first."; return; }
+        var dlg = new Microsoft.Win32.SaveFileDialog { Filter = "Roster databases (*.db)|*.db", FileName = SourceFileName(_source), Title = "Extract database" };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            var bytes = _editor.Save();
+            File.WriteAllBytes(dlg.FileName, bytes);
+            var meta = Path.Combine(Path.GetDirectoryName(dlg.FileName)!, "nhl_game-meta.xml");
+            var src = FindMeta(_source);
+            if (!string.Equals(Path.GetFullPath(src), Path.GetFullPath(meta), StringComparison.OrdinalIgnoreCase)) File.Copy(src, meta, true);
+            T3Db.Load(File.ReadAllBytes(dlg.FileName), meta);   // read back: every CRC must check
+            _status.Text = $"Extracted {bytes.Length:n0} bytes to {dlg.FileName} (meta XML beside it). Read back OK.";
+        }
+        catch (Exception ex) { _status.Text = "Not extracted: " + ex.Message; }
+    }
+
+    /// <summary>Loads a .db file in place of the open database. It must be a valid T3DB of the same size, so it keeps the
+    /// game's layout; nothing is written until Save, which goes to the open source (game, saved roster or file) with its backup.</summary>
+    void Import()
+    {
+        if (_editor is null || _source is null) { _status.Text = "Open the database to import into first (for example Game database: nhl_game)."; return; }
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "Roster databases (*.db)|*.db", Title = "Import database into " + _source.Label };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            var blob = File.ReadAllBytes(dlg.FileName);
+            var n = SavedRoster.DbLength(blob);
+            if (n <= 0 || n > blob.Length) throw new InvalidDataException("Not a T3DB database.");
+            var bytes = blob[..n];
+            var current = _editor.Db.Bytes.Length;
+            if (bytes.Length != current)
+                throw new InvalidDataException($"The file is {bytes.Length:n0} bytes, the open database is {current:n0}. Only a database with the same layout can be imported (extract this one, edit it, import it back).");
+            var meta = FindMeta(_source);
+            var editor = TeamEditor.Load(bytes, meta);   // throws on any CRC or meta mismatch
+            var oldTables = _editor.Db.Tables.Values.Select(t => (t.Short, t.Start, t.RecordBytes, t.Slots)).OrderBy(t => t.Start).ToList();
+            var newTables = editor.Db.Tables.Values.Select(t => (t.Short, t.Start, t.RecordBytes, t.Slots)).OrderBy(t => t.Start).ToList();
+            if (!oldTables.SequenceEqual(newTables)) throw new InvalidDataException("The file's tables are laid out differently from the open database.");
+            if (MessageBox.Show($"Replace the open database with\n{dlg.FileName}?\n\nNothing is written until you press Save, which writes to\n{_source.Label}\nwith a backup.",
+                    "Import database", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            _editor = editor;
+            _baseline = editor.Verify().ToHashSet(StringComparer.Ordinal);
+            _editor.MarkDirty();
+            _dbTouched = false;
+            _dbPanel.Load(_editor);
+            ShowTeams();
+            _status.Text = $"Imported {dlg.FileName}. Press Save to write it to {_source.Label}.";
+        }
+        catch (Exception ex) { _status.Text = "Not imported: " + ex.Message; }
+    }
+
+    /// <summary>Creates a RosterCustomN save in the active build from the currently open database — the same
+    /// as saving a roster in game — so it shows under Load &gt; Rosters and can be edited here from then on.</summary>
+    void WriteIntoGameAsNewSave()
+    {
+        if (_editor is null || _source is null) { _status.Text = "Open a roster (a saved roster or a .db file) first."; return; }
+        try
+        {
+            if (ApplyTarget.RunningGame() is { } running) { _status.Text = $"{running} is running. Close the game first."; return; }
+            var roots = string.IsNullOrEmpty(_settings.ApplyTargetDir) ? [] : SavedRoster.SavedataRoots(_settings.ApplyTargetDir).ToList();
+            if (roots.Count == 0) { _status.Text = "No savedata user folder found next to the apply target game."; return; }
+            var db = _editor.Save();
+            foreach (var root in roots)
+            {
+                int n = 0;
+                while (Directory.Exists(Path.Combine(root, $"RosterCustom{n}"))) n++;
+                if (n > 20) continue;
+                var donor = Directory.GetDirectories(root).FirstOrDefault(d => Directory.Exists(Path.Combine(d, "sce_sys")));
+                var save = SavedRoster.Create(root, $"RosterCustom{n}", db, donor);
+                _status.Text = $"Created {save.Dir}\nIt shows in the game under Customize > Save/Load/Delete > Load > Rosters.";
+                RefreshSources();
+                return;
+            }
+            _status.Text = "No savedata root had a free RosterCustom slot.";
+        }
+        catch (Exception ex) { _status.Text = "Not created: " + ex.Message; }
+    }
+
     void Open(ISource source)
     {
         try
         {
             if (_editor is { IsDirty: true } &&
-                MessageBox.Show("Discard the unsaved edits?", "Teams & lines", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                MessageBox.Show("Discard the unsaved edits?", "Teams & database", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             var bytes = source.ReadDb(out _trailer);
-            var meta = FindMeta();
+            var meta = FindMeta(source);
             _editor = TeamEditor.Load(bytes, meta);
+            // The game's own databases ship with things the roster checks flag (duplicate numbers on non-NHL teams);
+            // only problems an edit introduces block a save.
+            _baseline = _editor.Verify().ToHashSet(StringComparer.Ordinal);
             _source = source;
             _status.Text = "";
             _save.IsEnabled = _verify.IsEnabled = true;
+            _dbTouched = false;
+            _dbPanel.Load(_editor);
             ShowTeams();
         }
         catch (Exception ex) { _status.Text = "Not opened: " + ex.Message; }
     }
 
-    string FindMeta()
+    string FindMeta(ISource source)
     {
         // A file source usually sits next to its meta (a stock export keeps both in the same folder).
-        if (_source is FileSource f)
+        if (source is FileSource f)
         {
             var beside = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(f.Path)!, "nhl_game-meta.xml");
             if (File.Exists(beside)) return beside;
@@ -232,7 +389,6 @@ public sealed class EditorPage : ScrollViewer
         if (_editor is null) return;
         // Edits accumulate across teams until Save (the same model as the editor in the Puck Peak updater).
         BuildRoster(team);
-        BuildLines(team);
         BuildStrategy(team);
     }
 
@@ -262,7 +418,7 @@ public sealed class EditorPage : ScrollViewer
             ItemsSource = players.Select(p => new RowVm(_editor, p)).ToList(),
             Background = new SolidColorBrush(Color.FromRgb(0x1a, 0x22, 0x30)), Foreground = Brushes.White,
             RowBackground = new SolidColorBrush(Color.FromRgb(0x15, 0x1a, 0x22)), AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(0x1a, 0x22, 0x30)),
-            MaxHeight = 560, BorderBrush = new SolidColorBrush(Color.FromRgb(0x1d, 0x2b, 0x44)),
+            MaxHeight = 780, BorderBrush = new SolidColorBrush(Color.FromRgb(0x1d, 0x2b, 0x44)),
         };
         grid.Columns.Add(ReadOnly("Name", nameof(RowVm.Name), 190));
         grid.Columns.Add(ReadOnly("Pos", nameof(RowVm.Position), 44));
@@ -279,112 +435,6 @@ public sealed class EditorPage : ScrollViewer
 
     static DataGridTextColumn ReadOnly(string header, string path, double width) =>
         new() { Header = header, Binding = new Binding(path), IsReadOnly = true, Width = width };
-
-    // ---------------------------------------------------------------- lines tab
-
-    static readonly (string Title, (string Label, string Slot, char Role)[] Rows)[] LineSections =
-    [
-        ("Forward lines", [.. from i in new[] { 1, 2, 3, 4 } from s in new[] { ("C", "c", 'F'), ("LW", "lw", 'F'), ("RW", "rw", 'F') } select ($"L{i} {s.Item1}", $"l{i}{s.Item2}", s.Item3)]),
-        ("Defense pairs", [.. from i in new[] { 1, 2, 3 } from s in new[] { ("LD", "ld", 'D'), ("RD", "rd", 'D') } select ($"Pair {i} {s.Item1}", $"l{i}{s.Item2}", s.Item3)]),
-        ("Goalies", [("Starter", "g1", 'G'), ("Backup", "g2", 'G')]),
-        ("Power play 1", [("LW", "pp_1lw", 'F'), ("C", "pp_1c", 'F'), ("RW", "pp_1rw", 'F'), ("LD", "pp_1ld", 'D'), ("RD", "pp_1rd", 'D')]),
-        ("Power play 2", [("LW", "pp_2lw", 'F'), ("C", "pp_2c", 'F'), ("RW", "pp_2rw", 'F'), ("LD", "pp_2ld", 'D'), ("RD", "pp_2rd", 'D')]),
-        ("Power play 4-man 1", [("LW", "pp4_1lw", 'F'), ("C", "pp4_1c", 'F'), ("RW", "pp4_1rw", 'F'), ("LD", "pp4_1ld", 'D'), ("RD", "pp4_1rd", 'D')]),
-        ("Power play 4-man 2", [("LW", "pp4_2lw", 'F'), ("C", "pp4_2c", 'F'), ("RW", "pp4_2rw", 'F'), ("LD", "pp4_2ld", 'D'), ("RD", "pp4_2rd", 'D')]),
-        ("Penalty kill 4-man 1", [("LW", "pk4_1lw", 'F'), ("C", "pk4_1c", 'F'), ("LD", "pk4_1ld", 'D'), ("RD", "pk4_1rd", 'D')]),
-        ("Penalty kill 4-man 2", [("LW", "pk4_2lw", 'F'), ("C", "pk4_2c", 'F'), ("LD", "pk4_2ld", 'D'), ("RD", "pk4_2rd", 'D')]),
-        ("Penalty kill 4-man 3", [("LW", "pk4_3lw", 'F'), ("C", "pk4_3c", 'F'), ("LD", "pk4_3ld", 'D'), ("RD", "pk4_3rd", 'D')]),
-        ("Penalty kill 3-man 1", [("C", "pk3_1c", 'F'), ("LD", "pk3_1ld", 'D'), ("RD", "pk3_1rd", 'D')]),
-        ("Penalty kill 3-man 2", [("C", "pk3_2c", 'F'), ("LD", "pk3_2ld", 'D'), ("RD", "pk3_2rd", 'D')]),
-        ("Penalty kill 3-man 3", [("C", "pk3_3c", 'F'), ("LD", "pk3_3ld", 'D'), ("RD", "pk3_3rd", 'D')]),
-        ("Even strength 5-man 1", [("LW", "ev4_1lw", 'F'), ("C", "ev4_1c", 'F'), ("RW", "ev4_1rw", 'F'), ("LD", "ev4_1ld", 'D'), ("RD", "ev4_1rd", 'D')]),
-        ("Even strength 5-man 2", [("LW", "ev4_2lw", 'F'), ("C", "ev4_2c", 'F'), ("RW", "ev4_2rw", 'F'), ("LD", "ev4_2ld", 'D'), ("RD", "ev4_2rd", 'D')]),
-        ("Even strength 5-man 3", [("LW", "ev4_3lw", 'F'), ("C", "ev4_3c", 'F'), ("RW", "ev4_3rw", 'F'), ("LD", "ev4_3ld", 'D'), ("RD", "ev4_3rd", 'D')]),
-        ("3 on 3", [("C", "three_c", 'F'), ("W", "three_w", 'F'), ("D", "three_d", 'D'), ("G", "three_g1", 'G'), ("G2", "three_g2", 'G'), ("S1", "three_s1", 'F'), ("S2", "three_s2", 'F')]),
-        ("Shootout", [.. from i in new[] { 1, 2, 3, 4, 5 } select ($"Shooter {i}", $"s{i}", 'F')]),
-        ("Extra attackers", [("First", "x1", 'F'), ("Second", "x2", 'F')]),
-    ];
-
-    void BuildLines(TeamEditor.Team team)
-    {
-        _linesPanel.Children.Clear();
-        if (_editor is null) return;
-        _building = true;
-        var players = _editor.Players(team.Index);
-        foreach (var (title, rows) in LineSections)
-        {
-            var box = new GroupBox { Header = title, Foreground = Brushes.White, Margin = new Thickness(0, 0, 14, 10) };
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            int r = 0;
-            foreach (var (label, slot, role) in rows)
-            {
-                var lab = new TextBlock { Text = label, Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), Margin = new Thickness(6, 4, 10, 4) };
-                Grid.SetRow(lab, r); Grid.SetColumn(lab, 0);
-                var combo = new ComboBox { MinWidth = 210, Margin = new Thickness(0, 2, 6, 2), Tag = (slot, team.Index) };
-                combo.Items.Add(new ListBoxItem { Content = "—", Tag = null });
-                foreach (var p in players.Where(p => role switch { 'F' => p.Pos <= 2, 'D' => p.Pos == 3, _ => p.Pos == 4 }))
-                {
-                    var item = new ListBoxItem { Content = $"{p.Name}  #{p.Jersey}", Tag = p.RosterRow };
-                    combo.Items.Add(item);
-                    if (_editor.HolderRow(team.Index, slot) == p.RosterRow) combo.SelectedItem = item;
-                }
-                if (combo.SelectedItem is null) combo.SelectedIndex = 0;
-                combo.SelectionChanged += SlotChanged;
-                Grid.SetRow(combo, r); Grid.SetColumn(combo, 1);
-                grid.Children.Add(lab); grid.Children.Add(combo);
-                r++;
-            }
-            box.Content = grid;
-            _linesPanel.Children.Add(box);
-        }
-        _building = false;
-        var wrap = new WrapPanel();
-        while (_linesPanel.Children.Count > 0) wrap.Children.Add(_linesPanel.Children[0]);
-        _linesPanel.Children.Add(wrap);
-    }
-
-    void SlotChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_building || _editor is null || sender is not ComboBox { Tag: (string slot, int team) } combo) return;
-        _building = true;
-        try
-        {
-            var row = (combo.SelectedItem as ListBoxItem)?.Tag as int?;
-            _editor.SetSlot(team, slot, row);
-            _status.Text = "";
-            RefreshLineSelections(team);
-        }
-        catch (Exception ex)
-        {
-            _status.Text = ex.Message;
-            RestoreSlot(combo, team, slot);
-        }
-        finally { _building = false; }
-    }
-
-    void RestoreSlot(ComboBox combo, int team, string slot)
-    {
-        var holder = _editor?.HolderRow(team, slot);
-        foreach (var item in combo.Items.OfType<ListBoxItem>())
-            if (Equals(item.Tag as int?, holder)) { combo.SelectedItem = item; return; }
-        combo.SelectedIndex = 0;
-    }
-
-    void RefreshLineSelections(int team)
-    {
-        foreach (var combo in _linesPanel.Children.OfType<WrapPanel>().SelectMany(w => w.Children.OfType<GroupBox>())
-                     .SelectMany(g => ((Grid)g.Content).Children.OfType<ComboBox>()))
-        {
-            var (slot, t) = ((string, int))combo.Tag;
-            if (t != team) continue;
-            var holder = _editor?.HolderRow(team, slot);
-            var match = combo.Items.OfType<ListBoxItem>().FirstOrDefault(i => Equals(i.Tag as int?, holder));
-            if (match is null) { if (combo.SelectedIndex != 0) combo.SelectedIndex = 0; }
-            else if (!Equals(combo.SelectedItem, match)) combo.SelectedItem = match;
-        }
-    }
 
     // ---------------------------------------------------------------- strategy tab
 
@@ -405,9 +455,10 @@ public sealed class EditorPage : ScrollViewer
             int r = 0;
             foreach (var f in g.Fields)
             {
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 var lab = new TextBlock { Text = f.Name, Foreground = new SolidColorBrush(Color.FromRgb(0xb9, 0xc8, 0xd8)), Margin = new Thickness(6, 4, 10, 4) };
                 Grid.SetRow(lab, r); Grid.SetColumn(lab, 0);
-                var combo = new ComboBox { MinWidth = 70, Margin = new Thickness(0, 2, 6, 2) };
+                var combo = new ComboBox { MinWidth = 92, Margin = new Thickness(0, 2, 6, 2) };
                 for (int v = 0; v <= Math.Min(f.High, 31); v++) combo.Items.Add(new ListBoxItem { Content = v.ToString(), Tag = v });
                 combo.SelectedIndex = Math.Clamp(f.Value, 0, combo.Items.Count - 1);
                 var (name, teamIndex) = (f.Name, team.Index);
@@ -431,7 +482,12 @@ public sealed class EditorPage : ScrollViewer
         }
         _building = false;
         var wrap = new WrapPanel();
-        while (_stratPanel.Children.Count > 0) wrap.Children.Add(_stratPanel.Children[0]);
+        while (_stratPanel.Children.Count > 0)
+        {
+            var child = _stratPanel.Children[0];
+            _stratPanel.Children.RemoveAt(0); // a WPF element must be disconnected from its old logical parent before it can be re-parented
+            wrap.Children.Add(child);
+        }
         _stratPanel.Children.Add(wrap);
         _stratPanel.Children.Add(Text("The values are the game's own strategy codes (0 = the first entry of the menu the game shows). " +
             "The meta XML names the fields but not the menu words; the groups follow the field names."));
@@ -442,27 +498,28 @@ public sealed class EditorPage : ScrollViewer
     void ShowVerify()
     {
         if (_editor is null) return;
-        var problems = _editor.Verify();
+        var problems = NewProblems();
+        var known = _baseline.Count == 0 ? "" : $" ({_baseline.Count} problem(s) already in the database when it was opened are not counted.)";
         _status.Text = problems.Count == 0
-            ? "Every check passes: 20 dressed where a team dresses 20, no slot held twice, no unit doubled, letters and numbers legal."
-            : $"{problems.Count} problem(s):\n• " + string.Join("\n• ", problems.Take(20));
+            ? "Every check passes: 20 dressed where a team dresses 20, no slot held twice, no unit doubled, letters and numbers legal." + known
+            : $"{problems.Count} new problem(s):\n• " + string.Join("\n• ", problems.Take(20)) + known;
     }
 
     void Save()
     {
         if (_editor is null || _source is null) return;
-        var problems = _editor.Verify();
+        var problems = NewProblems();
         if (problems.Count > 0)
         {
-            MessageBox.Show("The checks refuse this save:\n• " + string.Join("\n• ", problems.Take(20)), "Teams & lines", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("The checks refuse this save:\n• " + string.Join("\n• ", problems.Take(20)), "Teams & database", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         if (ApplyTarget.RunningGame() is { } running)
         {
-            MessageBox.Show($"{running} is running. Close NHL 24 before saving a roster.", "Teams & lines", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"{running} is running. Close NHL 24 before saving a roster.", "Teams & database", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (MessageBox.Show($"Write the edits back to\n{_source.Label}\nwith a backup of the original?", "Teams & lines",
+        if (MessageBox.Show($"Write the edits back to\n{_source.Label}\nwith a backup of the original?", "Teams & database",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         try
         {

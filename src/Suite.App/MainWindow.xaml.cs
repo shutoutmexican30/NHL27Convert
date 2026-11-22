@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         var build = _settings.ActiveGameBuild;
         BuildTargetText.Text = build is null ? "No build configured" :
             string.IsNullOrWhiteSpace(build.ApplyTargetDir) ? "Apply target not set" : "Apply → " + build.ApplyTargetDir;
-        BuildTargetText.ToolTip = build is null ? "Add an NHL24PC build in settings.json." : $"Source: {build.GameDir}\nApply: {build.ApplyTargetDir}";
+        BuildTargetText.ToolTip = build is null ? "Use Browse… to choose your NHL24PC folder." : $"Source: {build.GameDir}\nApply: {build.ApplyTargetDir}";
     }
 
     void Build_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -67,6 +67,31 @@ public partial class MainWindow : Window
         Show(_currentTag);
     }
 
+    /// <summary>Header "Browse…": re-point the active build at its NHL24PC folder (e.g. after the game moved) and reload the pages.</summary>
+    void BrowseGame_Click(object sender, RoutedEventArgs e)
+    {
+        var current = _settings.ActiveGameBuild?.GameDir ?? _settings.Nhl24GameDir;
+        if (GameFolderPicker.PickNhl24Folder("Choose your NHL24PC game folder", current) is not { } folder) return;
+        try { GameFolderPicker.SetActiveGameFolder(_settings, folder); }
+        catch (Exception ex)
+        {
+            MessageBox.Show("The game folder could not be saved:\n" + ex.Message, "Center Ice Modding Suite", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        _pages.Clear();
+        Page.Content = null;
+        Show(_currentTag);
+    }
+
+    /// <summary>The Settings page changed a build's folders: drop every other cached page so they reload from the new folder.</summary>
+    void BuildsChanged()
+    {
+        _pages.TryGetValue("settings", out var settingsPage);
+        _pages.Clear();
+        if (settingsPage is not null) _pages["settings"] = settingsPage;
+        RefreshBuilds();
+    }
+
     void Show(string tag)
     {
         if (Page is null) return;
@@ -80,12 +105,13 @@ public partial class MainWindow : Window
                 "convert27" => new Convert27View(_settings),
                 "studio" => new Suite.Convert27.Studio.UniformStudioView(_settings),
                 "centerice" => new CenterIcePage(_settings),
+                "hotspots" => new HotspotsPage(_settings),
                 "scorebug" => new ScorebugPage(_settings),
                 "textures" => new TexturesPage(_settings),
                 "teams" => new RostersPage(_settings),
                 "editor" => new EditorPage(_settings),
                 "contracts" => new ContractsPage(_settings),
-                "settings" => new SettingsPage(_settings),
+                "settings" => new SettingsPage(_settings, BuildsChanged),
                 "installer" => new ModInstallerPage(_settings),
                 _ => PlannedPage.For(tag),
             };
@@ -98,10 +124,11 @@ public partial class MainWindow : Window
             "convert27" => "Convert 27 — guided uniform conversion and live preview",
             "studio" => "Uniform Studio — original vs new textures",
             "centerice" => "Center ice",
+            "hotspots" => "Ice hotspots — on-ice sponsor patches",
             "scorebug" => "Scorebug — ESPN+ and Prime styles, live preview, packs",
-            "textures" => "Textures & logos — browse and replace any texture",
+            "textures" => "Texture suite — every texture of the game, organized like FMT",
             "teams" => "Teams & roster — sync every roster database with the NHL",
-            "editor" => "Teams & lines — edit rosters, lines and strategies",
+            "editor" => "Teams & database — edit rosters, strategies and every table of the database",
             "contracts" => "Contracts — cap hits, terms, extensions and clauses",
             "settings" => "Settings & about",
             "installer" => "Build mod installer — share the mod without the game",

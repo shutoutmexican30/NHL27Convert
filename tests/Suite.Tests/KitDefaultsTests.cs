@@ -48,4 +48,38 @@ public sealed class KitDefaultsTests
         Assert.Equal(0, db.GetInt(t, Row(25), "isdefault"));
         Assert.Equal(0, db.GetInt(t, Row(0), "locstring"));
     }
+
+    /// <summary>
+    /// Boston-style (defaults on other variants) and Philadelphia-style (two default pairs): every current default is
+    /// cleared, the Fanatics kits take the primary pair's order, and undo puts every value back exactly.
+    /// </summary>
+    [Fact]
+    public void Real_current_defaults_are_swapped_not_variants_0_and_1()
+    {
+        var db = WithFanatics();
+        var t = db.Tables["stockteamjerseys"];
+        int Row(int v) => Enumerable.Range(0, t.InUse).First(r => db.GetInt(t, r, "teamid") == 10 && db.GetInt(t, r, "style") == 2 && db.GetInt(t, r, "variant") == v);
+        var others = Enumerable.Range(0, t.InUse).Where(r => db.GetInt(t, r, "teamid") == 10 && db.GetInt(t, r, "style") == 2
+            && db.GetInt(t, r, "variant") is not (0 or 1 or 24 or 25)).Select(r => (int)db.GetInt(t, r, "variant")).Order().Take(2).ToList();
+        Assert.Equal(2, others.Count);
+        // A second default pair that the game lists first (Philadelphia's 6/7 next to 0/1).
+        db.SetInt(t, Row(others[0]), "isdefault", 1); db.SetInt(t, Row(others[0]), "islightcolor", 0); db.SetInt(t, Row(others[0]), "orderid", 0);
+        db.SetInt(t, Row(others[1]), "isdefault", 1); db.SetInt(t, Row(others[1]), "islightcolor", 1); db.SetInt(t, Row(others[1]), "orderid", 1);
+        db.SetInt(t, Row(0), "isdefault", 1); db.SetInt(t, Row(0), "islightcolor", 0); db.SetInt(t, Row(0), "orderid", 2);
+        db.SetInt(t, Row(1), "isdefault", 1); db.SetInt(t, Row(1), "islightcolor", 1); db.SetInt(t, Row(1), "orderid", 3);
+        var snapshot = Enumerable.Range(0, t.InUse).Select(r => (db.GetInt(t, r, "isdefault"), db.GetInt(t, r, "orderid"), db.GetInt(t, r, "locstring"))).ToList();
+
+        var before = KitDefaults.MakeFanaticsDefault(db, out _);
+        Assert.True(KitDefaults.IsFanaticsDefault(db, t, 10));
+        foreach (int v in new[] { 0, 1, others[0], others[1] }) Assert.Equal(0, db.GetInt(t, Row(v), "isdefault"));
+        Assert.Equal(0, db.GetInt(t, Row(25), "orderid"));
+        Assert.Equal(1, db.GetInt(t, Row(24), "orderid"));
+        Assert.All(KitDefaults.Teams(db), team => Assert.InRange(team, 0, 31));
+        // Running again is a no-op.
+        Assert.DoesNotContain(KitDefaults.MakeFanaticsDefault(db, out _), s => s.TeamId == 10);
+
+        KitDefaults.Restore(db, before);
+        var after = Enumerable.Range(0, t.InUse).Select(r => (db.GetInt(t, r, "isdefault"), db.GetInt(t, r, "orderid"), db.GetInt(t, r, "locstring"))).ToList();
+        Assert.Equal(snapshot, after);
+    }
 }

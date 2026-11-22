@@ -8,13 +8,12 @@ using Suite.Core.Frostbite;
 namespace Suite.App.Pages;
 
 /// <summary>
-/// Center ice: pick a slot, fetch that arena's rink from TheFaceoff.net on click, convert it to the slot's own layout
-/// (blue circle kept, ice white keyed out, red-line gap cut) and preview it over nothing but the stock slot, then write it
-/// with a backup and a read-back. The write goes to the test copy unless the user picks the game folder.
-/// Every conversion is validated against the Centerlogo_Template.psd geometry (<see cref="CenterIceTemplate"/>), and
-/// "Verify all vs template" renders every team's NHL 27 art over the template guides as one contact sheet.
+/// Center ice: pick a slot, fetch that arena's rink from TheFaceoff.net on click, convert it to the slot's own
+/// layout (blue circle kept, ice white keyed out, red-line gap cut) and preview it over the stock slot, then write
+/// it with a backup and a read-back. Validated against the Centerlogo_Template.psd geometry
+/// (<see cref="CenterIceTemplate"/>).
 ///
-/// Nothing is fetched until the button is pressed, and the credit line is always shown (site terms: personal use).
+/// Nothing is fetched until a button is pressed; the credit line is always shown (site terms: personal use).
 /// </summary>
 public sealed class CenterIcePage : Grid
 {
@@ -53,7 +52,7 @@ public sealed class CenterIcePage : Grid
         panel.Children.Add(new TextBlock { Text = "Center ice", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
         panel.Children.Add(new TextBlock
         {
-            Text = Faceoff.Credit + "  Pick a slot, then fetch its TheFaceoff.net link, pick a file, or take NHL 27's art; look at the preview, then apply.",
+            Text = Faceoff.Credit + "  Center logo relayouts the picture into the slot.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 16),
             Foreground = new SolidColorBrush(Color.FromRgb(0x8f, 0xa3, 0xb8)), FontSize = 12,
         });
@@ -81,7 +80,7 @@ public sealed class CenterIcePage : Grid
         previews.ColumnDefinitions.Add(new ColumnDefinition());
         previews.ColumnDefinitions.Add(new ColumnDefinition());
         var stockCard = Card("Stock slot (what is in the game now)", _stock);
-        var resultCard = Card("Result (relaid out for this slot)", _result);
+        var resultCard = Card("Result (what will be written)", _result);
         Grid.SetColumn(resultCard, 1);
         previews.Children.Add(stockCard);
         previews.Children.Add(resultCard);
@@ -100,9 +99,8 @@ public sealed class CenterIcePage : Grid
         panel.Children.Add(new TextBlock
         {
             Text = "Slot = the arena id: Utah is 22 (NHL 27's art is 30), All-Star logos are 30 and 31, Vegas 32, Seattle 33. " +
-                   "The stock preview tells you which arena a slot belongs to. " +
-                   "Every result is checked against the Centerlogo_Template.psd circle and red-line gap; " +
-                   "“Verify all vs template” renders all 32 teams over those guides as one sheet.",
+                   "Center logo keeps the blue circle and cuts the red-line strip; every result is checked against the " +
+                   "Centerlogo_Template.psd guides.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 14, 0, 0),
             Foreground = new SolidColorBrush(Color.FromRgb(0x6f, 0x80, 0x92)), FontSize = 12,
         });
@@ -172,7 +170,7 @@ public sealed class CenterIcePage : Grid
         return _index = BundleIndex.Build(game);
     }
 
-    /// <summary>The template check every conversion goes through before it may be applied.</summary>
+    /// <summary>The template check every center-logo conversion goes through before it may be applied.</summary>
     CenterIceTemplate.Report Check(Rgba converted)
     {
         var report = CenterIceTemplate.Validate(converted);
@@ -180,31 +178,42 @@ public sealed class CenterIcePage : Grid
         return report;
     }
 
+    /// <summary>Runs the loaded picture through the conversion and shows the result preview.</summary>
+    void ConvertLoaded(string prefix = "")
+    {
+        if (_rink is null || _stockSlot is null) return;
+        try
+        {
+            _converted = CenterIceImage.ToSlot(_rink, _stockSlot.Image);
+            _result.Source = Show(_converted);
+            _apply.IsEnabled = true;
+            Say(prefix + $"Relaid out to {_converted.Width}x{_converted.Height}. " +
+                "Template check: " + Check(_converted).Summary + " Check the preview, then apply.");
+        }
+        catch (Exception ex) { _converted = null; _apply.IsEnabled = false; Say(prefix + "Conversion failed: " + ex.Message); }
+    }
+
     async Task FetchAsync()
     {
         if (string.IsNullOrWhiteSpace(_link.Text)) { Say("Paste the arena's TheFaceoff.net link into the Link box first."); return; }
         if (_stockSlot is null) await RefreshStockAsync();   // the slot preview may never have loaded (game folder moved, app opened early)
-        if (_stockSlot is null) { Say(_status.Text + "  Fetch needs the slot's stock texture to lay the picture out; fix that first."); return; }
+        if (_stockSlot is null) { Say(_status.Text + "  Fetch needs the slot's stock texture; fix that first."); return; }
         try
         {
             _fetch.IsEnabled = false;
             Say("Fetching (one request at a time, credited)...");
             var file = await Faceoff.FetchAsync(_link.Text.Trim());
             _rink = ImageIO.Load(file);
-            _converted = CenterIceImage.ToSlot(_rink, _stockSlot.Image);
             _stock.Source = Show(_stockSlot.Image);
-            _result.Source = Show(_converted);
-            _apply.IsEnabled = true;
-            Say($"Fetched {Path.GetFileName(file)} ({_rink.Width}x{_rink.Height}); relaid out to {_converted.Width}x{_converted.Height}. " +
-                "Template check: " + Check(_converted).Summary + " Check the preview, then apply.");
+            ConvertLoaded($"Fetched {Path.GetFileName(file)} ({_rink.Width}x{_rink.Height}). ");
         }
         catch (Exception ex) { Say("Fetch failed: " + ex.Message); _apply.IsEnabled = false; }
         finally { _fetch.IsEnabled = true; }
     }
 
     /// <summary>
-    /// A picture on disk: a ready decal (it has transparency) is used as it is, resized to the slot; a flat rink picture
-    /// goes through the same conversion as a TheFaceoff.net fetch. The red-line strip is cut either way when written.
+    /// A picture on disk: a ready decal (it has transparency) is used as it is, resized to the slot; a flat rink
+    /// picture goes through the same conversion as a TheFaceoff.net fetch.
     /// </summary>
     void FromFile()
     {
@@ -298,7 +307,7 @@ public sealed class CenterIcePage : Grid
                 catch (Exception ex)
                 {
                     reportLines.Add($"slot {slot}: ERROR {ex.Message}");
-                    SuiteLog.Write($"center ice verify slot {slot} failed: {ex.Message}");
+                    SuiteLog.Write($"center ice verify slot {slot} failed: {ex}");
                 }
             }
             File.WriteAllLines(Path.Combine(dir, "report.txt"), reportLines);
