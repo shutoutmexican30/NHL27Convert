@@ -1,4 +1,4 @@
-# Builds ONE self-contained, obfuscated CenterIceModdingSuite.exe that runs on any Windows x64 PC with nothing
+﻿# Builds ONE self-contained, obfuscated CenterIceModdingSuite.exe that runs on any Windows x64 PC with nothing
 # installed. Pipeline: build self-contained -> obfuscate the managed assemblies in place -> bundle into a single file
 # with --no-build so the bundle contains the obfuscated DLLs.
 param(
@@ -17,7 +17,7 @@ $out = Join-Path $repo 'dist\suite-single-exe'
 Write-Host "1/4  Publishing self-contained single file ($Rid) to create the bundle host ..."
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 & dotnet publish $proj -c $Config -r $Rid --self-contained true `
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o $out -v q
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o $out -v q
 if ($LASTEXITCODE -ne 0) { throw 'initial publish failed' }
 if (-not (Test-Path (Join-Path $build 'CenterIceModdingSuite.dll'))) { throw "no self-contained build at $build" }
 
@@ -59,9 +59,10 @@ Remove-Item $work -Recurse -Force
 Write-Host "3/4  Re-bundling with --no-build so the obfuscated DLLs go into the single file ..."
 Remove-Item (Join-Path $out '*') -Recurse -Force -ErrorAction SilentlyContinue
 & dotnet publish $proj -c $Config -r $Rid --self-contained true --no-build `
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o $out -v q
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o $out -v q
 if ($LASTEXITCODE -ne 0) { throw 'publish/bundle failed' }
 
 $exe = Join-Path $out 'CenterIceModdingSuite.exe'
 Write-Host "4/4  Done."
 "{0}  ({1:N0} MB)" -f $exe, ((Get-Item $exe).Length / 1MB)
+

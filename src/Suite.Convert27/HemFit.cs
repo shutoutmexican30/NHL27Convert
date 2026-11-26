@@ -15,11 +15,12 @@ public static class HemFit
     public const double HemTop = 0.90, LastEdge = 0.948;
 
     /// <summary>
-    /// Off (owner's in-game check, 2026-11-12): shifting the hem by measured percentages left Boston's hem solid gold
-    /// with the black-white-black stripes gone. Where NHL 24's model shows the hem has to come from the two models'
-    /// UVs, not from guesses on the texture, so the texture is installed unshifted until that transfer exists.
+    /// Off (owner's in-game checks, 2026-11-12 and 2026-11-24): shifting the hem by measured percentages left Boston's
+    /// hem solid gold with the black-white-black stripes gone, and moved the Rangers Stadium Series back-hem stripes
+    /// visibly out of place. Where NHL 24's model shows the hem has to come from the two models' UVs, not from guesses
+    /// on the texture, so the texture is installed unshifted until that transfer exists.
     /// </summary>
-    public static bool Enabled = true;
+    public static bool Enabled = false;
 
     /// <summary>Where the last colour change of the hem is, down the middle of the texture (0..1), or null.</summary>
     public static double? LastChange(Rgba image)
@@ -133,7 +134,7 @@ public static class HemFit
             ImageIO.SavePng(Fit(ImageIO.Load(t.Artwork.Source), plan), png);
             t.Artwork = t.Artwork with { Source = png };
         }
-        say?.Invoke($"{addition.Team} {addition.SourceKit}: hem stripes moved to the team's NHL 24 hem"
+        say?.Invoke($"{addition.Team} {addition.Kit}: hem stripes moved to the team's NHL 24 hem"
             + (plan[0] is { } f ? $"; front {f.From:P1} to {f.To:P1}" : "") + (plan[1] is { } b ? $"; back {1 - b.From:P1} to {1 - b.To:P1}" : "")
             + $" ({jersey.Count} textures)");
         return plan[0]?.From ?? plan[1]?.From;

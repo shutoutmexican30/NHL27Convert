@@ -159,80 +159,6 @@ public partial class Convert27View : UserControl
         finally { _vm.Busy = false; IsEnabled = true; }
     }
 
-    async void FanaticsDefault_Click(object sender, RoutedEventArgs e) => await RunKitDefaults(undo: false);
-
-    async void FanaticsDefaultUndo_Click(object sender, RoutedEventArgs e) => await RunKitDefaults(undo: true);
-
-    async Task RunKitDefaults(bool undo)
-    {
-        string what = undo ? "Put the original NHL 24 home and away kits back as every team's defaults?"
-            : "Make every team's Fanatics 26-27 home and away its default kits? The original NHL 24 home and away stay as selectable alternates. New seasons, leagues and franchises use the new defaults; saved rosters and existing franchises keep their own.";
-        if (MessageBox.Show(what + $"\n\nGame: {_vm.Settings.ApplyTargetDir}\nClose the game first. A backup is taken first.",
-                undo ? "Undo Fanatics defaults" : "Make Fanatics the default kits", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        IsEnabled = false;
-        _vm.Busy = true;
-        try
-        {
-            var lines = new List<string>();
-            var (ok, message) = await Task.Run(() => KitDefaults.Run(_vm.Settings, undo, l => { lines.Add(l); SuiteLog.Write("kit-defaults: " + l); }));
-            SuiteLog.Write($"kit-defaults: finished ok={ok}: {message}");
-            _vm.Status = message;
-        }
-        catch (Exception ex)
-        {
-            SuiteLog.Write("kit-defaults: FAILED " + ex);
-            _vm.Status = "Not done: " + ex.Message;
-        }
-        finally { _vm.Busy = false; IsEnabled = true; }
-    }
-
-    async void RepairNumberKits_Click(object sender, RoutedEventArgs e)
-    {
-        if (MessageBox.Show("Rebuild the kits whose numbers now come from NHL 27 (the list in font_colours.json)? "
-                + "One backup first; every kit is read back and checked; if anything fails the game is put back exactly as it was.\n\n"
-                + $"Game: {_vm.Settings.ApplyTargetDir}\nClose the game first.",
-                "Repair number-fix kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-        IsEnabled = false;
-        _vm.Busy = true;
-        try
-        {
-            SuiteLog.Write("repair-numbers: clicked");
-            var (ok, message) = await NewUniformExport.RepairNumberKitsAsync(_vm);
-            SuiteLog.Write($"repair-numbers: finished ok={ok}: {message}");
-            _vm.Status = (ok ? "Repaired: " : "Repair not done: ") + message;
-        }
-        catch (Exception ex)
-        {
-            SuiteLog.Write("repair-numbers: FAILED " + ex);
-            _vm.Status = "Repair failed: " + ex.Message;
-        }
-        finally { _vm.Busy = false; IsEnabled = true; }
-    }
-
-    async void RebuildAll_Click(object sender, RoutedEventArgs e)
-    {
-        if (MessageBox.Show("Rebuild every team's Fanatics home and away kit? Each kit's old copy (complete or not) is removed "
-                + "and the kit is added fresh in the same slot with the current rules. One backup first; every kit is read back and "
-                + "checked; if anything fails the game is put back exactly as it was.\n\n"
-                + $"Game: {_vm.Settings.ApplyTargetDir}\nClose the game first. This takes about 45 minutes.",
-                "Rebuild all Fanatics kits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-        IsEnabled = false;
-        _vm.Busy = true;
-        try
-        {
-            SuiteLog.Write("rebuild-all: clicked");
-            var (ok, message) = await NewUniformExport.RebuildAllAsync(_vm);
-            SuiteLog.Write($"rebuild-all: finished ok={ok}: {message}");
-            _vm.Status = (ok ? "Rebuilt: " : "Rebuild not done: ") + message;
-        }
-        catch (Exception ex)
-        {
-            SuiteLog.Write("rebuild-all: FAILED " + ex);
-            _vm.Status = "Rebuild failed: " + ex.Message;
-        }
-        finally { _vm.Busy = false; IsEnabled = true; }
-    }
-
     async void UndoLast_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("Restore the game to the backup taken just before the last write?", "Undo last add",
@@ -530,9 +456,10 @@ public sealed class PathToImageConverter : IValueConverter
             bmp.UriSource = new Uri(path);
             bmp.EndInit();
             bmp.Freeze();
+            var shown = MakeVisible(bmp);
             if (Cache.Count > 4000) Cache.Clear();
-            Cache[key] = bmp;
-            return bmp;
+            Cache[key] = shown;
+            return shown;
         }
         catch
         {
@@ -541,6 +468,39 @@ public sealed class PathToImageConverter : IValueConverter
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+
+    /// <summary>
+    /// Data maps (coefficient, mask, base maps) keep their meaning in RGB and often have alpha 0 everywhere, which painted nothing on the dark
+    /// cards. A picture with no real alpha is shown opaque; one with partial alpha (fabric regions, logos) is shown over a light checkerboard.
+    /// </summary>
+    static ImageSource MakeVisible(BitmapSource src)
+    {
+        try
+        {
+            var conv = new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0);
+            int w = conv.PixelWidth, h = conv.PixelHeight, stride = w * 4;
+            var px = new byte[stride * h];
+            conv.CopyPixels(px, stride, 0);
+            int maxA = 0;
+            for (int i = 3; i < px.Length; i += 4) if (px[i] > maxA) maxA = px[i];
+            bool opaque = maxA < 16;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int i = y * stride + x * 4;
+                    if (opaque) { px[i + 3] = 255; continue; }
+                    int a = px[i + 3];
+                    if (a == 255) continue;
+                    int bg = ((x >> 3) + (y >> 3)) % 2 == 0 ? 0x9a : 0x6e;
+                    for (int c = 0; c < 3; c++) px[i + c] = (byte)((px[i + c] * a + bg * (255 - a)) / 255);
+                    px[i + 3] = 255;
+                }
+            var result = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, px, stride);
+            result.Freeze();
+            return result;
+        }
+        catch { return src; }
+    }
 }
 
 public sealed class ConfidenceToBrushConverter : IValueConverter

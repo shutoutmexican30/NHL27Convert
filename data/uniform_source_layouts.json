@@ -30,5 +30,17 @@
     "branding_jersey": {
       "sponsorLayers": [3]
     }
+  },
+  "content/character/skater/league/nhl/pittsburgh/adidas/thirteen": {
+    "branding_jersey": {
+      "omitLayers": [5],
+      "sponsorLayers": [6]
+    }
+  },
+  "content/character/skater/league/nhl/seattle/adidas/twelve": {
+    "branding_jersey": {
+      "omitLayers": [5],
+      "sponsorLayers": [6]
+    }
   }
 }

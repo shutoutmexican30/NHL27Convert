@@ -22,6 +22,22 @@ public partial class MainWindow : Window
         RefreshBuilds();
         _buildEventsReady = true;
         Show("home");
+        // Warm the shared game index in the background (from its disk cache, ~2 s) so the first page that reads the game
+        // does not wait for it. Failures are ignored here; the page that needs it reports them.
+        var warm = _settings.ApplyTargetDir;
+        if (!string.IsNullOrWhiteSpace(warm) && System.IO.Directory.Exists(warm))
+            _ = Task.Run(() =>
+            {
+                try { Suite.Core.Frostbite.BundleIndex.Shared(warm); } catch { }
+                // The game's own colour swatches (create-a-player), offered by every colour picker.
+                try
+                {
+                    var csv = System.Text.Encoding.UTF8.GetString(new Suite.Core.Frostbite.LegacyFiles(warm, _settings).Read("gamemodes/creation_zone_csv/colorswatches.csv"));
+                    var colours = csv.Split('\n').Skip(1).Select(l => l.Split(',')).Where(c => c.Length > 3 && int.TryParse(c[3].Trim(), out _)).Select(c => int.Parse(c[3].Trim()));
+                    Suite.Convert27.Controls.ColorPalette.SetGame(colours);
+                }
+                catch { }
+            });
         if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault() is { } start && start.StartsWith("--page="))
             Select(start["--page=".Length..]);
     }
@@ -108,9 +124,9 @@ public partial class MainWindow : Window
                 "hotspots" => new HotspotsPage(_settings),
                 "scorebug" => new ScorebugPage(_settings),
                 "textures" => new TexturesPage(_settings),
+                "patches" => new PatchStudioPage(_settings),
                 "teams" => new RostersPage(_settings),
-                "editor" => new EditorPage(_settings),
-                "contracts" => new ContractsPage(_settings),
+                "dbstudio" => new StudioPage(_settings),
                 "settings" => new SettingsPage(_settings, BuildsChanged),
                 "installer" => new ModInstallerPage(_settings),
                 _ => PlannedPage.For(tag),
@@ -127,9 +143,9 @@ public partial class MainWindow : Window
             "hotspots" => "Ice hotspots — on-ice sponsor patches",
             "scorebug" => "Scorebug — ESPN+ and Prime styles, live preview, packs",
             "textures" => "Texture suite — every texture of the game, organized like FMT",
+            "patches" => "Patches — erase, move or add logos painted on a uniform",
             "teams" => "Teams & roster — sync every roster database with the NHL",
-            "editor" => "Teams & database — edit rosters, strategies and every table of the database",
-            "contracts" => "Contracts — cap hits, terms, extensions and clauses",
+            "dbstudio" => "Database studio — players, clubs, contracts and every table in one place",
             "settings" => "Settings & about",
             "installer" => "Build mod installer — share the mod without the game",
             _ => PlannedPage.TitleOf(tag),

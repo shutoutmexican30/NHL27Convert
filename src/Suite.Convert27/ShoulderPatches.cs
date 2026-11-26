@@ -81,7 +81,7 @@ public static class ShoulderPatches
                 {
                     if (shoulders.Count == 0)
                     {
-                        say?.Invoke($"{addition.Team} {addition.SourceKit}: {Label(choice)} chosen, but the NHL 27 jersey has no shoulder logo to use");
+                        say?.Invoke($"{addition.Team} {addition.Kit}: {Label(choice)} chosen, but the NHL 27 jersey has no shoulder logo to use");
                         continue;
                     }
                     foreach (var t in siblings)
@@ -121,7 +121,7 @@ public static class ShoulderPatches
                 var result = Place(layout, choice, color, siblings, () => SponsorSlots.StockPosition(index, "shoulder"));
                 if (existing is not null) addition.HotspotLayouts.Remove(existing);
                 addition.HotspotLayouts.Add(result);
-                say?.Invoke($"{addition.Team} {addition.SourceKit}: shoulder patches set to {Label(choice)}");
+                say?.Invoke($"{addition.Team} {addition.Kit}: shoulder patches set to {Label(choice)}");
                 changed++;
             }
         }

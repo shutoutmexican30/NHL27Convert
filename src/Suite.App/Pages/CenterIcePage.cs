@@ -165,9 +165,9 @@ public sealed class CenterIcePage : Grid
 
     BundleIndex Index(string game)
     {
-        if (_index is not null && _indexGame == game) return _index;
+        // Shared across pages and rebuilt only when the game's TOCs change, so a write is always seen.
         _indexGame = game;
-        return _index = BundleIndex.Build(game);
+        return _index = BundleIndex.Shared(game);
     }
 
     /// <summary>The template check every center-logo conversion goes through before it may be applied.</summary>

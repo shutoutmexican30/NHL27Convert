@@ -118,7 +118,7 @@ public sealed class FullKitInstall
             ["nhl_game"] = legacy.Read(RosterSyncRun.LegacyName("nhl_game")),
             ["initial_experience"] = legacy.Read(RosterSyncRun.LegacyName("initial_experience")),
         };
-        index = BundleIndex.Build(Game, o.Say);
+        index = BundleIndex.Shared(Game, o.Say);
         bool Exists(string name) => index.ResByName.ContainsKey(name) || index.EbxByName.ContainsKey(name);
         var given = o.Mod.Additions ?? throw new InvalidDataException("The mod has no uniforms.");
         // Every kit is a renamed clone of one donor (Anaheim's regular home) with the team's NHL 27 art on top.
@@ -170,12 +170,12 @@ public sealed class FullKitInstall
             var failures = new List<string>();
             foreach (var a in additionPlan.Additions)
             {
-                try { PrepareArt(a); CloneKit(a, null); o.Say($"planned {a.Team} {a.SourceKit} -> variant {a.TargetVariant}"); }
+                try { PrepareArt(a); CloneKit(a, null); o.Say($"planned {a.Team} {a.Kit} -> variant {a.TargetVariant}"); }
                 catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or ArgumentException or AggregateException)
                 {
                     var inner = ex is AggregateException ag ? ag.Flatten().InnerExceptions[0] : ex;
-                    failures.Add($"{a.Team} {a.SourceKit}: {inner.Message}");
-                    o.Say($"FAILED {a.Team} {a.SourceKit}: {inner.Message}");
+                    failures.Add($"{a.Team} {a.Kit}: {inner.Message}");
+                    o.Say($"FAILED {a.Team} {a.Kit}: {inner.Message}");
                 }
                 finally { artByChunk.Clear(); }
             }
@@ -185,25 +185,21 @@ public sealed class FullKitInstall
                 return 3;
             }
             ReportRegistry(kits);
-            foreach (var (cas, bytes) in appended.OrderByDescending(kv => new FileInfo(kv.Key).Length + kv.Value).Take(5))
-                o.Say($"projected {Path.GetRelativePath(Game, cas)}: {(new FileInfo(cas).Length + bytes) / 1048576.0:F0} MB of 4096 MB (+{bytes / 1048576.0:F0} MB)");
-            o.Say($"total payload {appended.Values.Sum() / 1048576.0:F0} MB across {appended.Count} CAS files; over the limit: {appended.Count(kv => new FileInfo(kv.Key).Length + kv.Value > uint.MaxValue)}");
+            static long Len(string p) => File.Exists(p) ? new FileInfo(p).Length : 0;
+            foreach (var (cas, bytes) in appended.OrderByDescending(kv => Len(kv.Key) + kv.Value).Take(5))
+                o.Say($"projected {Path.GetRelativePath(Game, cas)}{(File.Exists(cas) ? "" : " (new kit file)")}: {(Len(cas) + bytes) / 1048576.0:F0} MB of {KitCasLimit / 1048576} MB (+{bytes / 1048576.0:F0} MB)");
+            o.Say($"total payload {appended.Values.Sum() / 1048576.0:F0} MB across {appended.Count} CAS files; over the limit: {appended.Count(kv => Len(kv.Key) + kv.Value > KitCasLimit)}");
             o.Say($"DRY RUN: {additionPlan.Additions.Count} kits, {bundleCount} bundles, {ebxCount} EBX, {resCount} RES. Nothing was written.");
             return 0;
         }
 
-        // Space guard: a CAS file may not pass 4 GB. Every kit clone appends to the CAS files its source bundles live in,
-        // and a failed apply restores the TOCs but not the appended bytes, so refuse before writing anything.
-        var sourceCas = index.ResByName.Where(kv => kv.Key.StartsWith(mods.FirstOrDefault()?.SourcePrefix ?? " ", StringComparison.Ordinal))
-            .SelectMany(kv => kv.Value).Select(r => r.Data.Cas).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Space guard: kit data goes to new kit CAS files (see KitCas), so the game's own CAS files never grow; the drive
+        // must still hold the new files.
         long needed = (long)additionPlan.Additions.Count * PerKitBytes;
-        foreach (string cas in sourceCas)
-        {
-            long size = File.Exists(cas) ? new FileInfo(cas).Length : 0;
-            if (size + needed > uint.MaxValue)
-                throw new InvalidOperationException($"Not enough room: {Path.GetRelativePath(Game, cas)} is {size / 1048576.0:F0} MB and "
-                    + $"{additionPlan.Additions.Count} kits need about {needed / 1048576.0:F0} MB more; a game data file cannot pass 4096 MB. Nothing was written.");
-        }
+        var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(Game))!);
+        if (drive.AvailableFreeSpace < needed + (2L << 30))
+            throw new InvalidOperationException($"Not enough free disk space: {additionPlan.Additions.Count} kits need about {needed / 1048576.0:F0} MB "
+                + $"and {drive.Name} has {drive.AvailableFreeSpace / 1048576.0:F0} MB free. Nothing was written.");
         string backup = ApplyTarget.Backup(Game, o.BackupRoot);
         backupPath = backup;
         o.Say("backup: " + backup);
@@ -212,7 +208,7 @@ public sealed class FullKitInstall
             {
                 foreach (var a in additionPlan.Additions)
                 {
-                    o.Say($"writing {a.Team} {a.SourceKit} -> variant {a.TargetVariant}");
+                    o.Say($"writing {a.Team} {a.Kit} -> variant {a.TargetVariant}");
                     PrepareArt(a);
                     CloneKit(a, new Dictionary<(string, string), (uint, uint)>());
                     artByChunk.Clear();
@@ -228,6 +224,7 @@ public sealed class FullKitInstall
             restoreAndVerify: () =>
             {
                 ApplyTarget.RestoreFromBackup(Game, backup);
+                DeleteCreatedCas();
                 var left = ApplyTarget.Compare(Game, backup);
                 if (left.Count > 0) throw new InvalidOperationException("Rollback differences: " + string.Join("; ", left.Take(10)));
             });
@@ -239,15 +236,17 @@ public sealed class FullKitInstall
             int failing = 0;
             foreach (var a in additionPlan.Additions)
             {
-                var issues = FanaticsKitCheck.Check(Game, after, a.TargetPrefix, a.Team, a.SourceKit);
+                bool? nhl27Sponsor = string.IsNullOrWhiteSpace(a.KitLabel) || a.SourceFolder27 is null || Nhl27Stamps.Xml(a.SourceFolder27) is not { } x27 ? null : KitDonor.Nhl27SponsorXml(x27) is not null;
+                var issues = FanaticsKitCheck.Check(Game, after, a.TargetPrefix, a.Team, a.SourceKit, a.Nhl27Numbers, nhl27Sponsor);
                 if (issues.Count > 0) failing++;
-                o.Say($"KIT CHECK {(issues.Count == 0 ? "OK  " : "FAIL")} {a.Team} {a.SourceKit}{(issues.Count == 0 ? "" : ": " + string.Join("; ", issues))}");
+                o.Say($"KIT CHECK {(issues.Count == 0 ? "OK  " : "FAIL")} {a.Team} {a.Kit}{(issues.Count == 0 ? "" : ": " + string.Join("; ", issues))}");
             }
             o.Say($"KIT CHECK: {additionPlan.Additions.Count - failing} of {additionPlan.Additions.Count} kits pass");
         }
         if (o.RestoreAfterVerify)
         {
             ApplyTarget.RestoreFromBackup(Game, backup);
+            DeleteCreatedCas();
             var left = ApplyTarget.Compare(Game, backup);
             if (left.Count > 0) throw new InvalidOperationException("Post-verification restore differences: " + string.Join("; ", left.Take(10)));
             o.Say("ISOLATED WRITE, READ-BACK AND RESTORE PASSED: no install differences remain.");
@@ -264,7 +263,9 @@ public sealed class FullKitInstall
         const int VintageLabel = 6;
         const string English = "loc/eng_us.db";
         if (o.JerseyName.Length == 0) throw new InvalidDataException("A new uniform needs a jersey name.");
-        var keys = new SortedSet<string>(StringComparer.Ordinal);
+        // A kit may carry its own name, or a shared label (2 = "Alternate") that needs no language entry.
+        var keys = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        int shared = 0;
         foreach (string name in plan.JerseyRows.ChangedDatabases)
         {
             string file = RosterSyncRun.LegacyName(name);
@@ -274,27 +275,35 @@ public sealed class FullKitInstall
             {
                 int row = Enumerable.Range(0, t.InUse).Single(r => db.GetInt(t, r, "teamid") == a.TeamId
                     && db.GetInt(t, r, "style") == a.Style && db.GetInt(t, r, "variant") == a.TargetVariant);
-                db.SetInt(t, row, "locstring", VintageLabel);
-                keys.Add($"VINTAGE_{a.Style}_{db.GetInt(t, row, "teamartid")}_{a.TargetVariant}");
+                int label = a.LocString ?? VintageLabel;
+                if (label is not (VintageLabel or 0 or 1 or 2)) throw new InvalidDataException($"{a.Team} {a.Kit}: jersey label {label} is not supported.");
+                db.SetInt(t, row, "locstring", label);
+                if (label != VintageLabel) { shared++; continue; }
+                string text = string.IsNullOrWhiteSpace(a.JerseyName) ? o.JerseyName : a.JerseyName.Trim();
+                string key = $"VINTAGE_{a.Style}_{db.GetInt(t, row, "teamartid")}_{a.TargetVariant}";
+                if (keys.TryGetValue(key, out var other) && other != text) throw new InvalidDataException($"{key} is given two names: {other} / {text}");
+                keys[key] = text;
             }
             databases[file] = db.Save();
         }
+        if (keys.Count == 0) { o.Say($"jersey names: {shared / Math.Max(1, plan.JerseyRows.ChangedDatabases.Count)} kit(s) use a shared label; no language entries"); return; }
         var strings = LanguageStrings.Load(legacy.Read(English));
-        foreach (string key in keys)
+        foreach (var (key, text) in keys)
         {
             if (strings.Find(key) is { } existing)
             {
-                if (existing != o.JerseyName) throw new InvalidDataException($"{key} already names a uniform: {existing}");
+                if (existing != text) throw new InvalidDataException($"{key} already names a uniform: {existing}");
                 continue;
             }
-            strings.Add(key, o.JerseyName);
+            strings.Add(key, text);
         }
         byte[] built = strings.Build();
         var check = LanguageStrings.Load(built);
-        foreach (string key in keys)
-            if (check.Find(key) != o.JerseyName) throw new InvalidDataException("Language table did not read back: " + key);
+        foreach (var (key, text) in keys)
+            if (check.Find(key) != text) throw new InvalidDataException("Language table did not read back: " + key);
         databases[English] = built;
-        o.Say($"jersey name '{o.JerseyName}' on {keys.Count} kit(s)");
+        o.Say($"jersey names: {keys.Count} language entr(ies) ({string.Join(", ", keys.Values.Distinct())}); "
+            + $"{shared / Math.Max(1, plan.JerseyRows.ChangedDatabases.Count)} kit(s) use a shared label");
     }
 
     readonly Dictionary<Guid, TextureSlots.Slot> expandedSlots = [];
@@ -332,7 +341,7 @@ public sealed class FullKitInstall
                 return cached with { Name = sourceSlot.Name };
             }
             var donor = InstalledArrayExpansion.StructuralDonor(Game, index, sourceSlot, siblings, role, need)
-                ?? throw new InvalidDataException($"{a.Team} {a.SourceKit}: {sourceSlot.Name} chunk {sourceSlot.Chunk} has {have} slots, "
+                ?? throw new InvalidDataException($"{a.Team} {a.Kit}: {sourceSlot.Name} chunk {sourceSlot.Chunk} has {have} slots, "
                     + $"but the artwork needs {need}, and no compatible structural donor was found.");
             var expanded = InstalledArrayExpansion.Expand(sourceSlot, donor, role, codecThreads);
             var expansion = new ExpandedSource((byte[])sourceSlot.Res.Header.Clone(), expanded.Res.Header,
@@ -346,7 +355,7 @@ public sealed class FullKitInstall
             }
             else expandedByChunk.Add(sourceSlot.Chunk, expansion);
             expandedSlots.Add(sourceSlot.Chunk, expanded);
-            o.Say($"SAFE SLOT EXPANSION: {a.Team} {a.SourceKit} {target[(target.LastIndexOf('/') + 1)..]} chunk {sourceSlot.Chunk}: "
+            o.Say($"SAFE SLOT EXPANSION: {a.Team} {a.Kit} {target[(target.LastIndexOf('/') + 1)..]} chunk {sourceSlot.Chunk}: "
                 + $"{have} -> {Ps4Codec.Slices(expanded.Res.Header)}; team slices preserved, added slots blank, no donor pixels retained.");
             return expanded;
         }
@@ -397,7 +406,7 @@ public sealed class FullKitInstall
                 // Every logo must land in a slot of its own kind, checked against the same stamp the game reads.
                 if (color.RequiredRoles is { } artRoles
                     && UniformBrandingLayers.Misplaced(artRoles, color.Artwork.Layers.Keys.ToList(), physical.Roles, placement, color.PinnedSlots) is { Count: > 0 } wrong)
-                    throw new InvalidDataException($"{a.Team} {a.SourceKit} {color.TargetSlot[(color.TargetSlot.LastIndexOf('/') + 1)..]}: "
+                    throw new InvalidDataException($"{a.Team} {a.Kit} {color.TargetSlot[(color.TargetSlot.LastIndexOf('/') + 1)..]}: "
                         + string.Join("; ", wrong) + ". Fix it in the slot map or the Shoulder patches choice.");
                 foreach (var slot in new[] { colorSlot, normalSlot, coeffSlot })
                 {
@@ -410,7 +419,7 @@ public sealed class FullKitInstall
                     plans[slot.Chunk] = placement;
                 }
                 if (placement.Moves.Count > 0)
-                    o.Say($"{a.Team} {a.SourceKit} {color.TargetSlot[(color.TargetSlot.LastIndexOf('/') + 1)..]} "
+                    o.Say($"{a.Team} {a.Kit} {color.TargetSlot[(color.TargetSlot.LastIndexOf('/') + 1)..]} "
                         + $"chunk {colorSlot.Chunk} ({have} layers): layer(s) "
                         + string.Join(", ", placement.Moves.Select(m => $"{m.Key} to slot {m.Value}")) + " matched the stock art");
             }
@@ -514,7 +523,7 @@ public sealed class FullKitInstall
                 artByChunk[copy.Chunk] = copy.Raw;
             }
         }
-        o.Say($"prepared {a.Team} {a.SourceKit}: {cacheHits} verified cache hits, {encoded} encoded ({jobs} jobs, {codecThreads} codec threads)");
+        o.Say($"prepared {a.Team} {a.Kit}: {cacheHits} verified cache hits, {encoded} encoded ({jobs} jobs, {codecThreads} codec threads)");
     }
 
     Dictionary<Guid, List<BundleIndex.Location>> LoadGlobalChunks()
@@ -623,7 +632,7 @@ public sealed class FullKitInstall
                 if (sponsorXml is not null)
                 {
                     if (UniformHotspots.CopyBrandSpotInPlace(sourceRaw, sponsorXml, "sponsor") is { } moved) sourceRaw = moved;
-                    else o.Say($"{a.Team} {a.SourceKit}: NHL 27's sponsor spot does not fit the kit file in place; the donor's spot stays");
+                    else o.Say($"{a.Team} {a.Kit}: NHL 27's sponsor spot does not fit the kit file in place; the donor's spot stays");
                 }
                 var parsed = EbxRiff.Parse(sourceRaw);
                 var raw = parsed.Rewrite(mapped, guids[parsed.FileGuid], guids);
@@ -710,18 +719,29 @@ public sealed class FullKitInstall
         foreach (var (name, _) in kitEbx)
             if (!plans.Any(p => BundleManifest.Parse(p.Manifest).Ebx.Any(e => e.Name == Map(name))))
                 throw new InvalidDataException("Asset is not in any cloned bundle: " + name);
+
+        // Every new byte goes to the kit CAS of the source file's folder (same layer and install package), never to the
+        // game's own CAS files: those stay their stock size and the 4 GB cap of the donor's cas_05 no longer applies.
+        var need = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        foreach (var w in writes) need[Path.GetDirectoryName(w.Cas)!] = need.GetValueOrDefault(Path.GetDirectoryName(w.Cas)!) + w.Bytes.Length;
+        foreach (var p in plans) need[Path.GetDirectoryName(p.Source.Manifest.Cas)!] = need.GetValueOrDefault(Path.GetDirectoryName(p.Source.Manifest.Cas)!) + p.Manifest.Length;
+        var kitCasByDir = need.ToDictionary(kv => kv.Key, kv => KitCas(kv.Key, kv.Value), StringComparer.OrdinalIgnoreCase);
+        string To(string sourceCas) => kitCasByDir[Path.GetDirectoryName(sourceCas)!];
+        writes = writes.Select(w => (To(w.Cas), w.Key, w.Bytes)).ToList();
         if (where is null)
         {
             foreach (var w in writes) appended[w.Cas] = appended.GetValueOrDefault(w.Cas) + w.Bytes.Length;
+            foreach (var p in plans) appended[To(p.Source.Manifest.Cas)] = appended.GetValueOrDefault(To(p.Source.Manifest.Cas)) + p.Manifest.Length;
             return;
         }
 
         foreach (var group in writes.GroupBy(w => w.Cas, StringComparer.OrdinalIgnoreCase))
         {
+            if (!File.Exists(group.Key)) createdCas.Add(group.Key);
             using var fs = new FileStream(group.Key, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 20);
             foreach (var w in group)
             {
-                if (fs.Position + w.Bytes.Length > uint.MaxValue) throw new InvalidDataException("CAS file would pass 4 GB: " + group.Key);
+                if (fs.Position + w.Bytes.Length > KitCasLimit) throw new InvalidDataException("Kit CAS file would pass its limit: " + group.Key);
                 uint offset = checked((uint)fs.Position);
                 fs.Write(w.Bytes);
                 where[(group.Key, w.Key)] = (offset, (uint)w.Bytes.Length);
@@ -732,26 +752,100 @@ public sealed class FullKitInstall
         foreach (var p in plans)
         {
             uint manifestOffset;
-            using (var fs = new FileStream(p.Source.Manifest.Cas, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 16))
+            string manifestCas = To(p.Source.Manifest.Cas);
+            if (!File.Exists(manifestCas)) createdCas.Add(manifestCas);
+            using (var fs = new FileStream(manifestCas, FileMode.Append, FileAccess.Write, FileShare.Read, 1 << 16))
             {
+                if (fs.Position + p.Manifest.Length > KitCasLimit) throw new InvalidDataException("Kit CAS file would pass its limit: " + manifestCas);
                 manifestOffset = checked((uint)fs.Position);
                 fs.Write(p.Manifest);
                 fs.Flush(true);
+                appended[manifestCas] = appended.GetValueOrDefault(manifestCas) + p.Manifest.Length;
             }
             string toc = p.Source.Toc;
             var original = tocFiles[toc];
             var entries = bundleRecords[(toc, p.Source.RecordAt)];
-            int pairsEnd = entries.Max(e => e.PairAt + 8);
-            int flagsAt = p.Source.RecordAt + (int)BinaryPrimitives.ReadUInt32BigEndian(original.AsSpan(p.Source.RecordAt + 8, 4));
-            int length = Math.Max(pairsEnd, flagsAt + entries.Count) - p.Source.RecordAt;
-            var record = original.AsSpan(p.Source.RecordAt, length).ToArray();
-            foreach (var (pair, cas, key) in p.Pairs) { var w = where[(cas, key)]; Pair(record, pair - p.Source.RecordAt, w.Offset, w.Size); }
-            Pair(record, p.Source.Manifest.PairAt - p.Source.RecordAt, manifestOffset, (uint)p.Manifest.Length);
+            // Each entry's location: unchanged entries keep their own CAS word, offset and size; the manifest and every
+            // cloned entry point into the kit CAS. The record is rewritten with explicit location words (flag 1) wherever
+            // the CAS changes from the previous entry, the record format the game already uses for multi-CAS bundles.
+            var locations = new (uint Word, uint Offset, uint Size)[entries.Count];
+            uint word = 0;
+            for (int k = 0; k < entries.Count; k++)
+            {
+                if (OriginalFlag(original, p.Source.RecordAt, k) == 1) word = BinaryPrimitives.ReadUInt32BigEndian(original.AsSpan(entries[k].PairAt - 4, 4));
+                locations[k] = (word, entries[k].Offset, entries[k].Size);
+            }
+            var byPair = entries.Select((e, k) => (e.PairAt, k)).ToDictionary(x => x.PairAt, x => x.k);
+            foreach (var (pair, cas, key) in p.Pairs) { var w = where[(To(cas), key)]; locations[byPair[pair]] = (LocationWord(To(cas)), w.Offset, w.Size); }
+            locations[byPair[p.Source.Manifest.PairAt]] = (LocationWord(manifestCas), manifestOffset, (uint)p.Manifest.Length);
+            var record = BuildRecord(original.AsSpan(p.Source.RecordAt, 32), locations);
             if (!newBundles.TryGetValue(toc, out var list)) newBundles[toc] = list = [];
             list.Add(new TocArchive.NewBundle(p.NewName, NameOf(p.Source).SizeAndFlags, record));
             if (!newChunks.TryGetValue(toc, out var map)) newChunks[toc] = map = [];
-            foreach (var (id, cas, key) in p.Chunks) { var w = where[(cas, key)]; map.TryAdd(id, new TocArchive.Chunk(id, LocationWord(cas), w.Offset, w.Size)); }
+            foreach (var (id, cas, key) in p.Chunks) { var w = where[(To(cas), key)]; map.TryAdd(id, new TocArchive.Chunk(id, LocationWord(To(cas)), w.Offset, w.Size)); }
         }
+    }
+
+    /// <summary>A rollback puts the TOCs back, so the kit CAS files this run created are unreferenced: remove them.</summary>
+    void DeleteCreatedCas()
+    {
+        foreach (string f in createdCas.Distinct(StringComparer.OrdinalIgnoreCase))
+            if (File.Exists(f)) { File.Delete(f); o.Say("removed new kit file " + Path.GetRelativePath(Game, f)); }
+    }
+
+    /// <summary>Kit CAS files stay well under the 4 GB offset limit.</summary>
+    public const long KitCasLimit = 4L * 1024 * 1024 * 1024 - 64L * 1024 * 1024;
+    readonly Dictionary<string, string> kitCas = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, long> plannedLength = new(StringComparer.OrdinalIgnoreCase);
+    readonly List<string> createdCas = [];
+
+    /// <summary>
+    /// The kit CAS of one install-package folder that can take <paramref name="bytes"/> more: the one this run already
+    /// writes to, else a new file numbered after every CAS in the folder (a new CAS number loads in game: the V3.2
+    /// Russia/Belarus mod adds Patch nhl_installpackage_00\cas_02.cas the same way).
+    /// </summary>
+    string KitCas(string dir, long bytes)
+    {
+        if (bytes > KitCasLimit) throw new InvalidDataException("One kit is larger than a CAS file can hold.");
+        long Len(string p) => plannedLength.TryGetValue(p, out var l) ? l : File.Exists(p) ? new FileInfo(p).Length : 0;
+        if (kitCas.TryGetValue(dir, out var current) && Len(current) + bytes <= KitCasLimit) { plannedLength[current] = Len(current) + bytes; return current; }
+        int next = Directory.EnumerateFiles(dir, "cas_*.cas").Concat(kitCas.Values.Where(v => Path.GetDirectoryName(v)!.Equals(dir, StringComparison.OrdinalIgnoreCase)))
+            .Select(f => int.TryParse(Path.GetFileNameWithoutExtension(f)[4..], out int n) ? n : 0).DefaultIfEmpty(0).Max() + 1;
+        if (next > 99) throw new InvalidDataException("No free CAS number left in " + dir);
+        string path = Path.Combine(dir, $"cas_{next:D2}.cas");
+        if (File.Exists(path)) throw new InvalidDataException("Kit CAS already exists: " + path);
+        kitCas[dir] = path;
+        plannedLength[path] = bytes;
+        o.Say($"kit data goes to a new file: {Path.GetRelativePath(Game, path)}");
+        return path;
+    }
+
+    static byte OriginalFlag(byte[] toc, int recordAt, int entry) =>
+        toc[recordAt + (int)BinaryPrimitives.ReadUInt32BigEndian(toc.AsSpan(recordAt + 8, 4)) + entry];
+
+    /// <summary>A bundle record with the given header and entry locations; a location word wherever the CAS changes.</summary>
+    internal static byte[] BuildRecord(ReadOnlySpan<byte> header32, IReadOnlyList<(uint Word, uint Offset, uint Size)> entries)
+    {
+        using var ms = new MemoryStream();
+        ms.Write(header32);
+        var flags = new byte[entries.Count];
+        Span<byte> four = stackalloc byte[4];
+        for (int k = 0; k < entries.Count; k++)
+        {
+            if (k == 0 || entries[k].Word != entries[k - 1].Word)
+            {
+                flags[k] = 1;
+                BinaryPrimitives.WriteUInt32BigEndian(four, entries[k].Word); ms.Write(four);
+            }
+            BinaryPrimitives.WriteUInt32BigEndian(four, entries[k].Offset); ms.Write(four);
+            BinaryPrimitives.WriteUInt32BigEndian(four, entries[k].Size); ms.Write(four);
+        }
+        int flagsAt = (int)ms.Position;
+        ms.Write(flags);
+        var record = ms.ToArray();
+        BinaryPrimitives.WriteUInt32BigEndian(record.AsSpan(8, 4), (uint)flagsAt);
+        BinaryPrimitives.WriteUInt32BigEndian(record.AsSpan(12, 4), (uint)entries.Count);
+        return record;
     }
 
     void RebuildTocs()

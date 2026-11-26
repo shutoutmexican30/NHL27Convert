@@ -95,6 +95,37 @@ public sealed class BundleIndex
         return list;
     }
 
+    static readonly object SharedLock = new();
+    static readonly List<(string Key, BundleIndex Index)> SharedIndexes = [];
+
+    /// <summary>
+    /// The index of <paramref name="game"/>, built once and shared by every page and tool in the process. It is rebuilt
+    /// only when a TOC of the game changed (size or write time), so a write by the suite or anyone else is always seen.
+    /// The last three games are kept. Callers must treat the index as read only.
+    /// </summary>
+    public static BundleIndex Shared(string game, Action<string>? progress = null)
+    {
+        game = Path.GetFullPath(game).TrimEnd(Path.DirectorySeparatorChar);
+        var key = game.ToLowerInvariant() + "|" + string.Join(";", Tocs(game).OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+            .Select(t => { var i = new FileInfo(t); return $"{t}:{i.Length}:{i.LastWriteTimeUtc.Ticks}"; }));
+        lock (SharedLock)
+            if (SharedIndexes.FirstOrDefault(s => s.Key == key) is { Index: { } hit }) return hit;
+        var built = TryLoadCache(game, key);
+        if (built is null)
+        {
+            built = Build(game, progress);
+            var toSave = built;
+            _ = Task.Run(() => SaveCache(toSave, key)); // ~3 s, off the caller's path
+        }
+        lock (SharedLock)
+        {
+            SharedIndexes.RemoveAll(s => s.Key.StartsWith(game.ToLowerInvariant() + "|", StringComparison.Ordinal) || s.Key == key);
+            SharedIndexes.Add((key, built));
+            while (SharedIndexes.Count > 3) SharedIndexes.RemoveAt(0);
+        }
+        return built;
+    }
+
     /// <summary>Reads every TOC and every bundle manifest of <paramref name="game"/> (CAS reads in parallel, one pass per file).</summary>
     public static BundleIndex Build(string game, Action<string>? progress = null)
     {
@@ -172,6 +203,112 @@ public sealed class BundleIndex
         }
         progress?.Invoke($"{index.Bundles.Count:N0} bundles, {index.ResByName.Count:N0} resources, {index.ChunksById.Count:N0} bundle chunks");
         return index;
+    }
+
+    // ------------------------------------------------------------------ disk cache
+    // Reading 150k bundle manifests from the CAS files takes ~5 s warm and 25+ s from a cold disk. The finished index is
+    // saved once per TOC state (the same key as Shared: every TOC's path, size and write time). Writers only append to a
+    // CAS and repoint TOCs, so an unchanged TOC set means unchanged manifests. Any read problem falls back to a rebuild.
+
+    const int CacheVersion = 1;
+    static string CacheDir => SuitePaths.Ensure(Path.Combine(SuitePaths.Local, "index", "bundles"));
+    static string CacheFile(string key) => Path.Combine(CacheDir, Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(key)))[..20] + ".bin");
+
+    static void SaveCache(BundleIndex index, string key)
+    {
+        try
+        {
+            var path = CacheFile(key);
+            var tmp = path + ".tmp";
+            var strings = new Dictionary<string, int>(StringComparer.Ordinal);
+            var stringList = new List<string>();
+            int S(string s) { if (!strings.TryGetValue(s, out var i)) { strings[s] = i = stringList.Count; stringList.Add(s); } return i; }
+            var bundleIds = new Dictionary<Bundle, int>(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < index.Bundles.Count; i++) bundleIds[index.Bundles[i]] = i;
+            using var body = new MemoryStream();
+            using (var w = new BinaryWriter(body, Encoding.UTF8, true))
+            {
+                void L(Location l) { w.Write(S(l.Toc)); w.Write(l.PairAt); w.Write(S(l.Cas)); w.Write(l.Offset); w.Write(l.Size); }
+                w.Write(index.Bundles.Count);
+                foreach (var b in index.Bundles) { w.Write(S(b.Toc)); w.Write(b.RecordAt); L(b.Manifest); w.Write(S(b.FirstName)); }
+                w.Write(index.EbxByName.Count);
+                foreach (var (name, list) in index.EbxByName)
+                {
+                    w.Write(S(name)); w.Write(list.Count);
+                    foreach (var e in list) { L(e.Data); w.Write(bundleIds[e.Bundle]); w.Write(e.Sha1At); }
+                }
+                w.Write(index.ResByName.Count);
+                foreach (var (name, list) in index.ResByName)
+                {
+                    w.Write(S(name)); w.Write(list.Count);
+                    foreach (var r in list) { w.Write(r.Type); w.Write(r.Meta.Length); w.Write(r.Meta); w.Write(r.Rid); L(r.Data); w.Write(bundleIds[r.Bundle]); w.Write(r.Sha1At); }
+                }
+                w.Write(index.ChunksById.Count);
+                foreach (var (id, list) in index.ChunksById)
+                {
+                    w.Write(id.ToByteArray()); w.Write(list.Count);
+                    foreach (var c in list) { w.Write(c.LogicalOffset); w.Write(c.LogicalSize); L(c.Data); w.Write(bundleIds[c.Bundle]); w.Write(c.Sha1At); }
+                }
+            }
+            using (var fs = File.Create(tmp))
+            using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionLevel.Fastest))
+            using (var w = new BinaryWriter(gz, Encoding.UTF8))
+            {
+                w.Write(CacheVersion); w.Write(key); w.Write(index.Game);
+                w.Write(stringList.Count); foreach (var s in stringList) w.Write(s);
+                body.Position = 0; w.Flush(); body.CopyTo(gz);
+            }
+            File.Move(tmp, path, true);
+            foreach (var old in new DirectoryInfo(CacheDir).GetFiles("*.bin").OrderByDescending(f => f.LastWriteTimeUtc).Skip(4)) old.Delete();
+        }
+        catch (Exception ex) { SuiteLog.Write("bundle index cache not saved: " + ex.Message); }
+    }
+
+    static BundleIndex? TryLoadCache(string game, string key)
+    {
+        var path = CacheFile(key);
+        if (!File.Exists(path)) return null;
+        try
+        {
+            using var fs = File.OpenRead(path);
+            using var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress);
+            using var r = new BinaryReader(new BufferedStream(gz, 1 << 20), Encoding.UTF8);
+            if (r.ReadInt32() != CacheVersion || r.ReadString() != key) return null;
+            var index = new BundleIndex(r.ReadString());
+            if (!string.Equals(index.Game, game, StringComparison.OrdinalIgnoreCase)) return null;
+            var strings = new string[r.ReadInt32()];
+            for (int i = 0; i < strings.Length; i++) strings[i] = r.ReadString();
+            Location L() => new(strings[r.ReadInt32()], r.ReadInt32(), strings[r.ReadInt32()], r.ReadUInt32(), r.ReadUInt32());
+            int nb = r.ReadInt32();
+            for (int i = 0; i < nb; i++) index.Bundles.Add(new Bundle(strings[r.ReadInt32()], r.ReadInt32(), L(), strings[r.ReadInt32()]));
+            int ne = r.ReadInt32();
+            for (int i = 0; i < ne; i++)
+            {
+                var name = strings[r.ReadInt32()]; int n = r.ReadInt32(); var list = new List<Ebx>(n);
+                for (int k = 0; k < n; k++) { var loc = L(); list.Add(new Ebx(name, loc, index.Bundles[r.ReadInt32()], r.ReadInt32())); }
+                index.EbxByName[name] = list;
+            }
+            int nr = r.ReadInt32();
+            for (int i = 0; i < nr; i++)
+            {
+                var name = strings[r.ReadInt32()]; int n = r.ReadInt32(); var list = new List<Res>(n);
+                for (int k = 0; k < n; k++)
+                {
+                    uint type = r.ReadUInt32(); var meta = r.ReadBytes(r.ReadInt32()); ulong rid = r.ReadUInt64(); var loc = L();
+                    list.Add(new Res(name, type, meta, rid, loc, index.Bundles[r.ReadInt32()], r.ReadInt32()));
+                }
+                index.ResByName[name] = list;
+            }
+            int nc = r.ReadInt32();
+            for (int i = 0; i < nc; i++)
+            {
+                var id = new Guid(r.ReadBytes(16)); int n = r.ReadInt32(); var list = new List<Chunk>(n);
+                for (int k = 0; k < n; k++) { uint lo = r.ReadUInt32(), ls = r.ReadUInt32(); var loc = L(); list.Add(new Chunk(id, lo, ls, loc, index.Bundles[r.ReadInt32()], r.ReadInt32())); }
+                index.ChunksById[id] = list;
+            }
+            return index;
+        }
+        catch (Exception ex) { SuiteLog.Write("bundle index cache unreadable, rebuilding: " + ex.Message); return null; }
     }
 
     public static byte[] ReadBytes(Location l)

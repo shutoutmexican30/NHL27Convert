@@ -3,6 +3,26 @@
 Owner: Devin Sutton. This document is self-contained. Read `docs/HANDOFF.md` for the long history of the suite; this file
 covers what is in flight right now, the exact state of the machine, and what to do next, in order.
 
+> **Correction 2026-11-24:** `D:\NHL24PC_V3.2` does not exist. The current main game is
+> `C:\Users\devin\Downloads\NHL24PC_V3.2\NHL24PC` (1.60 eboot 188,338,041 bytes, cas_05 3,690,459,199 bytes, globals.toc
+> written 2026-11-23 23:36). The Suite settings point at `D:\CIMS-test\prospects-copy\NHL24PC` (the DB/mesh thread's copy).
+> The NHL 27 alternates port uses its own copy, `D:\CIMS-test\alts-copy\NHL24PC` (tool `tools\AltPort`). New kit data
+> goes to a new kit CAS file (`FullKitInstall.KitCas`), never into cas_05.
+>
+> **NHL 27 alternates, state 2026-11-24 (test copy only, not on the main game):** all 46 NHL alternates installed on
+> `D:\CIMS-test\alts-copy\NHL24PC` (backup before kits: `D:\CIMS-test\fullkit-backups\20261124-031541`), KIT CHECK 46/46,
+> NHL 27 names (read from NHL 27's PS5 `loc/eng_us.db` with `tools\LocDump27\extract_loc27.py` + `loc27_lookup.py`;
+> applied by `tools\AltNames --names Debugging\altport\names27.tsv`). Kit data in new files
+> `nhl_installpackage_05\cas_17.cas`, `nhl_installpackage_02\cas_08.cas`, Patch `nhl_installpackage_05\cas_13.cas`.
+> Rerun: `AltPort --target <copy> --restore-first <pre-kit backup> --restore-only --apply`, then `AltPort --apply`, then
+> `AltNames --apply`, then `AltNames --check`. Fixes in this pass: per-kit `KitLabel` (no Fanatics settings leak),
+> NHL 27 numbers per kit (`Nhl27Numbers`, FontRemap), NHL 27 sponsor spot names (`right_shoulder_sponsor`) and no sponsor
+> where NHL 27 has none and the C/A would sit on it, every donor logo array cleared (19 kits had Anaheim pants logos) plus
+> a KIT CHECK rule for donor art, no Adidas yoke zone in ZoneMap, equipment for any new variant 2-25.
+> Left: 4 kits keep NHL 24 numbers (Columbus/Dallas/Edmonton: FontRemap.Verify flags a glyph box a few px wide because
+> the band's glyph detection merges with the next row; Detroit 2024-25 Stadium: NHL 27 sheet has no letters). AHL/CHL/
+> ECHL/Europe and the 7 new teams not started (owner: NHL only for now). Code is not committed (shared dirty tree).
+
 ## 0. Ground rules from the owner (do not break these)
 
 1. **Never write to the main game** `D:\NHL24PC_V3.2\NHL24PC` while testing. Work on a full copy under `D:\CIMS-test\`

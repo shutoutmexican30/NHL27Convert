@@ -321,7 +321,11 @@ public static class UniformHotspots
             if (!double.TryParse(spot.GetAttribute(attr), NumberStyles.Float, CultureInfo.InvariantCulture, out double v)) return null;
             int decimals = old.Contains('.') ? old.Length - old.IndexOf('.') - 1 : 0;
             string value = v.ToString("F" + decimals, CultureInfo.InvariantCulture);
-            if (value.Length != old.Length) return null;
+            // Same length, same number: a shorter value is zero-padded after its sign ("90.0000" over "180.0000" ->
+            // "090.0000", Detroit alternate 2's shoulder sponsor); a longer one drops decimals while they are only rounding.
+            for (int d = decimals - 1; value.Length > old.Length && d >= 0; d--) value = v.ToString("F" + d, CultureInfo.InvariantCulture);
+            if (value.Length < old.Length) value = value.StartsWith('-') ? "-" + value[1..].PadLeft(old.Length - 1, '0') : value.PadLeft(old.Length, '0');
+            if (value.Length != old.Length || Math.Abs(double.Parse(value, CultureInfo.InvariantCulture) - v) > 0.0005) return null;
             Encoding.ASCII.GetBytes(value).CopyTo(output, valueAt);
         }
         return output;

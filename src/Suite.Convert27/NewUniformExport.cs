@@ -230,10 +230,75 @@ public static class NewUniformExport
     internal static NewUniformAddition Addition(MatchProject project, VariantMap variants, Nhl27Catalog catalog,
         SlotMapStore slotMaps, FolderMatch folder, Func<string, string> png)
     {
-        var parsed = TextureName.Parse(folder.Folder24 + "/x");
-        if (parsed.Team is null || CurrentSource(folder, variants) is not { } source)
+        var parsed0 = TextureName.Parse(folder.Folder24 + "/x");
+        if (parsed0.Team is null || CurrentSource(folder, variants) is not { } source)
             throw new InvalidDataException($"{folder.Folder24}: no current-team NHL 27 default home/away mapping exists.");
-        string kit = source.Kit;
+        return Addition(project, catalog, slotMaps, folder, png, source.Team.Index, source.Kit);
+    }
+
+    /// <summary>One NHL 27 alternate to add: the team, its NHL 27 set folder word, light or dark, and how it is named.</summary>
+    public sealed record AlternateRequest(VariantMap.Team Team, string Set27, bool Light, string KitLabel, int TargetVariant, int? LocString, string? JerseyName);
+
+    /// <summary>
+    /// Builds NHL 27 alternates headlessly through the same steps as the Fanatics set: the team's home (dark) or away
+    /// (light) NHL 24 structure, the app's preflight (decode, base colours, slot maps), complete arrays, then
+    /// <see cref="Addition"/>. A request that cannot be built is reported and left out, never half built.
+    /// </summary>
+    public static async Task<(List<NewUniformAddition> Built, List<string> Failed)> BuildAlternatesAsync(Convert27ViewModel vm,
+        IReadOnlyList<AlternateRequest> requests, Action<string> say)
+    {
+        var catalog24 = vm.Catalog24 ?? throw new InvalidOperationException("The NHL 24 texture index is not loaded.");
+        var catalog27 = vm.Catalog27 ?? throw new InvalidOperationException("The NHL 27 texture index is not loaded.");
+        var failed = new List<string>();
+        var folders = new List<(AlternateRequest Request, FolderMatch Folder)>();
+        foreach (var r in requests)
+        {
+            string kit = r.Light ? "away" : "home";
+            string folder27 = $"{TextureName.SkaterPrefix}nhl/{r.Team.Nhl27.Folder}/adidas/{r.Set27}";
+            string default24 = $"{TextureName.SkaterPrefix}nhl/{r.Team.Nhl24.Folder}/adidas/{(r.Light ? r.Team.Nhl24.Away : r.Team.Nhl24.Home)}";
+            string? folder24 = SelectStructuralFolder(catalog24, r.Team.Nhl24.Folder, default24, kit);
+            if (!catalog27.ByFolder.ContainsKey(folder27)) { failed.Add($"{r.Team.Nhl24.Folder} {r.KitLabel}: {folder27} is not in the NHL 27 index"); continue; }
+            if (folder24 is null) { failed.Add($"{r.Team.Nhl24.Folder} {r.KitLabel}: no NHL 24 {kit} structure with jersey arrays"); continue; }
+            folders.Add((r, new FolderMatch
+            {
+                Folder24 = folder24,
+                Folder27 = folder27,
+                Confidence = 0.95,
+                Reason = $"NHL 27 alternate {r.Set27}; NHL 24 structure: {folder24.Split('/')[^1]}",
+                Rows = Matcher.Propose(catalog24.ByFolder[folder24], folder27, 0.95, catalog27),
+            }));
+        }
+        say($"alternates: {folders.Count} folders matched; running the conversion preflight");
+        await vm.RunPreflightAsync(false, folders.Select(f => f.Folder));
+        var arrays = folders.SelectMany(f => catalog27.ByFolder[f.Folder.Folder27!])
+            .Where(t => t.Slices > 1 && TextureName.Parse(t.Name) is { IsArrayName: true, Role: "color" or "normal" } n
+                && n.Garment.StartsWith("branding", StringComparison.Ordinal)).ToList();
+        await vm.Images.Nhl27Async(arrays, s => say("decoding logo arrays: " + s));
+        vm.SlotMaps.Save();
+        var built = new List<NewUniformAddition>();
+        foreach (var (r, folder) in folders)
+        {
+            try
+            {
+                var a = Addition(vm.Project, catalog27, vm.SlotMaps, folder, TextureImages.Nhl27Png, r.Team.Index, r.Light ? "away" : "home");
+                a.KitLabel = r.KitLabel;
+                a.TargetVariant = r.TargetVariant;
+                a.LocString = r.LocString;
+                a.JerseyName = r.JerseyName;
+                built.Add(a);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException)
+            {
+                failed.Add($"{r.Team.Nhl24.Folder} {r.KitLabel}: {ex.Message}");
+            }
+        }
+        return (built, failed);
+    }
+
+    static NewUniformAddition Addition(MatchProject project, Nhl27Catalog catalog, SlotMapStore slotMaps, FolderMatch folder,
+        Func<string, string> png, int teamId, string kit)
+    {
+        var parsed = TextureName.Parse(folder.Folder24 + "/x");
         var sourceMod = project.ToModFile("addition-source", [folder]);
         ModApply.RepairLegacyJerseyBases([sourceMod]);
         var textures = sourceMod.Replacements.Where(r => r.Slot.StartsWith(folder.Folder24 + "/", StringComparison.Ordinal)
@@ -253,8 +318,8 @@ public static class NewUniformExport
         if (jerseyArrays == 0) throw new InvalidDataException($"{folder.Folder24}: no jersey branding array was matched; the Fanatics set cannot be verified.");
         return new NewUniformAddition
         {
-            TeamId = source.Team.Index,
-            Team = parsed.Team,
+            TeamId = teamId,
+            Team = parsed.Team!,
             SourceKit = kit,
             IsLight = kit == "away",
             SourcePrefix = folder.Folder24,

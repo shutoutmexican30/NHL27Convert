@@ -178,7 +178,7 @@ public static class InstalledArrayExpansion
         }
         string backup = ApplyTarget.Backup(game, backupRoot);
         say("Backup of the current 64-kit state: " + backup);
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         NewUniformTransaction.Run(backup,
             writeAssets: () => Write(game, index, jobs, say, workers),
             writeDatabases: () => { },

@@ -278,7 +278,7 @@ public sealed class EquipmentStudioViewModel : Observable
             string game = _session.Game;
             var result = await Task.Run(() =>
             {
-                var index = Suite.Core.Frostbite.BundleIndex.Build(game,
+                var index = Suite.Core.Frostbite.BundleIndex.Shared(game,
                     line => Post(() => SlotSummary = "Reading installed uniforms: " + line));
                 return UniformSlotInspection.Build(game, index, additions,
                     path => InstalledBrandingAudit.ResolveArtwork(path, SuitePaths.Nhl27Images), _settings.Workers,

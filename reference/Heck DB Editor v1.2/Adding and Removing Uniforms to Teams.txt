@@ -1,0 +1,33 @@
+You will need: RPCS3, QuickBMS, HxD (or any other hex editor), EA DB Editor, NHL Texture Patcher, NHL DB Patcher
+
+1. Basic Prep: Convert your SYS-Data to a DB using the NHL DB Patcher, make any required textures, and decompress the necessary .big files (cache, cacheboot, cacherender, nocacherender).
+
+2. Open your new .DB file, and find the jersey/uniform you want to switch or add the jersey you would like to. Mark down/take note of the Style, Team Art ID, and Variant. These numbers will be listed in order (after a prefix of texlib or name) as the ID you use to track down the original uniform files. 
+
+For example: a jersey with a Style of 0, Team Art ID of 19, and Variant of 3 would have an ID of 0_19_3. Next, create the database info for this new/switched uniform, and make note of its ID.
+
+IF you are unfamiliar with what each value does, here is everything I know.
+
+	- Team ID & Team Art ID should match the Team ID of the team receiving the new uniform.
+	- Jersey Index should just be one value above whatver the last index value is.
+	- Jersey Style 0 is 90s/CCM/Retro, and Jersey Style 1 is Reebok/Modern.
+	- If the jersey has laces, set Has Tie to match whatever laces you are using as the base
+	- If a uniform will be a home uniform, Is Light Color should be 0 (or 1 for away).
+	- If a uniform has helmet numbers, Helmet Numbers should be 1 (or 0 for none).
+	- Variant should be one value above whatever the last variant value is.
+
+If this is done correctly, you should have created a completely unique jersey ID for the game to reference. Again, this jersey ID will be the Style_Team Art ID, and Variant.
+
+3. In your rendering folder, find the BIGs/RPGSLs with a number combnation that match the ORIGINAL jersey in "rendering/jerseys" (texlib & name), "rendering/pant" (texlib), "rendering/sock" (texlib), "rendering/logo" (texlib), and "fe/ion/artassets/jerseys" (jersey). If you're creating a brand new jersey, just find one with the same Jersey Style as the one you intend to design.
+
+4. Copy & paste these items in their respective folders. Create a back up somewhere that you can put over the new file in case it goes wrong (I like to keep the back up in its origin folder with a letter x in front of its file name, to block RPCS3 from reading but also to make replacement easy).
+
+5. Rename the files as "texlib/jersey/name_[Style]_[TeamArtID]_[Variant]".
+
+6. Replace any necessary files inside of the BIGs/RPGSLs, making sure any compression and file names matches the original file or uniform ID.
+
+7. For the RPGSLs, you will need to open your hex editor, and then find the instances of the uniform ID a little below the top part of the file. Change the uniform ID here to whatever your new uniform ID is, and then save. DO NOT CHANGE THE FILE SIZE, WRITE OVER THE ORIGINAL TEXT.
+
+8. Import everything into the game. If there are any missing textures, circle back to the files they are stored in an ensure the uniform ID is a match.
+
+9. Enjoy. As of now, I'm not sure how to name the jerseys at the select screen, but that is pretty tame of a problem.

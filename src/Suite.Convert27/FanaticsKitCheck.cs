@@ -13,7 +13,7 @@ public static class FanaticsKitCheck
 {
     const string Donor = "content/character/skater/league/nhl/anaheim/adidas/home/";
 
-    public static List<string> Check(string game, BundleIndex index, string targetPrefix, string team, string ownKit)
+    public static List<string> Check(string game, BundleIndex index, string targetPrefix, string team, string ownKit, bool nhl27Numbers = false, bool? nhl27HasSponsor = null)
     {
         Rgba? Read(string name)
         {
@@ -33,6 +33,22 @@ public static class FanaticsKitCheck
         string ownId = $"{team}_{ownKit}";
         var bad = new List<string>();
 
+        // No logo slot may still show the donor team's (Anaheim) art: a slot NHL 27 has no layer for is cleared, never
+        // left as the donor's (Buffalo's alternate showed the Ducks logo on its pants, 2026-11-24).
+        if (team != "anaheim")
+        {
+            string donorId = KitRegistration.Identity(KitDonor.Prefix);
+            foreach (string garment in new[] { "jersey", "pant" })
+            {
+                var mine = ReadAll($"{f}branding_{garment}_adidas_{id}_color_array");
+                var donor = ReadAll($"{KitDonor.Prefix}branding_{garment}_adidas_{donorId}_color_array");
+                for (int i = 0; i < Math.Min(mine.Count, donor.Count); i++)
+                    if (Opaque(mine[i]) > 0.01 && mine[i].Width == donor[i].Width && mine[i].Height == donor[i].Height
+                        && mine[i].Pixels.AsSpan().SequenceEqual(donor[i].Pixels))
+                        bad.Add($"{(garment == "pant" ? "pants" : "jersey")} logo slot {i} still shows the donor's Anaheim art");
+            }
+        }
+
         var color = Read($"{f}jersey_adidas_{id}_base_color");
         if (color is null) bad.Add("no jersey base colour");
         else
@@ -42,9 +58,8 @@ public static class FanaticsKitCheck
             int n = color.Width * color.Height;
             if (counts[KitDonor.AdidasYoke] > n * 0.003) bad.Add($"Adidas shoulder-yoke zone (dimples) on {(double)counts[KitDonor.AdidasYoke] / n:P1}");
             if (counts.Count(c => c > n * 0.003) < 2) bad.Add("no fabric zones (whole jersey one fabric)");
-            var reference = Read($"{own}jersey_adidas_{ownId}_base_color") ?? Read($"{own}jersey_adidas_{ownId}_color");
-            var hem = HemFit.Plan(color, reference);
-            if (hem[0] is not null || hem[1] is not null) bad.Add("hem stripes run past NHL 24's hem");
+            // No hem check: the hems are deliberately not shifted anymore (HemFit off, 2026-11-24 — shifted hems looked
+            // wrong), so NHL 27's stripes may run lower than the team's NHL 24 hem by design.
         }
 
         string jerseyArray = $"{f}branding_jersey_adidas_{id}_color_array";
@@ -53,8 +68,8 @@ public static class FanaticsKitCheck
         if (arr.Count == 0 || roles is null) bad.Add("no jersey logo array");
         else
         {
-            int tag = roles.IndexOf(SlotRoles.EpwRole);
-            if (tag < 0 || tag >= arr.Count || Opaque(arr[tag]) < 0.05) bad.Add("back-hem tag missing");
+            // No back-hem tag check: the End Plastic Waste stand-in is gone (2026-11-24 — NHL 27 never had it), so a
+            // blank tag layer is correct for most kits; only kits with their own NHL 27 tag (Chicago's 100) fill it.
             // The captain's letter must not sit on the sponsor patch (Carolina home: the A covered Nucor).
             int sponsorSlot = roles.IndexOf("sponsor");
             string stamp = $"{f}stamp_jersey_adidas_{id}";
@@ -68,8 +83,26 @@ public static class FanaticsKitCheck
                 if (Math.Abs(captain.X - sx) < (captain.W + ss) / 2 && Math.Abs(captain.Y - sy) < (captain.H + ss) / 2)
                     bad.Add("captain's letter sits on the sponsor patch");
             }
+            // Cross-reference for alternates (nhl27HasSponsor known): NHL 27's logos are painted on its own sheets, so the
+            // only logo layers an alternate may carry are the back-hem tag (End Plastic Waste or Chicago's 100, intentional on
+            // every kit) and a sponsor where NHL 27 has a sponsor spot. Any other jersey slot with art is a logo NHL 27 does
+            // not have there (owner, 2026-11-24: "make sure we aren't adding logos not there").
+            if (nhl27HasSponsor is not null)
+                for (int i = 0; i < Math.Min(arr.Count, roles.Count); i++)
+                    if (Opaque(arr[i]) > 0.01 && roles[i] != SlotRoles.EpwRole && !(roles[i] == "sponsor" && nhl27HasSponsor == true))
+                        bad.Add($"jersey logo slot {i} ({roles[i]}) has art NHL 27 does not place on this kit");
+            // An alternate NHL 27 shows without a sponsor gets none (owner, 2026-11-24).
+            if (nhl27HasSponsor == false && sponsorSlot >= 0 && sponsorSlot < arr.Count && Opaque(arr[sponsorSlot]) > 0.01)
+                bad.Add("sponsor patch that the NHL 27 kit does not have");
             int crest = roles.IndexOf("crest");
             if (crest >= 0 && crest < arr.Count && Opaque(arr[crest]) > 0.01) bad.Add("crest slot has art (the crest is painted; it would show twice)");
+        }
+
+        if (nhl27HasSponsor is not null)
+        {
+            var pants = ReadAll($"{f}branding_pant_adidas_{id}_color_array");
+            for (int i = 0; i < pants.Count; i++)
+                if (Opaque(pants[i]) > 0.01) bad.Add($"pants logo slot {i} has art; NHL 27's pants logos are painted on its sheet");
         }
 
         var sock = Read($"{f}sock_adidas_{id}_color") ?? Read($"{f}sock_adidas_{id}_base_color");
@@ -79,7 +112,7 @@ public static class FanaticsKitCheck
         var font = Read($"{f}font_adidas_{id}_color");
         var font24 = Read($"{own}font_adidas_{ownId}_color");
         if (font is null) bad.Add("no number/letter sheet");
-        else if (team != "arizona" && !FontRecolor.WantsRemap($"{team} {ownKit}") && font24 is not null && InkDiffers(font, font24)) bad.Add("number/letter sheet is not the team's NHL 24 sheet");
+        else if (team != "arizona" && !nhl27Numbers && !FontRecolor.WantsRemap($"{team} {ownKit}") && font24 is not null && InkDiffers(font, font24)) bad.Add("number/letter sheet is not the team's NHL 24 sheet");
 
         foreach (string garment in new[] { "jersey", "pant", "sock" })
         foreach (string variant in new[] { "base_", "" })

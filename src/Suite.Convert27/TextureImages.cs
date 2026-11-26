@@ -151,10 +151,66 @@ public sealed class TextureImages(SuiteSettings settings)
     }
 
     /// <summary>Stock NHL 24 images for every texture in a folder. Keys are slot names; array layers are "slot#layer".</summary>
+    /// <summary>Key suffix of the all-slices overview picture of a texture array.</summary>
+    public const string SheetSuffix = "#sheet";
+
+    /// <summary>Every slice shrunk to a tile, laid out in a grid (up to 4 across). Colour shown opaque so data maps with alpha 0 stay visible.</summary>
+    static Rgba ContactSheet(IReadOnlyList<Rgba> slices)
+    {
+        const int tile = 256;
+        int cols = Math.Min(4, slices.Count), rows = (slices.Count + cols - 1) / cols;
+        int w = cols * tile, h = rows * tile;
+        var px = new byte[w * h * 4];
+        for (int i = 0; i < px.Length; i += 4) { px[i] = px[i + 1] = px[i + 2] = 0x22; px[i + 3] = 255; }
+        for (int n = 0; n < slices.Count; n++)
+        {
+            var small = ImageIO.Shrink(slices[n], tile);
+            int ox = n % cols * tile, oy = n / cols * tile;
+            int maxA = 0;
+            for (int i = 3; i < small.Pixels.Length; i += 4) maxA = Math.Max(maxA, small.Pixels[i]);
+            for (int y = 0; y < small.Height; y++)
+                for (int x = 0; x < small.Width; x++)
+                {
+                    int si = (y * small.Width + x) * 4, di = ((oy + y) * w + ox + x) * 4;
+                    int a = maxA < 16 ? 255 : small.Pixels[si + 3];
+                    int bg = ((x >> 3) + (y >> 3)) % 2 == 0 ? 0x44 : 0x30;
+                    for (int c = 0; c < 3; c++) px[di + c] = (byte)((small.Pixels[si + c] * a + bg * (255 - a)) / 255);
+                }
+            // A thin frame so empty slices still read as a slot.
+            for (int x = 0; x < tile; x++) { int t = (oy * w + ox + x) * 4, b = ((oy + tile - 1) * w + ox + x) * 4; px[t] = px[t + 1] = px[t + 2] = px[b] = px[b + 1] = px[b + 2] = 0x66; }
+            for (int y = 0; y < tile; y++) { int l = ((oy + y) * w + ox) * 4, r = ((oy + y) * w + ox + tile - 1) * 4; px[l] = px[l + 1] = px[l + 2] = px[r] = px[r + 1] = px[r + 2] = 0x66; }
+        }
+        return new Rgba(w, h, px);
+    }
+
+    const string DecoderVersion = "3";   // 3: array overview sheets; 2: BC4 (0x3E), BC6H (0x40) and BC7 unorm (0x42) decoded correctly
+    static readonly object CacheGate = new();
+    static bool _cacheChecked;
+
+    /// <summary>The decoded-PNG cache is only valid for the decoder that made it; PNGs from an older decoder are dropped once and rebuilt on demand.</summary>
+    static void EnsureCurrentDecodeCache()
+    {
+        lock (CacheGate)
+        {
+            if (_cacheChecked) return;
+            _cacheChecked = true;
+            try
+            {
+                var dir = SuitePaths.Nhl24Images;
+                var marker = Path.Combine(dir, "decoder-version.txt");
+                if (File.Exists(marker) && File.ReadAllText(marker).Trim() == DecoderVersion) return;
+                foreach (var f in Directory.EnumerateFiles(dir, "*.png")) File.Delete(f);
+                File.WriteAllText(marker, DecoderVersion);
+            }
+            catch (Exception ex) { SuiteLog.Write("decode cache reset: " + ex.Message); }
+        }
+    }
+
     public async Task<Dictionary<string, string>> Nhl24FolderAsync(string folder, Action<string>? progress = null,
         CancellationToken ct = default, IReadOnlyList<string>? expected = null)
     {
         var result = new ConcurrentDictionary<string, string>();
+        EnsureCurrentDecodeCache();
 
         // A previously dumped DDS cache (ours or the legacy NHL24Kit one) is still valid input.
         var dumpDir = await DumpDirAsync(folder, progress, ct, expected);
@@ -189,6 +245,28 @@ public sealed class TextureImages(SuiteSettings settings)
         var names = index.ResByName.Keys
             .Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal) && !k.EndsWith("_mesh", StringComparison.Ordinal))
             .ToList();
+        await DecodeNamesAsync(view, index, names, result, progress, ct);
+        return new Dictionary<string, string>(result);
+    }
+
+
+    /// <summary>
+    /// Decodes exactly the named NHL 24 textures (from any folders), the way a folder decode would. The texture suite uses this so a search that
+    /// spans hundreds of folders previews every card, not just the first few folders.
+    /// </summary>
+    public async Task<Dictionary<string, string>> Nhl24NamesAsync(IEnumerable<string> names, Action<string>? progress = null, CancellationToken ct = default)
+    {
+        EnsureCurrentDecodeCache();
+        var result = new ConcurrentDictionary<string, string>();
+        var view = Nhl24ReadView.Ensure(settings);
+        var index = IndexFor(view);
+        var list = names.Distinct(StringComparer.Ordinal).Where(n => index.ResByName.ContainsKey(n)).ToList();
+        await DecodeNamesAsync(view, index, list, result, progress, ct);
+        return new Dictionary<string, string>(result);
+    }
+
+    async Task DecodeNamesAsync(string view, BundleIndex index, IReadOnlyList<string> names, ConcurrentDictionary<string, string> result, Action<string>? progress, CancellationToken ct)
+    {
         int n = 0;
         await Parallel.ForEachAsync(names, new ParallelOptions { MaxDegreeOfParallelism = settings.Workers, CancellationToken = ct }, async (name, _) =>
         {
@@ -204,6 +282,14 @@ public sealed class TextureImages(SuiteSettings settings)
                         ImageIO.SavePng(ImageIO.Shrink(slices[i], 2048), png);
                     result[key] = png;
                 }
+                if (slices.Count > 1)
+                {
+                    // A texture array's first slice is often empty (the art is in slice 3, say); the card shows every slice side by side.
+                    var sheetKey = name + SheetSuffix;
+                    var sheet = Path.Combine(SuitePaths.Nhl24Images, SuitePaths.Flatten(sheetKey) + ".png");
+                    if (!File.Exists(sheet)) ImageIO.SavePng(ContactSheet(slices), sheet);
+                    result[sheetKey] = sheet;
+                }
             }
             catch (Exception ex)
             {
@@ -212,13 +298,10 @@ public sealed class TextureImages(SuiteSettings settings)
             progress?.Invoke($"Decoding NHL 24 textures {Interlocked.Increment(ref n)}/{names.Count}");
             await Task.CompletedTask;
         });
-        return new Dictionary<string, string>(result);
     }
 
-    static readonly ConcurrentDictionary<string, Lazy<BundleIndex>> _indices = new(StringComparer.Ordinal);
-
-    static BundleIndex IndexFor(string view) =>
-        _indices.GetOrAdd(view, v => new Lazy<BundleIndex>(() => BundleIndex.Build(v))).Value;
+    // Shared by every page and rebuilt when the game's TOCs change (the old per-view cache kept a stale index after writes).
+    static BundleIndex IndexFor(string view) => BundleIndex.Shared(view);
 
     /// <summary>
     /// A cached dump is only usable when it holds the arrays the folder actually has. Carolina and Calgary ship no branding

@@ -98,7 +98,7 @@ public static class SponsorSlots
                     .Zip(deepest.Branding.OrderBy(s => s.Id)).All(p => p.First.Id == p.Second.Id && p.First.Name == p.Second.Name));
                 if (!prefix)
                 {
-                    say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stamp copies differ and need a review");
+                    say?.Invoke($"{addition.Team} {addition.Kit}: slots not added; the stamp copies differ and need a review");
                     continue;
                 }
                 copies = [deepest];
@@ -109,7 +109,7 @@ public static class SponsorSlots
             try { physical = UniformHotspots.Roles(stock); }
             catch (InvalidDataException ex)
             {
-                say?.Invoke($"{addition.Team} {addition.SourceKit}: slots not added; the stock layout needs a review ({ex.Message})");
+                say?.Invoke($"{addition.Team} {addition.Kit}: slots not added; the stock layout needs a review ({ex.Message})");
                 continue;
             }
             var needed = artRoles.Where((role, layer) => layers.ContainsKey(layer) && Addable.Contains(role))
@@ -140,8 +140,8 @@ public static class SponsorSlots
             if (added.Count == 0 && !unify) continue;
             addition.HotspotLayouts.Add(WithAdded(copies[0], added));
             string garmentName = pants ? "pants" : "jersey";
-            say?.Invoke(added.Count == 0 ? $"{addition.Team} {addition.SourceKit}: the {garmentName} base and patch layouts were made the same (no slot added)"
-                : $"{addition.Team} {addition.SourceKit}: added {string.Join(", ", added.Select(a => SlotNames.Name(a.Role, a.Role == "shoulder" ? ShoulderPatches.IsLeft(a.Position) : null, null, pants ? "branding_pant" : null)))} slot(s) to the {garmentName}");
+            say?.Invoke(added.Count == 0 ? $"{addition.Team} {addition.Kit}: the {garmentName} base and patch layouts were made the same (no slot added)"
+                : $"{addition.Team} {addition.Kit}: added {string.Join(", ", added.Select(a => SlotNames.Name(a.Role, a.Role == "shoulder" ? ShoulderPatches.IsLeft(a.Position) : null, null, pants ? "branding_pant" : null)))} slot(s) to the {garmentName}");
         }
         return additions;
     }

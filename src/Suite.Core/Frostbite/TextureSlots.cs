@@ -94,7 +94,7 @@ public static class TextureSlots
         var refused = replacements.Select(Refusal).OfType<string>().ToList();
         if (refused.Count > 0) return (false, "Apply refused:\n" + string.Join("\n", refused), null);
         progress?.Invoke("Reading the game's bundles...");
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         Timed("Bundles read");
         var cache = new TexturePayloadCache();
         var prepared = TexturePreparer.Prepare(game, index, replacements, workers, cache, progress);

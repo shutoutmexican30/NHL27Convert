@@ -46,7 +46,7 @@ public static partial class MatcherOverrides
                     if (SourceLayer(path) is not { } layer27 || output >= roles.Count) continue;
                     if (manualRoles.TryGetValue(layer27, out var role) && roles[output] != role)
                     {
-                        say?.Invoke($"{addition.Team} {addition.SourceKit} {garment}: your override makes NHL 27 layer {layer27} a {role} (was {roles[output]})");
+                        say?.Invoke($"{addition.Team} {addition.Kit} {garment}: your override makes NHL 27 layer {layer27} a {role} (was {roles[output]})");
                         roles[output] = role;
                         changed++;
                     }
@@ -56,7 +56,7 @@ public static partial class MatcherOverrides
                         if (!texture.PinnedSlots.TryGetValue(output, out int existing) || existing != slot)
                         {
                             texture.PinnedSlots[output] = slot;
-                            say?.Invoke($"{addition.Team} {addition.SourceKit} {garment}: your link puts NHL 27 layer {layer27} in slot {slot}");
+                            say?.Invoke($"{addition.Team} {addition.Kit} {garment}: your link puts NHL 27 layer {layer27} in slot {slot}");
                             changed++;
                         }
                     }

@@ -97,12 +97,12 @@ public static class NewUniformEquipmentPlanner
         var identities = new HashSet<(int Team, int Variant)>();
         foreach (var addition in wanted)
         {
-            if (addition.TargetVariant is not (24 or 25)) throw new InvalidDataException(
-                $"{addition.Team}: equipment correction is restricted to new variants 24 and 25.");
+            if (addition.TargetVariant is < 2 or > 25) throw new InvalidDataException(
+                $"{addition.Team}: equipment correction is restricted to new variants 2-25.");
             if (!identities.Add((addition.TeamId, addition.TargetVariant)))
                 throw new InvalidDataException($"{addition.Team}: duplicate target variant {addition.TargetVariant}.");
             if (string.IsNullOrWhiteSpace(addition.SourceFolder27)) throw new InvalidDataException(
-                $"{addition.Team} {addition.SourceKit}: the numbered NHL 27 source folder is required.");
+                $"{addition.Team} {addition.Kit}: the numbered NHL 27 source folder is required.");
         }
         if (sourceDatabases.Count == 0) throw new InvalidDataException("No target databases were supplied.");
 
@@ -121,7 +121,7 @@ public static class NewUniformEquipmentPlanner
                     && db.GetInt(jerseyTable, row, "style") == addition.Style
                     && db.GetInt(jerseyTable, row, "variant") == addition.TargetVariant).ToList();
                 if (jerseyRows.Count != 1) throw new InvalidDataException(
-                    $"{database}: {addition.Team} {addition.SourceKit} has {jerseyRows.Count} target jersey rows; plan the new uniform first.");
+                    $"{database}: {addition.Team} {addition.Kit} has {jerseyRows.Count} target jersey rows; plan the new uniform first.");
                 long art = db.GetInt(jerseyTable, jerseyRows[0], "teamartid");
                 int sourceVariant = SourceVariant(addition);
                 foreach (int equipment in EquipmentTypes)
@@ -157,7 +157,7 @@ public static class NewUniformEquipmentPlanner
                         if (branded is not null) selected.Add(branded);
                     }
                     if (selected.Count == 0) throw new InvalidDataException(
-                        $"{addition.Team} {addition.SourceKit}: no current NHL 27 equipment type {equipment} donor matches variant {sourceVariant}, its wildcard, or a documented current default.");
+                        $"{addition.Team} {addition.Kit}: no current NHL 27 equipment type {equipment} donor matches variant {sourceVariant}, its wildcard, or a documented current default.");
                     foreach (var chosen in selected)
                     {
                         var matchingCandidates = candidates.Where(r => r.Brand == chosen.Brand).ToList();
@@ -174,7 +174,7 @@ public static class NewUniformEquipmentPlanner
                             && db.GetInt(table, row, "equipment") == equipment && db.GetInt(table, row, "era") == chosen.Era
                             && db.GetInt(table, row, "variant") == addition.TargetVariant).ToList();
                         if (otherArt.Count > 0 && targetMatches.Count == 0) throw new InvalidDataException(
-                            $"{database}: target equipment key collides with another jersey-art ID for {addition.Team} {addition.SourceKit}.");
+                            $"{database}: target equipment key collides with another jersey-art ID for {addition.Team} {addition.Kit}.");
                         planned.Add(new PlannedEquipmentRow(database, addition.TeamId, addition.Team, addition.SourceKit,
                             sourceVariant, addition.TargetVariant, chosen.Brand, art, equipment, chosen.Era, chosen.Zones,
                             targetMatches.Count == 1, chosen, matchingCandidates));
@@ -221,7 +221,7 @@ public static class NewUniformEquipmentPlanner
             if (saved.Length != sourceDatabases[database].Length) throw new InvalidDataException($"{database}: equipment changed the database length.");
             var check = T3Db.Load((byte[])saved.Clone(), metaXml);
             result.Verify(database, check);
-            VerifyOriginals(database, sourceDatabases[database], saved, originals[database], metaXml);
+            VerifyOriginals(database, sourceDatabases[database], saved, originals[database], metaXml, identities);
             output.Add(database, saved);
         }
         // Rebuilding the same input must not allocate more rows or change the resulting bytes.
@@ -284,7 +284,8 @@ public static class NewUniformEquipmentPlanner
         return result;
     }
 
-    static void VerifyOriginals(string database, byte[] before, byte[] after, List<OriginalRow> originals, string metaXml)
+    static void VerifyOriginals(string database, byte[] before, byte[] after, List<OriginalRow> originals, string metaXml,
+        HashSet<(int Team, int Variant)> added)
     {
         var a = T3Db.Load((byte[])before.Clone(), metaXml);
         var b = T3Db.Load((byte[])after.Clone(), metaXml);
@@ -294,6 +295,8 @@ public static class NewUniformEquipmentPlanner
         var at = NewUniformEquipmentPlan.EquipmentTable(a);
         var bt = NewUniformEquipmentPlan.EquipmentTable(b);
         if (originals.Count != at.InUse) throw new InvalidDataException($"{database}: the original equipment snapshot is incomplete.");
+        // Only rows of the variants this batch adds may be new or changed (the Fanatics set: 24/25; NHL 27 alternates: their own).
+        bool Added(int row) => added.Contains(((int)b.GetInt(bt, row, "team"), (int)b.GetInt(bt, row, "variant")));
         int original = 0;
         for (int output = 0; output < bt.InUse; output++)
         {
@@ -303,7 +306,7 @@ public static class NewUniformEquipmentPlanner
             {
                 // A genuinely inserted reserved-variant row is skipped; the next output row must line up with the same
                 // original again. Comparing before[row] to after[row] here would compare an original to its new neighbor.
-                if (variant is not (24 or 25)) throw new InvalidDataException(
+                if (!Added(output)) throw new InvalidDataException(
                     $"{database}: unexpected non-reserved equipment row at output row {output}; an original row was removed or reordered.");
                 continue;
             }
@@ -311,7 +314,7 @@ public static class NewUniformEquipmentPlanner
             var newBytes = b.Bytes.AsSpan(bt.RecordsAt + output * bt.RecordBytes, bt.RecordBytes).ToArray();
             ClearIndex(at, oldBytes);
             ClearIndex(bt, newBytes);
-            if (!oldBytes.AsSpan().SequenceEqual(newBytes) && variant is not (24 or 25)) throw new InvalidDataException(
+            if (!oldBytes.AsSpan().SequenceEqual(newBytes) && !Added(output)) throw new InvalidDataException(
                 $"{database}: original stock equipment row {original} changed at output row {output}.");
             original++;
         }

@@ -63,6 +63,12 @@ public static class RosterWriter
         public bool Arrived;
     }
 
+    /// <summary>What the NHL API says about players beyond the NHL rosters, gathered by <see cref="RosterSyncRun"/>:
+    /// game_ids of players who are active and unsigned (the only ones listed as free agents), and NHL API ids of club
+    /// prospects whose latest games this season are in the AHL. Null (tests, old callers) keeps the earlier behaviour.</summary>
+    public sealed record RealityInfo(IReadOnlySet<string> ActiveUnsignedGameIds, IReadOnlySet<long> AhlProspectApiIds, bool PortedLeagues = false, IReadOnlySet<string>? AhlNowGameIds = null, IReadOnlySet<int>? PortedLeagueIds = null);
+    public static RealityInfo? Reality { get; set; }
+
     public static WriteReport Write(string dbName, string dumpDir, string outDir,
         Dictionary<string, List<ApiPlayer>> api, Dictionary<string, List<ApiPlayer>> prospects, Dictionary<string, int> teamMap,
         IReadOnlySet<string>? onlyTeams = null, string? teamsDir = null, LineOverrides? lineOverrides = null, Ratings? newRatings = null, IReadOnlyDictionary<string, int>? portraitArt = null, GoalieGear? goalieGear = null)
@@ -148,10 +154,15 @@ public static class RosterWriter
             }
         }
         var prospectOf = new Dictionary<string, int>();
+        var ahlNow = new HashSet<string>(); // prospects whose latest games this season are in the AHL (NHL API)
         foreach (var (abbrev, list) in prospects)
             if (teamMap.TryGetValue(abbrev, out var team))
                 foreach (var p in list)
-                    if (RosterSync.Match(p, byLast, byFull) is { } m && !want.ContainsKey(m.GameId)) prospectOf.TryAdd(m.GameId, team);
+                    if (RosterSync.Match(p, byLast, byFull) is { } m && !want.ContainsKey(m.GameId))
+                    {
+                        prospectOf.TryAdd(m.GameId, team);
+                        if (Reality?.AhlProspectApiIds.Contains(p.Id) == true) ahlNow.Add(m.GameId);
+                    }
 
         // Everyone whose club placement is decided now: API-rostered players, and NHL players the API no longer rosters.
         var onNhlRow = rows.Where(r => nhl.Contains(ro.Int(r, "team"))).Select(GameOf).Where(g => g.Length > 0).ToHashSet();
@@ -163,6 +174,25 @@ public static class RosterWriter
             if (!nhl.Contains(p.Team) && !onNhlRow.Contains(p.GameId)) continue;
             decided[p.GameId] = prospectOf.TryGetValue(p.GameId, out var org) && affiliate.TryGetValue(org, out var ahl) ? ahl : -1;
         }
+        // AHL affiliates hold the organization only: a player on an affiliate roster whom no club lists (not on an NHL
+        // roster, not in any prospect pool) goes to free agency, and a listed prospect goes to his own club's affiliate,
+        // so the clubs' prospects get the slots. Empty slots are refilled from free agency further down.
+        var ahlTeams = affiliate.Values.ToHashSet();
+        // (Skipped when the AHL rosters were ported from NHL 27: those AHL-contract players are real.)
+        foreach (var r in rows.Where(r => Reality?.PortedLeagues != true && ahlTeams.Contains(ro.Int(r, "team"))).ToList())
+        {
+            var g = GameOf(r);
+            if (g.Length == 0 || decided.ContainsKey(g)) continue;
+            decided[g] = prospectOf.TryGetValue(g, out var org) && affiliate.TryGetValue(org, out var ahl) ? ahl : -1;
+        }
+        // A club prospect who is playing in the AHL this season goes to his club's affiliate, wherever NHL 24 had him
+        // (college, junior, Europe: Trey Augustine and Michal Postava were left off Grand Rapids before this).
+        // Players the NHL API shows playing in the AHL this season (looked up by tools\Port27): their organization's affiliate.
+        foreach (var g in Reality?.AhlNowGameIds ?? new HashSet<string>())
+            if (bioByGame.TryGetValue(g, out var bb) && !prospectOf.ContainsKey(g) && bio.Int(bb, "proteam") is >= 0 and < 32 && !want.ContainsKey(g)) { prospectOf[g] = bio.Int(bb, "proteam"); ahlNow.Add(g); }
+        foreach (var g in ahlNow)
+            if (!decided.ContainsKey(g) && prospectOf.TryGetValue(g, out var org) && affiliate.TryGetValue(org, out var ahl))
+                decided[g] = ahl;
 
         if (only is not null)
         {
@@ -177,6 +207,12 @@ public static class RosterWriter
         var captainLeft = new Dictionary<int, List<(string Game, string Value)>>();
         // An all-zero free-agent record (player index 0) cannot be stored; the database writer would drop it anyway.
         var faRows = fa.Rows.Take(fa.ValidCount).Where(r => !T3Csv.IsBlank(r)).ToList();
+        // The free-agent table is the pool franchise mode offers. With the NHL API's view of who is active and unsigned,
+        // it lists only those players; everyone else without a team stays hidden (team -1, off the list), the way stock
+        // NHL 24 hides ~800 retired and overseas players.
+        bool RealFreeAgent(string game) => Reality is null || Reality.ActiveUnsignedGameIds.Contains(game);
+        if (Reality is not null)
+            faRows = faRows.Where(r => gameOfIndex.TryGetValue(fa.Get(r, "playerindex"), out var g) && RealFreeAgent(g)).ToList();
         var faSet = faRows.Select(r => fa.Get(r, "playerindex")).ToHashSet();
         var styleByPos = rows.GroupBy(r => bioByGame.TryGetValue(GameOf(r), out var b) ? bio.Int(b, "position") : -1)
             .ToDictionary(g => g.Key, g => g.GroupBy(r => ro.Get(r, "playerstyle")).OrderByDescending(x => x.Count()).First().Key);
@@ -243,7 +279,7 @@ public static class RosterWriter
                 ro.Set(keep, "jersey", jersey);
 
             // Free agency list.
-            if (target < 0 && !indices.Overlaps(faSet))
+            if (target < 0 && !indices.Overlaps(faSet) && (RealFreeAgent(game) || onNhlRow.Contains(game))) // a player released from an NHL roster is a real free agent
             {
                 // A free-agent record holding player index 0 would be blank and dropped by the database writer.
                 if (pIndex == "0") report.Warnings.Add($"{Name(game)} uses player index 0 and cannot be listed as a free agent");
@@ -293,11 +329,16 @@ public static class RosterWriter
         var released = moves.Where(m => m.Target < 0).Select(m => m.Game).ToHashSet();
         Member? Sign(int team, Role role)
         {
-            var pick = bioRows.Where(r => bio.Int(r, "team") == -1 && epIndex.ContainsKey(bio.Get(r, "game_id")) && !placed.Contains(bio.Get(r, "game_id")))
+            // With ported leagues, never a player who still has a roster row anywhere (CHEL, national and tournament teams
+            // hold team -1 players): a second row is what crashed Edit Lines.
+            var onAnyRow = Reality?.PortedLeagues == true ? rows.Select(r => ro.Get(r, "playerindex")).ToHashSet() : null;
+            var pick = bioRows.Where(r => bio.Int(r, "team") == -1 && epIndex.ContainsKey(bio.Get(r, "game_id")) && !placed.Contains(bio.Get(r, "game_id"))
+                    && (onAnyRow is null || !epIndex[bio.Get(r, "game_id")].Any(onAnyRow.Contains)))
                 .Where(r => role switch { Role.G => bio.Int(r, "position") == 4, Role.D => bio.Int(r, "position") == 3, Role.F => bio.Int(r, "position") is >= 0 and <= 2, _ => bio.Int(r, "position") is >= 0 and <= 3 })
                 // Young free agents first (the pool is full of retired players), youngest first; players the sync
                 // just released (no NHL club, often retired or abroad) only when nobody else fits.
-                .OrderBy(r => released.Contains(bio.Get(r, "game_id")) ? 1 : 0)
+                .OrderBy(r => RealFreeAgent(bio.Get(r, "game_id")) == nhl.Contains(team) ? 0 : 1) // NHL holes: real free agents first; lower leagues: never take them from free agency first
+                .ThenBy(r => released.Contains(bio.Get(r, "game_id")) ? 1 : 0)
                 .ThenBy(r => DateTime.Today.Year - 1900 - bio.Int(r, "year") > 30 ? 1 : 0)
                 .ThenByDescending(r => bio.Int(r, "year")).FirstOrDefault();
             if (pick is null) return null;
@@ -382,6 +423,85 @@ public static class RosterWriter
             var abbrev = abbrevOf.GetValueOrDefault(t, Team(t));
             report.Warnings.AddRange(LineBuilder.Build(abbrev, squad, ro, slotCols, lineOverrides?.Teams.GetValueOrDefault(abbrev)));
             report.Counts["LinesBuilt"] = report.Counts.GetValueOrDefault("LinesBuilt") + 1;
+        }
+
+        // Ported leagues (NHL 27 rosters below the NHL) lose players to call-ups and API moves, which can leave a team
+        // without a starting or backup goalie or 20 dressed players; stock NHL 24 never has such a team, and the game's
+        // roster screens crash on one. Every non-NHL team that is not whole gets the missing positions signed from the
+        // hidden pool (real free agents first) and its lines rebuilt from ratings.
+        var touched = new HashSet<int>();
+        if (Reality?.PortedLeagues == true)
+        {
+            // Stock never has an AHL or junior player with a second roster row (only NHL players also sit on a national
+            // or loan team). A player moved onto a ported/AHL team keeps one row: his other non-NHL rows go, and the teams
+            // that lose a player are repaired below. The Edit Lines screen crashed on such doubles.
+            var lgOf = teamRows.GroupBy(r => tm.Int(r, "index")).ToDictionary(g => g.Key, g => tm.Int(g.First(), "league"));
+            var portedLg = Reality.PortedLeagueIds ?? new HashSet<int> { 1 };
+            bool Club(int t) => ahlTeams.Contains(t) || portedLg.Contains(lgOf.GetValueOrDefault(t, -1));
+            foreach (var grp in rows.GroupBy(r => ro.Get(r, "playerindex")).Where(g => g.Count() > 1).ToList())
+            {
+                var club = grp.FirstOrDefault(r => Club(ro.Int(r, "team")));
+                if (club is null) continue;
+                foreach (var r in grp.Where(r => r != club && !nhl.Contains(ro.Int(r, "team"))).ToList())
+                {
+                    touched.Add(ro.Int(r, "team"));
+                    rows.Remove(r);
+                }
+            }
+            report.Counts["ExtraRowsRemoved"] = touched.Count;
+        }
+        if (Reality?.PortedLeagues == true)
+        {
+            int Pos(string[] r) => bioByGame.TryGetValue(GameOf(r), out var b) ? bio.Int(b, "position") : -1;
+            bool Whole(int t)
+            {
+                var mine = rows.Where(r => ro.Int(r, "team") == t).ToList();
+                return mine.Count(r => ro.Int(r, "g1") == 1 && Pos(r) == 4) == 1 && mine.Count(r => ro.Int(r, "g2") == 1 && Pos(r) == 4) == 1
+                    && mine.Count(r => ro.Int(r, "rosterstatus") == 1) == 20
+                    && !mine.Any(r => Pos(r) == 4 && slotCols.Any(c => c is not ("g1" or "g2" or "three_g1" or "three_g2") && ro.Int(r, c) == 1));
+            }
+            var leagueOf = teamRows.GroupBy(r => tm.Int(r, "index")).ToDictionary(g => g.Key, g => tm.Int(g.First(), "league"));
+            var portedIds = Reality.PortedLeagueIds ?? new HashSet<int> { 1 };
+            foreach (var t in rows.Select(r => ro.Int(r, "team")).Distinct().Where(t => !nhl.Contains(t) && (touched.Contains(t) || ahlTeams.Contains(t) || portedIds.Contains(leagueOf.GetValueOrDefault(t, -1)))).Order().ToList())
+            {
+                if (Whole(t)) continue;
+                int Count(Func<int, bool> p) => rows.Count(r => ro.Int(r, "team") == t && p(Pos(r)));
+                while (Count(p => p == 4) < 2 && Sign(t, Role.G) is not null) { }
+                while (Count(p => p == 3) < 6 && Sign(t, Role.D) is not null) { }
+                while (Count(p => p is >= 0 and <= 2) < 12 && Sign(t, Role.F) is not null) { }
+                var squad = rows.Where(r => ro.Int(r, "team") == t).Select(r =>
+                {
+                    var g = GameOf(r);
+                    var b = bioByGame.GetValueOrDefault(g);
+                    var rt = ratings.GetValueOrDefault(g) ?? none;
+                    return new LineBuilder.Player(r, b is null ? "" : $"{bio.Get(b, "firstname")} {bio.Get(b, "lastname")}",
+                        b is null ? -1 : bio.Int(b, "position"), b is null ? -1 : bio.Int(b, "positionprimary"), b is null ? 0 : bio.Int(b, "handedness"),
+                        rt.GetValueOrDefault("skill_overall"), rt, false);
+                }).ToList();
+                foreach (var r in squad) { foreach (var c in slotCols) ro.Set(r.Row, c, 0); ro.Set(r.Row, "rosterstatus", 0); }
+                report.Warnings.AddRange(LineBuilder.Build(Team(t), squad, ro, slotCols, null));
+                report.Counts["LowerLeagueLinesRebuilt"] = report.Counts.GetValueOrDefault("LowerLeagueLinesRebuilt") + 1;
+                if (!Whole(t)) report.Warnings.Add($"{Team(t)}: still not a whole lineup after the rebuild");
+            }
+        }
+
+        // Letters: every stock team has three (a C and two A's, or three A's). Ported and AHL teams that lost letter
+        // wearers to call-ups or moves get alternate captains from their best dressed skaters until they have three.
+        if (Reality?.PortedLeagues == true)
+        {
+            var lgOf2 = teamRows.GroupBy(r => tm.Int(r, "index")).ToDictionary(g => g.Key, g => tm.Int(g.First(), "league"));
+            var portedIds2 = Reality.PortedLeagueIds ?? new HashSet<int> { 1 };
+            foreach (var t in rows.Select(r => ro.Int(r, "team")).Distinct().Where(t => !nhl.Contains(t) && (touched.Contains(t) || ahlTeams.Contains(t) || lgOf2.GetValueOrDefault(t, -1) == 15 || portedIds2.Contains(lgOf2.GetValueOrDefault(t, -1)))).ToList())
+            {
+                var mine = rows.Where(r => ro.Int(r, "team") == t).ToList();
+                int letters = mine.Count(r => ro.Int(r, "captain") is 1 or 2);
+                if (letters >= 3) continue;
+                foreach (var r in mine.Where(r => ro.Int(r, "captain") == 0 && ro.Int(r, "rosterstatus") == 1
+                             && bioByGame.TryGetValue(GameOf(r), out var b) && bio.Int(b, "position") != 4)
+                         .OrderByDescending(r => (ratings.GetValueOrDefault(GameOf(r)) ?? none).GetValueOrDefault("skill_overall")).Take(3 - letters))
+                    ro.Set(r, "captain", 2);
+                report.Counts["LettersAdded"] = report.Counts.GetValueOrDefault("LettersAdded") + (3 - letters);
+            }
         }
 
         // Numbers the API did not give (signings, players it lists without one) must not clash on an NHL team.

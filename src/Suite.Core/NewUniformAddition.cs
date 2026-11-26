@@ -52,6 +52,20 @@ public sealed class NewUniformAddition
     public int TargetVariant { get; set; }
     public int Style { get; set; } = 2;
     public bool IsLight { get; set; }
+    /// <summary>
+    /// A name for this kit that is unique within its team (for example "alt-twelve" for an NHL 27 alternate). Per-kit
+    /// settings (number colours, temp art files, batch roles) are keyed by <see cref="Kit"/>, so an alternate built on the
+    /// team's home or away structure never picks up the Fanatics home/away kit's own settings. Empty = SourceKit.
+    /// </summary>
+    public string? KitLabel { get; set; }
+    public string Kit => string.IsNullOrWhiteSpace(KitLabel) ? SourceKit : KitLabel;
+    /// <summary>Jersey picker label: 2 = the shared "Alternate" text (no language entry needed); null or 6 = a per-kit
+    /// VINTAGE_ key named <see cref="JerseyName"/> (or the install's jersey name).</summary>
+    public int? LocString { get; set; }
+    public string? JerseyName { get; set; }
+    /// <summary>Use the kit's own NHL 27 number/letter sheets (fitted into NHL 24's glyph layout and verified per glyph)
+    /// instead of the team's NHL 24 sheet. NHL 27 alternates often have their own numbers (Detroit's alternate 2).</summary>
+    public bool Nhl27Numbers { get; set; }
     public List<NewUniformTexture> Textures { get; set; } = [];
     /// <summary>Optional physical-layout repairs. These change placement metadata, never the team's fabric or artwork.</summary>
     public List<UniformHotspotLayout> HotspotLayouts { get; set; } = [];

@@ -70,11 +70,11 @@ public static class SockFit
         {
             var image = ImageIO.Load(t.Artwork.Source);
             if (image.Height != art.Height) continue;
-            string png = Path.Combine(dir, $"{addition.Team}_{addition.SourceKit}_" + Path.GetFileName(t.Artwork.Source));
+            string png = Path.Combine(dir, $"{addition.Team}_{addition.Kit}_" + Path.GetFileName(t.Artwork.Source));
             ImageIO.SavePng(Remap(image, plan.From, plan.To), png);
             t.Artwork = t.Artwork with { Source = png };
         }
-        say?.Invoke($"{addition.Team} {addition.SourceKit}: sock stripes ended at {plan.From:P1}, lower than NHL 24's sock shows; moved up to {plan.To:P1}");
+        say?.Invoke($"{addition.Team} {addition.Kit}: sock stripes ended at {plan.From:P1}, lower than NHL 24's sock shows; moved up to {plan.To:P1}");
         return plan;
     }
 }

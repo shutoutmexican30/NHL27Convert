@@ -131,7 +131,7 @@ public static class InstalledBrandingCorrection
         }
         string backup = ApplyTarget.Backup(game, backupRoot);
         say("Backup of the current uniform state: " + backup);
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         NewUniformTransaction.Run(backup,
             writeAssets: () =>
             {

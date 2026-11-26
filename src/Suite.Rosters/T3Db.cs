@@ -192,6 +192,60 @@ public sealed class T3Db
         return shrunk;
     }
 
+    /// <summary>
+    /// Makes this table's records the in-use records of <paramref name="source"/> that pass <paramref name="keep"/> (all when null), copied
+    /// field by field BY NAME, so the two databases need not lay a table out the same way. A field only this table has gets its lowest
+    /// value; a string longer than the field refuses. The table keeps its slot count (more kept records than slots refuses), the unused
+    /// slots are zeroed, the header's in-use count and both CRCs follow. Returns the table with its new count (also in <see cref="Tables"/>).
+    /// </summary>
+    public Table CopyRecords(Table target, T3Db sourceDb, Table source, Func<int, bool>? keep = null)
+    {
+        var rows = Enumerable.Range(0, source.InUse).Where(r => keep is null || keep(r)).ToList();
+        if (rows.Count > target.Slots) throw new InvalidOperationException($"{target.Name}: {rows.Count} records do not fit in {target.Slots} slots.");
+        var shared = target.Fields.Values.Where(f => source.Fields.ContainsKey(f.Name)).ToList();
+        foreach (var f in shared)
+            if (f.Type != source.Fields[f.Name].Type) throw new InvalidDataException($"{target.Name}.{f.Name}: field type differs between the two databases.");
+        var map = shared.ToDictionary(f => f.Name, f => source.Fields[f.Name]);
+        Array.Clear(Bytes, target.RecordsAt, target.Slots * target.RecordBytes);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            int at = target.RecordsAt + i * target.RecordBytes;
+            foreach (var f in shared)
+            {
+                if (f.Type == 0)
+                {
+                    var text = System.Text.Encoding.UTF8.GetBytes(sourceDb.GetString(source, rows[i], f.Name));
+                    if (text.Length + 1 > f.Depth / 8) throw new InvalidDataException($"{target.Name}.{f.Name}: text longer than the field.");
+                    text.CopyTo(Bytes.AsSpan(at + f.BitOffset / 8));
+                }
+                else
+                {
+                    long raw = sourceDb.GetInt(source, rows[i], f.Name) - f.RangeLow;
+                    if (raw < 0 || (f.Depth < 63 && raw >= 1L << f.Depth)) throw new InvalidDataException($"{target.Name}.{f.Name}: value does not fit.");
+                    WriteBits(at, f, raw);
+                }
+            }
+            foreach (var f in target.Fields.Values.Where(f => f.Type == 3 && !map.ContainsKey(f.Name))) WriteBits(at, f, 0);
+        }
+        uint head = U32(Bytes, target.Start + 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(target.Start + 16), (uint)rows.Count << 16 | (head & 0xFFFF));
+        BinaryPrimitives.WriteUInt32LittleEndian(Bytes.AsSpan(target.Start + 32), Crc(Bytes.AsSpan(target.Start, 32)));
+        var changed = new Table { Name = target.Name, Short = target.Short, Start = target.Start, End = target.End, RecordBytes = target.RecordBytes, RecordsAt = target.RecordsAt, InUse = rows.Count, Fields = target.Fields };
+        Tables[target.Name] = changed;
+        _dirty.Remove(target);
+        _dirty.Add(changed);
+        return changed;
+    }
+
+    void WriteBits(int recordAt, Field f, long raw)
+    {
+        for (int b = 0; b < f.Depth; b++)
+        {
+            int bit = f.BitOffset + b, p = recordAt + (bit >> 3), m = 1 << (bit & 7);
+            Bytes[p] = (byte)(((raw >> b) & 1) != 0 ? Bytes[p] | m : Bytes[p] & ~m);
+        }
+    }
+
     /// <summary>Recomputes the section CRC of every edited table and returns the bytes (same length as loaded).</summary>
     public byte[] Save()
     {

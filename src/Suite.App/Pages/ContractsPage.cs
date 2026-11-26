@@ -137,14 +137,14 @@ public sealed class ContractsPage : DockPanel
         _grid = new DataGrid
         {
             ItemsSource = _view, AutoGenerateColumns = true, CanUserAddRows = false, CanUserDeleteRows = true, FrozenColumnCount = 2,
-            EnableRowVirtualization = true, HeadersVisibility = DataGridHeadersVisibility.Column, RowHeight = 22,
+            EnableRowVirtualization = true, HeadersVisibility = DataGridHeadersVisibility.Column,
         };
         _grid.AutoGeneratingColumn += (_, e) => { if (e.PropertyName == nameof(Row.C)) e.Cancel = true; };
         _grid.CellEditEnding += (_, _) => _plans = null;
         var teamGrid = new DataGrid
         {
             ItemsSource = _teams, AutoGenerateColumns = true, CanUserAddRows = false, CanUserDeleteRows = false, FrozenColumnCount = 2,
-            HeadersVisibility = DataGridHeadersVisibility.Column, RowHeight = 22,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
             ToolTip = "Per season from this season on, comma separated: dead cap (buyouts, recapture, buried money) and retained salary in dollars, retained contracts 0-7.",
         };
         teamGrid.AutoGeneratingColumn += (_, e) => { if (e.PropertyName == nameof(TeamRow.T)) e.Cancel = true; };

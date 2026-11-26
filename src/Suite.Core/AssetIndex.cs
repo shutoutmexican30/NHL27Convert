@@ -127,6 +127,8 @@ public sealed class AssetIndex
 
     public static string Dir(string game) => SuitePaths.Ensure(System.IO.Path.Combine(SuitePaths.Local, "index", game));
     static string FileFor(string game) => System.IO.Path.Combine(Dir(game), "assets.json.gz");
+    // One extra copy per fingerprint, so switching between game builds (main game, test copy) reuses each build's index.
+    static string FileFor(string game, string fingerprint) => System.IO.Path.Combine(Dir(game), $"assets-{fingerprint}.json.gz");
 
     static readonly JsonSerializerOptions Json = new()
     {
@@ -144,12 +146,18 @@ public sealed class AssetIndex
         using (var gz = new GZipStream(fs, CompressionLevel.Fastest))
             JsonSerializer.Serialize(gz, new Stored(SchemaVersion, Game, Fingerprint, Built, Entries.ToList()), Json);
         File.Move(tmp, path, true);
+        try
+        {
+            File.Copy(path, FileFor(Game, Fingerprint), true);
+            foreach (var old in new DirectoryInfo(Dir(Game)).GetFiles("assets-*.json.gz").OrderByDescending(f => f.LastWriteTimeUtc).Skip(4)) old.Delete();
+        }
+        catch (IOException) { /* the per-build copy is only a speed-up */ }
     }
 
     /// <summary>Loads the saved index if it exists, matches the schema and (when given) the current game fingerprint.</summary>
     public static AssetIndex? TryLoad(string game, string? fingerprint = null)
     {
-        var path = FileFor(game);
+        var path = fingerprint is not null && File.Exists(FileFor(game, fingerprint)) ? FileFor(game, fingerprint) : FileFor(game);
         if (!File.Exists(path)) return null;
         try
         {

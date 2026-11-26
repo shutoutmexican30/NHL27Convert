@@ -90,7 +90,7 @@ public static class ScorebugTeams
         var missing = All.Where(t => !File.Exists(Path.Combine(dir, $"t{t.LogoId}.png"))).ToList();
         if (missing.Count == 0) return 0;
         progress?.Invoke("Reading the game's team logos...");
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         int done = 0;
         foreach (var t in missing)
         {

@@ -9,7 +9,7 @@
       <Setter Property="Background" Value="#243042" /><Setter Property="Foreground" Value="#e6ebf2" />
       <Setter Property="BorderBrush" Value="#38465c" /><Setter Property="Padding" Value="8,4" /><Setter Property="Margin" Value="0,0,6,0" />
     </Style>
-    <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,0,10,0" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Margin" Value="0,0,10,0" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
     <Style x:Key="Caption" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#8c97a8" /><Setter Property="Margin" Value="10,0,6,0" /><Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -96,11 +96,14 @@
               <Border Width="156" Margin="5" Padding="6" Background="#1b2230" BorderBrush="#2a3750" BorderThickness="1" CornerRadius="4">
                 <StackPanel>
                   <Border Height="128" Background="#222832" CornerRadius="3" Cursor="Hand"
-                          MouseLeftButtonUp="Card_Click" Tag="{Binding}" ToolTip="Click to select, then Choose replacement…">
-                    <Image Source="{Binding Preview, Converter={StaticResource Img}, ConverterParameter=300}" Stretch="Uniform" Margin="2" />
+                          MouseLeftButtonUp="Card_Click" MouseLeftButtonDown="Card_Down" Tag="{Binding}" ToolTip="Click to select, then Choose replacement… Double-click for a full-size view with channels.">
+                    <Grid>
+                      <TextBlock Text="no picture" Foreground="#5a6372" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      <Image Source="{Binding Preview, Converter={StaticResource Img}, ConverterParameter=300}" Stretch="Uniform" Margin="2" />
+                    </Grid>
                   </Border>
                   <TextBlock Text="{Binding Leaf}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" ToolTip="{Binding Slot}" />
-                  <TextBlock Text="{Binding Sub}" Foreground="#8c97a8" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Sub}" Foreground="#8c97a8" FontSize="11.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Sub}" />
                   <TextBlock Text="{Binding ReplaceText}" Foreground="#5fc97a" FontSize="11.5" TextTrimming="CharacterEllipsis"
                              ToolTip="{Binding Replacement}" />
                 </StackPanel>

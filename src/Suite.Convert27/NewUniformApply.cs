@@ -69,7 +69,7 @@ public static class NewUniformApply
             ["nhl_game"] = legacy.Read(RosterSyncRun.LegacyName("nhl_game")),
             ["initial_experience"] = legacy.Read(RosterSyncRun.LegacyName("initial_experience")),
         };
-        var index = BundleIndex.Build(target, progress);
+        var index = BundleIndex.Shared(target, progress);
         // A uniform this game already has is skipped, never added a second time under another variant.
         var skipped = InstalledKits.Load().SkipPresent(target, mod.Additions, prefix => InstalledKits.FolderHasAssets(index, prefix));
         foreach (var (a, kit) in skipped)
@@ -170,7 +170,7 @@ public static class NewUniformApply
         var problems = ModApply.Problems(settings);
         if (problems.Count > 0) return (false, "Repair refused: " + string.Join("; ", problems));
         string target = Path.GetFullPath(settings.ApplyTargetDir).TrimEnd(Path.DirectorySeparatorChar);
-        var index = BundleIndex.Build(target, progress);
+        var index = BundleIndex.Shared(target, progress);
         var registries = InstalledKits.Registries(index);
         var broken = new List<NewUniformAddition>();
         var plans = new List<BrokenKitRemoval.Plan>();

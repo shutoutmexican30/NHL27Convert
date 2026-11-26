@@ -1,0 +1,27 @@
+{
+  "GameBuilds": [
+    {
+      "Id": "nhl24-v32",
+      "Name": "NHL24PC V3.2",
+      "GameDir": "C:\\Users\\devin\\Downloads\\NHL24PC_V3.2\\NHL24PC",
+      "ApplyTargetDir": "C:\\Users\\devin\\Downloads\\NHL24PC_V3.2\\NHL24PC"
+    },
+    {
+      "Id": "nhl24-v092b",
+      "Name": "NHL24 PC v0.9.2b",
+      "GameDir": "C:\\NHL24-PC-v0.9.2b\\NHL24-PC-v0.9.2b",
+      "ApplyTargetDir": "C:\\NHL24-PC-v0.9.2b\\NHL24-PC-v0.9.2b"
+    }
+  ],
+  "ActiveGameBuildId": "nhl24-v32",
+  "Nhl27GameRoot": "D:\\Archives\\PS5\\PPSA34063\\[DLPSGAME.COM]-PPSA34063\\[DLPSGAME.COM]-PPSA34063\\PPSA34063-app0",
+  "Nhl27ViewerDir": "D:\\Tools\\NHL27TextureViewer",
+  "Nhl24GameDir": "C:\\Users\\devin\\Downloads\\NHL24PC_V3.2\\NHL24PC",
+  "Nhl24ReadView": "C:\\Users\\devin\\AppData\\Local\\CenterIceModdingSuite\\nhl24view",
+  "WorkerRuntimeDir": "C:\\Users\\devin\\AppData\\Local\\NHL24Kit\\runtimes\\b935118cf7c257434248dbe2",
+  "LegacyRefsDir": "C:\\Users\\devin\\AppData\\Local\\NHL24Kit\\refs",
+  "ApplyTargetDir": "C:\\Users\\devin\\Downloads\\NHL24PC_V3.2\\NHL24PC",
+  "ReplacementDir": "",
+  "PythonExe": "python",
+  "Workers": 24
+}

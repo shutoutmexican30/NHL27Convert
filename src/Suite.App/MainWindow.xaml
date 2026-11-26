@@ -27,9 +27,9 @@
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="centerice" Content="Center ice" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="hotspots" Content="Ice hotspots" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="textures" Content="Texture suite" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="patches" Content="Patches" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="teams" Content="Teams &amp; roster" Checked="Nav_Checked" />
-          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="editor" Content="Teams &amp; database" Checked="Nav_Checked" />
-          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="contracts" Content="Contracts" Checked="Nav_Checked" />
+          <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="dbstudio" Content="Database studio" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="scorebug" Content="Scorebug" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="sounds" Content="Sounds" Checked="Nav_Checked" />
           <RadioButton Style="{StaticResource NavButton}" GroupName="nav" Tag="ui" Content="UI scripts" Checked="Nav_Checked" />

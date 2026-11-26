@@ -11,12 +11,17 @@ namespace Suite.Core.Frostbite;
 /// </summary>
 public static class Ps4Codec
 {
-    public enum Kind { Bc1, Bc3, Bc5, Bc7 }
+    public enum Kind { Bc1, Bc3, Bc5, Bc7, Bc4, Bc6 }
 
-    public static Kind Of(byte[] header, int blockBytes) => blockBytes == 8 ? Kind.Bc1 : header[12] switch
+    /// <summary>
+    /// 8-byte blocks: 0x36/0x37 BC1, 0x3E BC4 (one-channel maps: ambient, heightmap, sky visibility). 16-byte blocks: 0x3C/0x3D BC3, 0x3F BC5,
+    /// 0x40 BC6H (HDR: irradiance, lrv, hdri), 0x42/0x43/0x44 BC7. Audited across every texture of the NHL 24 index.
+    /// </summary>
+    public static Kind Of(byte[] header, int blockBytes) => blockBytes == 8 ? header[12] == 0x3E ? Kind.Bc4 : Kind.Bc1 : header[12] switch
     {
-        0x3F or 0x40 => Kind.Bc5,
-        0x43 or 0x44 => Kind.Bc7,
+        0x3F => Kind.Bc5,
+        0x40 => Kind.Bc6,
+        0x42 or 0x43 or 0x44 => Kind.Bc7,
         _ => Kind.Bc3,
     };
 
@@ -27,6 +32,8 @@ public static class Ps4Codec
         Kind.Bc1 => Bc1.DecodeTiled(tiled, width, height),
         Kind.Bc5 => Bc5.DecodeTiled(tiled, width, height),
         Kind.Bc7 => Bc7.DecodeTiled(tiled, width, height),
+        Kind.Bc4 => DecodeBc4(tiled, width, height),
+        Kind.Bc6 => DecodeBc6(tiled, width, height),
         _ => DecodeBc3(tiled, width, height),
     };
 
@@ -35,8 +42,45 @@ public static class Ps4Codec
         Kind.Bc1 => Bc1.EncodeTiled(img, workers),
         Kind.Bc5 => Bc5.EncodeTiled(img, workers),
         Kind.Bc7 => Bc7.EncodeTiled(img),
+        Kind.Bc4 or Kind.Bc6 => throw new NotSupportedException($"{kind} textures can be read and previewed but not written; the suite has no encoder for them."),
         _ => Bc3.EncodeTiled(img, workers),
     };
+
+    /// <summary>One-channel map: the value shown as grey.</summary>
+    static Rgba DecodeBc4(byte[] tiled, int width, int height)
+    {
+        int bw = (width + 3) / 4, bh = (height + 3) / 4, pw = (bw + 7) / 8 * 8, ph = (bh + 7) / 8 * 8;
+        if (tiled.Length < pw * ph * 8) throw new InvalidDataException($"BC4 data is {tiled.Length} bytes, {pw * ph * 8} expected for {width}x{height}.");
+        var linear = new byte[bw * bh * 8];
+        for (int by = 0; by < bh; by++)
+            for (int bx = 0; bx < bw; bx++)
+                Buffer.BlockCopy(tiled, Bc3.TiledIndex(bx, by, pw) * 8, linear, (by * bw + bx) * 8, 8);
+        var colors = new BcDecoder().DecodeRaw(linear, bw * 4, bh * 4, CompressionFormat.Bc4);
+        var px = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                byte v = colors[y * bw * 4 + x].r; int p = (y * width + x) * 4;
+                px[p] = px[p + 1] = px[p + 2] = v; px[p + 3] = 255;
+            }
+        return new Rgba(width, height, px);
+    }
+
+    /// <summary>HDR colour: clamped and gamma-encoded for a viewable preview.</summary>
+    static Rgba DecodeBc6(byte[] tiled, int width, int height)
+    {
+        int bw = (width + 3) / 4, bh = (height + 3) / 4;
+        var colors = new BcDecoder().DecodeRawHdr(Bc3.Untile(tiled, width, height), bw * 4, bh * 4, CompressionFormat.Bc6U);
+        var px = new byte[width * height * 4];
+        static byte Tone(float v) => (byte)Math.Round(Math.Pow(Math.Clamp(float.IsFinite(v) ? v : 0f, 0f, 1f), 1 / 2.2) * 255);
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                var c = colors[y * bw * 4 + x]; int p = (y * width + x) * 4;
+                px[p] = Tone(c.r); px[p + 1] = Tone(c.g); px[p + 2] = Tone(c.b); px[p + 3] = 255;
+            }
+        return new Rgba(width, height, px);
+    }
 
     static Rgba DecodeBc3(byte[] tiled, int width, int height)
     {

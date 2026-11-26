@@ -214,6 +214,10 @@ public static class NewPlayers
                 if (!donors.TryGetValue(p.DonorGameId, out var d)) { warnings.Add($"{p.Name}: donor has no {table} row"); continue; }
                 var r = (string[])d.Clone();
                 t.Set(r, "game_id", p.GameId);
+                // The donor's X-Factors (xza, xsa1-5) and traits are the donor's own, not this player's: none by default
+                // (tools\Port27 maps NHL 27 X-Factors through data\xfactor_map.tsv).
+                foreach (var col in t.Header.Where(h => h is "xza" or "xsa1" or "xsa2" or "xsa3" or "xsa4" or "xsa5" || h.StartsWith("trait", StringComparison.Ordinal)))
+                    t.Set(r, col, 0);
                 rows.Add(r); added++;
             }
             if (added == 0) continue;

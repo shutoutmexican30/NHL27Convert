@@ -42,7 +42,7 @@ public static class ImageIO
     public static void SavePng(Rgba img, string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tmp = path + ".tmp";
+        var tmp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
         using (var fs = File.Create(tmp))
             new ImageWriter().WritePng(img.Pixels, img.Width, img.Height, StbImageWriteSharp.ColorComponents.RedGreenBlueAlpha, fs);
         File.Move(tmp, path, true);
@@ -171,6 +171,8 @@ public static class Dds
             var c = colors[i];
             px[i * 4] = c.r; px[i * 4 + 1] = c.g; px[i * 4 + 2] = c.b; px[i * 4 + 3] = c.a;
         }
+        if (format == CompressionFormat.Bc4)
+            for (int i = 0; i < colors.Length; i++) { px[i * 4 + 1] = px[i * 4 + 2] = px[i * 4]; px[i * 4 + 3] = 255; }
         if (format == CompressionFormat.Bc5)
             for (int i = 0; i < colors.Length; i++) { px[i * 4 + 2] = 255; px[i * 4 + 3] = 255; }
         return new Rgba(width, height, px);

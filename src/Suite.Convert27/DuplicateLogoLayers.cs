@@ -53,7 +53,7 @@ public static class DuplicateLogoLayers
             foreach (var texture in addition.Textures.Where(t => Suffixes.Any(s => t.SourceSlot == stem + s)))
                 Remove(texture, drop);
             removed += drop.Count;
-            say?.Invoke($"{addition.Team} {addition.SourceKit} {stem[(stem.LastIndexOf('/') + 1)..]}: layer(s) {string.Join(", ", drop)} repeat an earlier logo's picture and were not added again");
+            say?.Invoke($"{addition.Team} {addition.Kit} {stem[(stem.LastIndexOf('/') + 1)..]}: layer(s) {string.Join(", ", drop)} repeat an earlier logo's picture and were not added again");
         }
         return removed;
     }

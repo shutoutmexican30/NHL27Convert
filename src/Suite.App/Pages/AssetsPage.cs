@@ -145,9 +145,9 @@ public sealed class AssetsPage : Grid
 
     BundleIndex Index(string game)
     {
-        if (_index is not null && _indexGame == game) return _index;
+        // Shared across pages and rebuilt only when the game's TOCs change, so a write is always seen.
         _indexGame = game;
-        return _index = BundleIndex.Build(game);
+        return _index = BundleIndex.Shared(game);
     }
 
     async Task EnsureCatalogAsync()
@@ -507,7 +507,7 @@ public sealed class AssetsPage : Grid
 
     static string BuildObj(string game, MeshSet mesh, BundleIndex.Res res, int lodIndex)
     {
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         var lod = mesh.Lods[lodIndex];
         var chunk = MeshSet.LoadLodChunk(index, res, lod);
         var sb = new StringBuilder();

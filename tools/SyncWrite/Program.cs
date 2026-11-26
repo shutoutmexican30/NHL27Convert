@@ -12,6 +12,17 @@ var only = args.SkipWhile(a => a != "--teams").Skip(1).FirstOrDefault()?.Split('
 var dbs = args.Skip(2).TakeWhile(a => !a.StartsWith("--")).Select(a => a.Split('=', 2)).Select(p => new DbTarget(p[0], p[1], args[1])).ToList();
 var include = Array.IndexOf(args, "--include-prospects");
 var extra = include < 0 ? null : System.Text.Json.JsonSerializer.Deserialize<List<ApiPlayer>>(File.ReadAllText(args[include + 1]));
+// --reality <json>: {ActiveUnsignedGameIds:[...], PortedLeagues:true} from tools\Port27 (free agents = real ones; ported AHL kept).
+var realityAt = Array.IndexOf(args, "--reality");
+if (realityAt >= 0)
+{
+    using var rj = System.Text.Json.JsonDocument.Parse(File.ReadAllText(args[realityAt + 1]));
+    var ids = rj.RootElement.GetProperty("ActiveUnsignedGameIds").EnumerateArray().Select(e => e.GetString()!).ToHashSet();
+    var ahl = rj.RootElement.TryGetProperty("AhlNowGameIds", out var an) ? an.EnumerateArray().Select(e => e.GetString()!).ToHashSet() : new HashSet<string>();
+    var leagues = rj.RootElement.TryGetProperty("PortedLeagueIds", out var li) ? li.EnumerateArray().Select(e => e.GetInt32()).ToHashSet() : null;
+    RosterWriter.Reality = new RosterWriter.RealityInfo(ids, new HashSet<long>(), rj.RootElement.TryGetProperty("PortedLeagues", out var pl) && pl.GetBoolean(), ahl, leagues);
+    Console.WriteLine($"reality: {ids.Count} real free agents, {ahl.Count} API-confirmed AHL players, ported leagues {RosterWriter.Reality.PortedLeagues}");
+}
 
 if (args.Contains("--verify-only"))
 {

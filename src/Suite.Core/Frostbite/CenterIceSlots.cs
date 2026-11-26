@@ -47,7 +47,7 @@ public static class CenterIceSlots
     public static (bool Ok, string Message, string? Backup) Apply(string game, IReadOnlyDictionary<int, Rgba> images, Action<string>? progress = null)
     {
         progress?.Invoke("Reading the game's bundles...");
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         var jobs = images.Select(kv => { var s = Read(game, index, kv.Key); return (s.Chunk, Data: Build(s.Res, kv.Value)); }).ToList();
         return ApplyJobs(game, jobs, progress);
     }
@@ -59,7 +59,7 @@ public static class CenterIceSlots
     public static (bool Ok, string Message, string? Backup) ApplyChunks(string game, IReadOnlyDictionary<int, byte[]> data, Action<string>? progress = null)
     {
         progress?.Invoke("Reading the game's bundles...");
-        var index = BundleIndex.Build(game);
+        var index = BundleIndex.Shared(game);
         var jobs = data.Select(kv => { var s = Read(game, index, kv.Key); return (s.Chunk, Data: kv.Value); }).ToList();
         return ApplyJobs(game, jobs, progress);
     }
@@ -73,7 +73,7 @@ public static class CenterIceSlots
         var backup = ApplyTarget.Backup(game);
         try
         {
-            var index = BundleIndex.Build(game);
+            var index = BundleIndex.Shared(game);
             foreach (var (id, data) in jobs)
             {
                 foreach (var line in ChunkReplace.Replace(game, index, id, data)) SuiteLog.Write("center ice: " + line);

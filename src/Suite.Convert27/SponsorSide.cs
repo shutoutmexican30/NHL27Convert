@@ -72,7 +72,7 @@ public static class SponsorSide
             ImageIO.SavePng(Move(ImageIO.Load(t.Artwork.Source), ImageIO.Load(plain), box.Value), png);
             t.Artwork = t.Artwork with { Source = png };
         }
-        say?.Invoke($"{addition.Team} {addition.SourceKit}: chest sponsor was on the player's left; moved to the right chest like every other kit");
+        say?.Invoke($"{addition.Team} {addition.Kit}: chest sponsor was on the player's left; moved to the right chest like every other kit");
         return true;
     }
 }

@@ -38,6 +38,7 @@ public sealed class HotspotsPage : Grid
     {
         Margin = new Thickness(0, 8, 0, 0),
         Width = 980, Height = 420,
+        Background = new SolidColorBrush(Color.FromRgb(0x14, 0x1a, 0x24)), Foreground = new SolidColorBrush(Color.FromRgb(0xe6, 0xeb, 0xf2)),
         HorizontalContentAlignment = HorizontalAlignment.Left,
     };
     readonly Image _stock = new() { Stretch = Stretch.Uniform, Width = 380, Height = 380 };
@@ -91,6 +92,18 @@ public sealed class HotspotsPage : Grid
         // thumbnails flow left-to-right and wrap, so a whole set is visible at a glance
         var wrapFactory = new FrameworkElementFactory(typeof(WrapPanel));
         _grid.ItemsPanel = new ItemsPanelTemplate(wrapFactory);
+        // each patch: its picture on a dark square with its number underneath (a list with no template showed only bare numbers)
+        var picture = new FrameworkElementFactory(typeof(Image));
+        picture.SetBinding(Image.SourceProperty, new System.Windows.Data.Binding(nameof(Thumb.Image)));
+        picture.SetValue(FrameworkElement.WidthProperty, 96.0); picture.SetValue(FrameworkElement.HeightProperty, 96.0);
+        var number = new FrameworkElementFactory(typeof(TextBlock));
+        number.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(Thumb.Index)));
+        number.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0xe6, 0xeb, 0xf2)));
+        number.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        number.SetValue(TextBlock.FontSizeProperty, 12.0);
+        var cell = new FrameworkElementFactory(typeof(StackPanel));
+        cell.AppendChild(picture); cell.AppendChild(number);
+        _grid.ItemTemplate = new DataTemplate { VisualTree = cell };
         ScrollViewer.SetHorizontalScrollBarVisibility(_grid, ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(_grid, ScrollBarVisibility.Auto);
         _filter.TextChanged += (_, _) => RefilterSets();
@@ -137,9 +150,9 @@ public sealed class HotspotsPage : Grid
 
     BundleIndex Index(string game)
     {
-        if (_index is not null && _indexGame == game) return _index;
+        // Shared across pages and rebuilt only when the game's TOCs change, so a write is always seen.
         _indexGame = game;
-        return _index = BundleIndex.Build(game);
+        return _index = BundleIndex.Shared(game);
     }
 
     void ClearSelection()

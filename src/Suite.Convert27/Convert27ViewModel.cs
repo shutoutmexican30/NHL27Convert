@@ -784,7 +784,7 @@ public sealed class Convert27ViewModel : Observable
         if (_gameLayouts is null || _gameLayoutsDir != game)
         {
             Status = "Reading the game's jersey layouts…";
-            _gameLayouts = await Task.Run(() => Suite.Core.Frostbite.BundleIndex.Build(game));
+            _gameLayouts = await Task.Run(() => Suite.Core.Frostbite.BundleIndex.Shared(game));
             _gameLayoutsDir = game;
             Status = "Slot map ready";
         }

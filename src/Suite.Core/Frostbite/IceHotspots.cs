@@ -116,7 +116,7 @@ public static class IceHotspots
         var backup = ApplyTarget.Backup(game);
         try
         {
-            var index = BundleIndex.Build(game);
+            var index = BundleIndex.Shared(game);
             var jobs = data.Select(kv => { var s = Read(game, index, kv.Key.Set, kv.Key.Index); return (s.Chunk, Data: kv.Value); }).ToList();
             foreach (var (id, bytes) in jobs)
             {

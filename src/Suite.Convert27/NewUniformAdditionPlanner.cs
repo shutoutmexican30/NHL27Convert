@@ -55,11 +55,11 @@ public static class NewUniformAdditionPlanner
             if (addition.SourceKit is not ("home" or "away"))
                 throw new InvalidDataException($"{addition.Team}: SourceKit must be home or away, not '{addition.SourceKit}'.");
             if (addition.IsLight != (addition.SourceKit == "away"))
-                throw new InvalidDataException($"{addition.Team} {addition.SourceKit}: the light/dark role does not match the source kit.");
+                throw new InvalidDataException($"{addition.Team} {addition.Kit}: the light/dark role does not match the source kit.");
             if (addition.Style != 2) throw new InvalidDataException($"{addition.Team}: only skater style 2 is supported.");
-            if (!roles.Add((addition.TeamId, addition.Style, addition.SourceKit)))
+            if (!roles.Add((addition.TeamId, addition.Style, addition.Kit)))
                 throw new InvalidDataException($"{addition.Team}: duplicate {addition.SourceKit} addition in this batch.");
-            if (addition.Textures.Count == 0) throw new InvalidDataException($"{addition.Team} {addition.SourceKit}: no source textures were supplied.");
+            if (addition.Textures.Count == 0) throw new InvalidDataException($"{addition.Team} {addition.Kit}: no source textures were supplied.");
             var parts = addition.SourcePrefix.Trim('/').Split('/');
             if (parts.Length < 3 || !string.Equals(parts[^3], addition.Team, StringComparison.Ordinal)
                     && !string.Equals(addition.SourcePrefix.TrimEnd('/') + "/", KitDonor.Prefix, StringComparison.Ordinal))

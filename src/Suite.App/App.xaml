@@ -155,9 +155,19 @@
                     <ColumnDefinition Width="Auto" />
                   </Grid.ColumnDefinitions>
                   <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                    ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                    HorizontalAlignment="Left" VerticalAlignment="Center" />
-                  <Path Grid.Column="1" x:Name="Arrow" Data="M0,0 L4,4.5 L8,0" Width="8" Height="5" Stretch="Fill"
+                                    ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" x:Name="Shown" />
+                  <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Background="Transparent" BorderThickness="0" Padding="0"
+                           Foreground="{TemplateBinding Foreground}" CaretBrush="{TemplateBinding Foreground}" VerticalContentAlignment="Center"
+                           VerticalAlignment="Center" MinHeight="0" Margin="0" IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource TemplatedParent}}" />
+                  <!-- The standard invisible toggle: a click on the box opens and closes the list (over the arrow only when the box is editable). -->
+                  <ToggleButton x:Name="Toggle" Grid.ColumnSpan="2" Focusable="False" ClickMode="Press" Margin="-10,-6"
+                                IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                    <ToggleButton.Template>
+                      <ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" /></ControlTemplate>
+                    </ToggleButton.Template>
+                  </ToggleButton>
+                  <Path Grid.Column="1" x:Name="Arrow" IsHitTestVisible="False" Data="M0,0 L4,4.5 L8,0" Width="8" Height="5" Stretch="Fill"
                         Stroke="#9fb4cf" StrokeThickness="1.4" Margin="8,0,0,0" VerticalAlignment="Center" />
                 </Grid>
               </Border>
@@ -177,6 +187,14 @@
                 <Setter TargetName="Bd" Property="Background" Value="#182234" />
                 <Setter TargetName="Bd" Property="BorderBrush" Value="#38465c" />
                 <Setter TargetName="Arrow" Property="Stroke" Value="#d8e2ee" />
+              </Trigger>
+              <Trigger Property="IsEditable" Value="True">
+                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Shown" Property="Visibility" Value="Hidden" />
+                <Setter TargetName="Toggle" Property="Grid.Column" Value="1" />
+                <Setter TargetName="Toggle" Property="Grid.ColumnSpan" Value="1" />
+                <Setter TargetName="Toggle" Property="MinWidth" Value="26" />
+                <Setter TargetName="Toggle" Property="Margin" Value="-6,-6,-10,-6" />
               </Trigger>
               <Trigger Property="IsDropDownOpen" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#7fa6d6" /></Trigger>
               <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#7d8899" /><Setter TargetName="Arrow" Property="Stroke" Value="#7d8899" /></Trigger>
@@ -207,6 +225,7 @@
 
     <!-- ============================== implicit ListBox / ListBoxItem ============================== -->
     <Style TargetType="ListBox">
+      <Setter Property="Background" Value="#141a24" />
       <Setter Property="Foreground" Value="#e6ebf2" />
       <Setter Property="BorderThickness" Value="0" />
     </Style>
@@ -250,7 +269,7 @@
           <ControlTemplate TargetType="TabItem">
             <Border x:Name="B" Background="Transparent" Padding="13,8" Margin="0,0,6,0"
                     BorderBrush="#24304a" BorderThickness="0,0,0,1" SnapsToDevicePixels="True">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="#d8e2ee" /></Trigger>
@@ -298,6 +317,9 @@
       <Setter Property="VerticalGridLinesBrush" Value="#1d2b44" />
       <Setter Property="RowHeaderWidth" Value="0" />
       <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="MinRowHeight" Value="28" />
+      <Setter Property="RowBackground" Value="Transparent" />
+      <Setter Property="AlternatingRowBackground" Value="#101827" />
     </Style>
 
     <Style TargetType="DataGridColumnHeader">
@@ -339,7 +361,7 @@
         <Setter.Value>
           <ControlTemplate TargetType="DataGridCell">
             <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
-                    Padding="10,6" SnapsToDevicePixels="True">
+                    Padding="10,3" SnapsToDevicePixels="True">
               <ContentPresenter VerticalAlignment="Center" />
             </Border>
           </ControlTemplate>
@@ -348,14 +370,19 @@
     </Style>
 
     <Style TargetType="DataGridRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#e6ebf2" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="DataGridRow">
             <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
               <SelectiveScrollingGrid>
+                <SelectiveScrollingGrid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></SelectiveScrollingGrid.ColumnDefinitions>
+                <SelectiveScrollingGrid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></SelectiveScrollingGrid.RowDefinitions>
                 <DataGridCellsPresenter Grid.Column="1" />
-                <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" />
+                <!-- The details row is bound to the row's DetailsVisibility; unbound it printed every item's type name over the cells. -->
+                <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" Visibility="{Binding DetailsVisibility, RelativeSource={RelativeSource AncestorType={x:Type DataGridRow}}}" />
               </SelectiveScrollingGrid>
             </Border>
             <ControlTemplate.Triggers>

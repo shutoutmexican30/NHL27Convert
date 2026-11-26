@@ -224,17 +224,12 @@ public partial class TexturesPage : UserControl
         if (rows.Count == 0) return;
         if (Game24)
         {
-            var folders = rows.Select(r => r.Slot[..r.Slot.LastIndexOf('/')]).Distinct().Take(16).ToList();
             Status.Text = $"{what} — decoding…";
-            foreach (var folder in folders)
-            {
-                var pngs = await _images.Nhl24FolderAsync(folder, SetStatus);
-                if (token != _loadToken) return;
-                foreach (var r in rows)
-                    if (r.Slot.StartsWith(folder + "/", StringComparison.Ordinal) &&
-                        (pngs.TryGetValue(r.Slot, out var png) || pngs.TryGetValue(r.Slot + "#0", out png)))
-                        r.Preview = png;
-            }
+            var pngs = await _images.Nhl24NamesAsync(rows.Select(r => r.Slot), SetStatus);
+            if (token != _loadToken) return;
+            foreach (var r in rows)
+                if (pngs.TryGetValue(r.Slot + TextureImages.SheetSuffix, out var png) || pngs.TryGetValue(r.Slot, out png) || pngs.TryGetValue(r.Slot + "#0", out png))
+                    r.Preview = png;
         }
         else
         {
@@ -317,13 +312,19 @@ public partial class TexturesPage : UserControl
             var m = System.Text.RegularExpressions.Regex.Match(r.Slot, @"^(.*)_\d+_(color|coeff|normal)$");
             if (!m.Success) continue;
             if (!live.Contains(m.Groups[1].Value + "_color_array") && !live.Contains(m.Groups[1].Value + "_coeff_array")) continue;
-            r.Preview = null;
-            r.Sub += "  · legacy single — the game reads the *_array";
+            r.Sub += "  · legacy single (stock points it at a shared default; the game reads the *_array)";
         }
     }
 
     static string Describe(AssetEntry e) =>
         e.Width > 0 ? $"{e.Width}×{e.Height} · {e.Format}" : (e.Kind == AssetKind.TextureArray ? "texture array" : "texture");
+
+    void Card_Down(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || sender is not FrameworkElement { Tag: TextureRow row }) return;
+        new TexturePreviewWindow(row.Slot, row.Preview, Game24) { Owner = Window.GetWindow(this) }.Show();
+        e.Handled = true;
+    }
 
     void Card_Click(object sender, MouseButtonEventArgs e)
     {
@@ -405,7 +406,7 @@ public partial class TexturesPage : UserControl
             Status.Text = $"Reading {_selected.Leaf} from the game...";
             int n = await Task.Run(() =>
             {
-                var index = Suite.Core.Frostbite.BundleIndex.Build(game);
+                var index = Suite.Core.Frostbite.BundleIndex.Shared(game);
                 var t = Suite.Core.Frostbite.TextureSlots.Read(game, index, slot);
                 var layers = Suite.Core.Frostbite.Ps4Codec.DecodeSlices(t.Res, t.Stock);
                 var leaf = slot[(slot.LastIndexOf('/') + 1)..];

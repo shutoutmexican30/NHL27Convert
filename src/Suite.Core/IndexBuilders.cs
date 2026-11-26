@@ -45,19 +45,28 @@ public static class IndexStore
         var view = Nhl24ReadView.Ensure(s);
         var entries = await Task.Run(() =>
         {
-            var index = Frostbite.BundleIndex.Build(view);
+            var index = Frostbite.BundleIndex.Shared(view);
             var bag = new System.Collections.Concurrent.ConcurrentBag<AssetEntry>();
             var names = index.ResByName
                 .Where(kv => !kv.Key.EndsWith("_mesh", StringComparison.Ordinal))
                 .Select(kv => kv.Value[0]).ToList();
-            Parallel.ForEach(names, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2), CancellationToken = ct }, r =>
+            // One open file per CAS, read in offset order (opening the CAS once per texture, 166k times, was the slow part).
+            var byCas = names.GroupBy(r => r.Data.Cas, StringComparer.OrdinalIgnoreCase).Select(g => g.OrderBy(r => r.Data.Offset).ToList()).ToList();
+            Parallel.ForEach(byCas, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2), CancellationToken = ct }, group =>
             {
+                if (!File.Exists(group[0].Data.Cas)) return;
+                using var cas = new FileStream(group[0].Data.Cas, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16);
+                foreach (var r in group)
+                {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var stored = Frostbite.BundleIndex.ReadBytes(r.Data);
+                    if (r.Data.Offset + (long)r.Data.Size > cas.Length) continue;
+                    var stored = new byte[r.Data.Size];
+                    cas.Position = r.Data.Offset;
+                    cas.ReadExactly(stored);
                     byte[] header; try { header = Frostbite.ChunkBlocks.Parse(stored).Decode(); } catch { header = stored; }
-                    if (header.Length < Frostbite.TextureRes.HeaderSize) return;
+                    if (header.Length < Frostbite.TextureRes.HeaderSize) continue;
                     var tr = Frostbite.TextureRes.Parse(header);
                     int slices = Frostbite.Ps4Codec.Slices(header);
                     bag.Add(new AssetEntry
@@ -68,6 +77,7 @@ public static class IndexStore
                     });
                 }
                 catch { /* not a BC1/3/5/7 texture: meshes, data RES, other formats */ }
+                }
             });
             return bag.ToList();
         }, ct);

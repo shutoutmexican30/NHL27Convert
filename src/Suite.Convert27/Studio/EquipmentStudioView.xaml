@@ -1,13 +1,14 @@
 <UserControl x:Class="Suite.Convert27.Studio.EquipmentStudioView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:Suite.Convert27.Controls"
              Background="#151a22" Foreground="#e6ebf2" FontFamily="Segoe UI" FontSize="12">
   <UserControl.Resources>
     <Style TargetType="Button">
       <Setter Property="Background" Value="#243042" /><Setter Property="Foreground" Value="#e6ebf2" />
       <Setter Property="BorderBrush" Value="#38465c" /><Setter Property="Padding" Value="10,5" /><Setter Property="Margin" Value="0,0,7,7" />
     </Style>
-    <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,0,8,8" /><Setter Property="MinHeight" Value="27" /></Style>
+    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Margin" Value="0,0,8,8" /><Setter Property="MinHeight" Value="27" /></Style>
     <Style x:Key="Label" TargetType="TextBlock"><Setter Property="Foreground" Value="#9fb4cf" /><Setter Property="Margin" Value="0,9,0,4" /><Setter Property="FontSize" Value="11" /></Style>
     <Style x:Key="Panel" TargetType="Border"><Setter Property="Background" Value="#1b2230" /><Setter Property="BorderBrush" Value="#273246" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="12" /><Setter Property="Margin" Value="0,0,0,10" /></Style>
   </UserControl.Resources>
@@ -94,10 +95,7 @@
                   <Border Width="132" Background="#121820" CornerRadius="3" Padding="6" Margin="0,0,7,7">
                     <StackPanel>
                       <TextBlock Text="{Binding Label}" Foreground="#9fb4cf" FontSize="10" />
-                      <DockPanel Margin="0,3,0,0">
-                        <Border DockPanel.Dock="Right" Width="23" Background="{Binding Swatch}" BorderBrush="#62718a" BorderThickness="1" CornerRadius="2" />
-                        <TextBox Text="{Binding Hex, UpdateSourceTrigger=PropertyChanged}" MaxLength="6" FontFamily="Consolas" FontSize="13" Margin="0,0,6,0" ToolTip="Six-digit RGB color, without #." />
-                      </DockPanel>
+                      <c:ColorField Margin="0,3,0,0" HorizontalAlignment="Left" Hex="{Binding Hex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                   </Border>
                 </DataTemplate></ItemsControl.ItemTemplate>

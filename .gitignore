@@ -490,3 +490,14 @@ $RECYCLE.BIN/
 dist/
 tools/obfuscate/suite.generated.xml
 single.generated.xml
+
+# Large local artifacts (not for GitHub)
+Debugging/
+dist/
+out/
+*.zip
+*.exe
+*.dll
+reference/*.bin
+fmt-src/fmt-zip/
+tools/RinkSharp/test/*.dds

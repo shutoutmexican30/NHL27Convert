@@ -1,0 +1,266 @@
+{
+  "sha256": "d70676574f3d6ccfffd0afcd332fec9fea78c96988a99757c94d0f9a907b1fe9",
+  "size": 38912,
+  "image_base": "0x180000000",
+  "entrypoint": "0x180004b90",
+  "imports": {
+    "KERNEL32.dll": [
+      {
+        "name": "GetSystemTimeAsFileTime",
+        "iat_va": "0x180006010"
+      },
+      {
+        "name": "GetCurrentProcessId",
+        "iat_va": "0x180006018"
+      },
+      {
+        "name": "InitializeSListHead",
+        "iat_va": "0x180006020"
+      },
+      {
+        "name": "IsDebuggerPresent",
+        "iat_va": "0x180006028"
+      },
+      {
+        "name": "GetCurrentThread",
+        "iat_va": "0x180006030"
+      },
+      {
+        "name": "QueryPerformanceCounter",
+        "iat_va": "0x180006038"
+      },
+      {
+        "name": "IsProcessorFeaturePresent",
+        "iat_va": "0x180006040"
+      },
+      {
+        "name": "TerminateProcess",
+        "iat_va": "0x180006048"
+      },
+      {
+        "name": "SetUnhandledExceptionFilter",
+        "iat_va": "0x180006050"
+      },
+      {
+        "name": "UnhandledExceptionFilter",
+        "iat_va": "0x180006058"
+      },
+      {
+        "name": "RtlVirtualUnwind",
+        "iat_va": "0x180006060"
+      },
+      {
+        "name": "RtlLookupFunctionEntry",
+        "iat_va": "0x180006068"
+      },
+      {
+        "name": "RtlCaptureContext",
+        "iat_va": "0x180006070"
+      },
+      {
+        "name": "SetLastError",
+        "iat_va": "0x180006078"
+      },
+      {
+        "name": "VirtualQuery",
+        "iat_va": "0x180006080"
+      },
+      {
+        "name": "VirtualFree",
+        "iat_va": "0x180006088"
+      },
+      {
+        "name": "VirtualProtect",
+        "iat_va": "0x180006090"
+      },
+      {
+        "name": "VirtualAlloc",
+        "iat_va": "0x180006098"
+      },
+      {
+        "name": "FlushInstructionCache",
+        "iat_va": "0x1800060a0"
+      },
+      {
+        "name": "SetThreadContext",
+        "iat_va": "0x1800060a8"
+      },
+      {
+        "name": "GetThreadContext",
+        "iat_va": "0x1800060b0"
+      },
+      {
+        "name": "ResumeThread",
+        "iat_va": "0x1800060b8"
+      },
+      {
+        "name": "SuspendThread",
+        "iat_va": "0x1800060c0"
+      },
+      {
+        "name": "GetCurrentThreadId",
+        "iat_va": "0x1800060c8"
+      },
+      {
+        "name": "GetCurrentProcess",
+        "iat_va": "0x1800060d0"
+      },
+      {
+        "name": "GetLastError",
+        "iat_va": "0x1800060d8"
+      }
+    ],
+    "WS2_32.dll": [
+      {
+        "name": "connect",
+        "iat_va": "0x180006128"
+      },
+      {
+        "name": "inet_ntoa",
+        "iat_va": "0x180006130"
+      }
+    ],
+    "CRYPT32.dll": [
+      {
+        "name": "CryptQueryObject",
+        "iat_va": "0x180006000"
+      }
+    ],
+    "VCRUNTIME140.dll": [
+      {
+        "name": "__std_exception_copy",
+        "iat_va": "0x1800060e8"
+      },
+      {
+        "name": "_CxxThrowException",
+        "iat_va": "0x1800060f0"
+      },
+      {
+        "name": "memcpy",
+        "iat_va": "0x1800060f8"
+      },
+      {
+        "name": "memset",
+        "iat_va": "0x180006100"
+      },
+      {
+        "name": "__C_specific_handler",
+        "iat_va": "0x180006108"
+      },
+      {
+        "name": "__std_type_info_destroy_list",
+        "iat_va": "0x180006110"
+      },
+      {
+        "name": "__std_exception_destroy",
+        "iat_va": "0x180006118"
+      }
+    ],
+    "api-ms-win-crt-runtime-l1-1-0.dll": [
+      {
+        "name": "_initterm",
+        "iat_va": "0x180006160"
+      },
+      {
+        "name": "_seh_filter_dll",
+        "iat_va": "0x180006168"
+      },
+      {
+        "name": "_configure_narrow_argv",
+        "iat_va": "0x180006170"
+      },
+      {
+        "name": "_initialize_narrow_environment",
+        "iat_va": "0x180006178"
+      },
+      {
+        "name": "_initialize_onexit_table",
+        "iat_va": "0x180006180"
+      },
+      {
+        "name": "_execute_onexit_table",
+        "iat_va": "0x180006188"
+      },
+      {
+        "name": "_cexit",
+        "iat_va": "0x180006190"
+      },
+      {
+        "name": "_initterm_e",
+        "iat_va": "0x180006198"
+      }
+    ],
+    "api-ms-win-crt-heap-l1-1-0.dll": [
+      {
+        "name": "_callnewh",
+        "iat_va": "0x180006140"
+      },
+      {
+        "name": "free",
+        "iat_va": "0x180006148"
+      },
+      {
+        "name": "malloc",
+        "iat_va": "0x180006150"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "name": ".text",
+      "rva": "0x1000",
+      "raw_offset": "0x400",
+      "raw_size": "0x4a00",
+      "characteristics": "0x60000020"
+    },
+    {
+      "name": ".rdata",
+      "rva": "0x6000",
+      "raw_offset": "0x4e00",
+      "raw_size": "0x1600",
+      "characteristics": "0x40000040"
+    },
+    {
+      "name": ".data",
+      "rva": "0x8000",
+      "raw_offset": "0x6400",
+      "raw_size": "0x200",
+      "characteristics": "0xc0000040"
+    },
+    {
+      "name": ".pdata",
+      "rva": "0x9000",
+      "raw_offset": "0x6600",
+      "raw_size": "0x600",
+      "characteristics": "0x40000040"
+    },
+    {
+      "name": ".detourc",
+      "rva": "0xa000",
+      "raw_offset": "0x6c00",
+      "raw_size": "0x2200",
+      "characteristics": "0x40000040"
+    },
+    {
+      "name": ".detourd",
+      "rva": "0xd000",
+      "raw_offset": "0x8e00",
+      "raw_size": "0x200",
+      "characteristics": "0xc0000040"
+    },
+    {
+      "name": ".rsrc",
+      "rva": "0xe000",
+      "raw_offset": "0x9000",
+      "raw_size": "0x200",
+      "characteristics": "0x40000040"
+    },
+    {
+      "name": ".reloc",
+      "rva": "0xf000",
+      "raw_offset": "0x9200",
+      "raw_size": "0x600",
+      "characteristics": "0x42000040"
+    }
+  ]
+}
